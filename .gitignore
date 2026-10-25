@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+.local-build/
+build/
+app/build/
+local.properties
+.signing/
+.device-private/
+*.log
+delivery/*.apk
+delivery/*.zip

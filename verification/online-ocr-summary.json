@@ -1,0 +1,21 @@
+{
+  "checkedAtTehran": "2026-10-23T15:18:01.122322+03:30",
+  "version": "1.4.0",
+  "versionCode": 6,
+  "defaultDirectModel": "mistral-ocr-4-1",
+  "providers": {
+    "Mistral": "https://api.mistral.ai/v1/ocr",
+    "AvalAI": "https://api.avalai.ir/v1/ocr"
+  },
+  "credentialStorage": "AES-GCM with Android Keystore; shared preferences excluded from backup and device transfer",
+  "localContractTests": 8,
+  "localUiFlowTests": 3,
+  "totalLocalTests": 53,
+  "liveApiTested": false,
+  "realDeviceTested": false,
+  "realAndroidKeystoreTestRun": false,
+  "privatePhotoUploaded": false,
+  "automaticRetries": false,
+  "supersededBy": "1.5.0",
+  "currentUiStatus": "Photo input and OCR settings removed in 1.5.0 at user request"
+}

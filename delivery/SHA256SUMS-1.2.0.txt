@@ -1,0 +1,2 @@
+aff5ded6ec674edfdec85ec543ff15958396cf39ea2d5cd613a11522b78ce01e  Peygir-1.2.0-debug.apk
+02c0f823a95bf902ee910bf30e05353d346839e128558becfc3accc9bc9acf92  Peygir-1.2.0-source.zip

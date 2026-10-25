@@ -1,0 +1,166 @@
+{
+  "apkBytes": 145594508,
+  "sha256": "9830887c45972d05047b11f3afe3795bc09a2a863a1dd3c3277aed70a164ed63",
+  "localBuildHelperPackaged": false,
+  "bundledAssets": {
+    "assets/tessdata/fas.traineddata": {
+      "bytes": 431500,
+      "sha256": "db1c0a91208aff00d3cf1ed2c1d23f76419afd5f024688b4f71adc3f2ce4a505"
+    },
+    "assets/tessdata/eng.traineddata": {
+      "bytes": 4113088,
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+    },
+    "assets/vosk-model-small-fa-0.42.zip": {
+      "bytes": 53431220,
+      "sha256": "977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46"
+    }
+  },
+  "nativeElfLoadAlignment": {
+    "lib/arm64-v8a/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libjpeg.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libleptonica.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libpngx.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libtesseract.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libvosk.so": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "lib/armeabi-v7a/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/armeabi-v7a/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/armeabi-v7a/libjpeg.so": [
+      4096,
+      4096
+    ],
+    "lib/armeabi-v7a/libleptonica.so": [
+      4096,
+      4096,
+      4096
+    ],
+    "lib/armeabi-v7a/libpngx.so": [
+      4096,
+      4096
+    ],
+    "lib/armeabi-v7a/libtesseract.so": [
+      4096,
+      4096,
+      4096
+    ],
+    "lib/armeabi-v7a/libvosk.so": [
+      4096,
+      4096,
+      4096,
+      4096
+    ],
+    "lib/armeabi/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/mips/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/mips64/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/x86/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/x86/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/x86/libjpeg.so": [
+      4096,
+      4096
+    ],
+    "lib/x86/libleptonica.so": [
+      4096,
+      4096,
+      4096
+    ],
+    "lib/x86/libpngx.so": [
+      4096,
+      4096
+    ],
+    "lib/x86/libtesseract.so": [
+      4096,
+      4096,
+      4096
+    ],
+    "lib/x86/libvosk.so": [
+      4096,
+      4096,
+      4096,
+      4096
+    ],
+    "lib/x86_64/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/x86_64/libjnidispatch.so": [
+      16384,
+      16384
+    ],
+    "lib/x86_64/libjpeg.so": [
+      16384,
+      16384
+    ],
+    "lib/x86_64/libleptonica.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/x86_64/libpngx.so": [
+      16384,
+      16384
+    ],
+    "lib/x86_64/libtesseract.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/x86_64/libvosk.so": [
+      16384,
+      16384,
+      16384,
+      16384
+    ]
+  },
+  "unaligned64bitLibraries": {}
+}

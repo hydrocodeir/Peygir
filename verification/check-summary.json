@@ -1,0 +1,113 @@
+{
+  "checkedAtTehran": "2026-10-25T21:59:24.712870+03:30",
+  "tests": 111,
+  "failures": 0,
+  "skipped": 0,
+  "lintErrors": 0,
+  "lintWarnings": 37,
+  "lintWarningIds": [
+    "GradleDependency",
+    "GradleDependency",
+    "GradleDependency",
+    "GradleDependency",
+    "GradleDependency",
+    "GradleDependency",
+    "GradleDependency",
+    "GradleDependency",
+    "ObsoleteSdkInt",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx"
+  ],
+  "suites": [
+    {
+      "name": "ir.peygir.app.BackupTest",
+      "tests": 12
+    },
+    {
+      "name": "ir.peygir.app.CoreTest",
+      "tests": 23
+    },
+    {
+      "name": "ir.peygir.app.LegacyStorageTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.MistralOcrTest",
+      "tests": 8
+    },
+    {
+      "name": "ir.peygir.app.NotificationActionsTest",
+      "tests": 8
+    },
+    {
+      "name": "ir.peygir.app.ReviewDaysTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.ReviewNotificationTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.SettingsFlowTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.TaskToolsFlowTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.TaskToolsTest",
+      "tests": 7
+    },
+    {
+      "name": "ir.peygir.app.UiFlowTest",
+      "tests": 23
+    },
+    {
+      "name": "ir.peygir.app.VisualTest",
+      "tests": 4
+    },
+    {
+      "name": "ir.peygir.app.VoiceCommandsTest",
+      "tests": 1
+    },
+    {
+      "name": "ir.peygir.app.VoiceInputFlowTest",
+      "tests": 1
+    },
+    {
+      "name": "ir.peygir.app.WidgetTest",
+      "tests": 6
+    },
+    {
+      "name": "ir.peygir.app.WidgetVisualTest",
+      "tests": 1
+    }
+  ]
+}

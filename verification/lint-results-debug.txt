@@ -1,0 +1,216 @@
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:37: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+    implementation(platform("androidx.compose:compose-bom:2025.04.01"))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:38: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
+    implementation("androidx.activity:activity-compose:1.10.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:42: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.11.0 [GradleDependency]
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:43: Warning: A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.19.1 [GradleDependency]
+    implementation("androidx.core:core-ktx:1.16.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:52: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.04.01"))
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:54: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test:runner:1.6.2")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:55: Warning: A newer version of androidx.test.espresso:espresso-idling-resource than 3.6.1 is available: 3.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test.espresso:espresso-idling-resource:3.6.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:56: Warning: A newer version of androidx.test.espresso:espresso-core than 3.5.0 is available: 3.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\res\mipmap-anydpi-v26: Warning: This folder configuration (v26) is unnecessary; minSdkVersion is 26. Merge all the resources in this folder into mipmap-anydpi. [ObsoleteSdkInt]
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:33: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var anchor by rememberSaveable { mutableStateOf(Solar.monthStart(initial).toEpochDay()) }
+                                     ~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:34: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var picked by rememberSaveable { mutableStateOf(initial.toEpochDay()) }
+                                     ~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:108: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var day by rememberSaveable { mutableStateOf(meeting.date) }
+                                  ~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:128: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var day by rememberSaveable { mutableStateOf(task.due) }
+                                  ~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:131: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    var meetingId by rememberSaveable { mutableStateOf(task.meetingId ?: 0L) }
+                                        ~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:45: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+    private val request=mutableStateOf(0L)
+                        ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "AutoboxingStateCreation":
+   Calling mutableStateOf<T>() when T is either backed by a primitive type on
+   the JVM or is a value class results in a state implementation that requires
+   all state values to be boxed. This usually causes an additional allocation
+   for each state write, and adds some additional work to auto-unbox values
+   when reading the value of the state. Instead, prefer to use a specialized
+   primitive state implementation for Int, Long, Float, and Double when the
+   state does not need to track null values and does not override the default
+   SnapshotMutationPolicy. See mutableIntStateOf(), mutableLongStateOf(),
+   mutableFloatStateOf(), and mutableDoubleStateOf() for more information.
+
+   Vendor: Jetpack Compose
+   Identifier: androidx.compose.runtime
+   Feedback: https://issuetracker.google.com/issues/new?component=612128
+
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Backup.kt:27: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(context.getSharedPreferences("settings",0).edit().putString("theme",value.theme).putBoolean("dynamic_colors",value.dynamic).putBoolean("daily",value.daily).putString("times",value.times).remove("last_review").commit()) {"ذخیرهٔ تنظیمات بازیابی ناموفق بود."}
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Backup.kt:140: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                val edit=prefs.edit();if(lastReview==null) edit.remove("last_review") else edit.putLong("last_review",lastReview);edit.commit()
+                         ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Backup.kt:145: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        context.getSharedPreferences("drafts",0).edit().clear().apply()
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:115: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    LaunchedEffect(Unit) {drafts.edit().clear().apply()}
+                          ~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:160: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                else if(settingsOpen) key(settingsRevision) {SettingsScreen(mode,{mode=it;prefs.edit().putString("theme",it).apply()},::message,dynamicColors,{dynamicColors=it;prefs.edit().putBoolean("dynamic_colors",it).apply()},{
+                                                                                          ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:160: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                else if(settingsOpen) key(settingsRevision) {SettingsScreen(mode,{mode=it;prefs.edit().putString("theme",it).apply()},::message,dynamicColors,{dynamicColors=it;prefs.edit().putBoolean("dynamic_colors",it).apply()},{
+                                                                                                                                                                                ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MistralOcr.kt:79: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        check(prefs.edit().putString("provider",provider.name).putString("model",validModel).putString("credential",encrypted).putBoolean("online",true).commit()) {"ذخیرهٔ تنظیمات ناموفق بود."}
+              ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MistralOcr.kt:87: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun preferOnline(value: Boolean) {prefs.edit().putBoolean("online",value && profile().configured).apply()}
+                                      ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MistralOcr.kt:88: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    @Synchronized fun clear() {check(prefs.edit().clear().commit()) {"حذف کلید ناموفق بود."}}
+                                     ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\OcrSettingsEditor.kt:59: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            try {context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(if(provider==OcrProvider.MISTRAL) "https://console.mistral.ai" else "https://chat.avalai.ir")))}
+                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:65: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+        if(reviewDay!=null) intent.setAction(WidgetLaunch.REVIEW).setData(android.net.Uri.parse("peygir://daily-review/$reviewDay")).putExtra("day",reviewDay)
+                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:72: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                    .setData(android.net.Uri.parse("peygir://task-action/$taskId/$token/${action.substringAfterLast('.')}"))
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:111: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            if(notification(context,REVIEW_ID,"مرور مصوبات امروز | پیگیر",reviewBody(data,today),reviewDay=today)) prefs.edit().putLong("last_review",due).apply()
+                                                                                                                   ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:38: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        context.getSharedPreferences("review_widgets",0).edit().putLong("day_$id",day).putBoolean("follow_$id",false).apply()
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:40: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun today(context: Context, id: Int) {context.getSharedPreferences("review_widgets",0).edit().putBoolean("follow_$id",true).remove("day_$id").apply()}
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:43: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        context.getSharedPreferences("review_widgets",0).edit().putLong("day_$id",clamp(today+offset)).putBoolean("follow_$id",false).apply()
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:45: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun remove(context: Context, id: Int) {context.getSharedPreferences("review_widgets",0).edit().remove("day_$id").remove("follow_$id").apply()}
+                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:117: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            val template=Intent(context,MainActivity::class.java).setAction("ir.peygir.app.widget.OPEN_TASK").setData(Uri.parse("peygir://widget/$id/task"))
+                                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:126: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                views.setRemoteAdapter(R.id.widget_list,Intent(context,ReviewWidgetService::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id).setData(Uri.parse("peygir://widget/$id/day/$day")))
+                                                                                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:137: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            Intent(context,ReviewWidget::class.java).setAction(action).setData(Uri.parse("peygir://widget/$id/${action.substringAfterLast('.')}"))
+                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:140: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            Intent(context,MainActivity::class.java).setAction(action).setData(Uri.parse("peygir://widget/$id/${action.substringAfterLast('.')}"))
+                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:37: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun updateTimes(value: List<LocalTime>) {times=value.distinct().sorted();prefs.edit().putString("times",times.joinToString(",")).apply();reschedule()}
+                                                                             ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:43: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+    fun openSettings(action: String) {try {context.startActivity(Intent(action,Uri.parse("package:${context.packageName}")))} catch(_:Exception) {context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:${context.packageName}")))}}
+                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:43: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+    fun openSettings(action: String) {try {context.startActivity(Intent(action,Uri.parse("package:${context.packageName}")))} catch(_:Exception) {context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:${context.packageName}")))}}
+                                                                                                                                                                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:58: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            Row(verticalAlignment=Alignment.CenterVertically) {Column(Modifier.weight(1f)) {Text("مرور روزانهٔ مدیریتی",style=MaterialTheme.typography.titleMedium);Text("خلاصهٔ مصوبات امروز و تعداد معوق‌ها؛ پیش‌فرض ۸ صبح",style=MaterialTheme.typography.bodySmall)};Switch(enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean("daily",it).apply();reschedule()})}
+                                                                                                                                                                                                                                                                                                                    ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:100: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
+        val db=writableDatabase;db.beginTransaction()
+                                ~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:149: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
+    @Synchronized fun delivered(ids: List<Long>) { val db=writableDatabase; db.beginTransaction(); try { ids.forEach { db.execSQL("UPDATE reminders SET delivered=1 WHERE id=?",arrayOf(it)) }; db.setTransactionSuccessful() } finally { db.endTransaction() } }
+                                                                            ~~~~~~~~~~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:154: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
+        db.beginTransaction()
+        ~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+0 errors, 37 warnings

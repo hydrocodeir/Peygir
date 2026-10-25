@@ -1,0 +1,52 @@
+{
+  "app/libs/tesseract4android-4.9.0.aar": {
+    "url": "https://jitpack.io/cz/adaptech/tesseract4android/tesseract4android/4.9.0/tesseract4android-4.9.0.aar",
+    "bytes": 12848454,
+    "sha256": "bce5d6413a1a5ae3d7240033fbbc851ba3217d0a08d9769400e17a077f42cb2a"
+  },
+  "app/src/main/assets/tessdata/fas.traineddata": {
+    "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/fas.traineddata",
+    "bytes": 431500,
+    "sha256": "db1c0a91208aff00d3cf1ed2c1d23f76419afd5f024688b4f71adc3f2ce4a505"
+  },
+  "app/src/main/assets/tessdata/eng.traineddata": {
+    "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata",
+    "bytes": 4113088,
+    "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+  },
+  "app/src/main/assets/vosk-model-small-fa-0.42.zip": {
+    "url": "https://alphacephei.com/vosk/models/vosk-model-small-fa-0.42.zip",
+    "bytes": 53431220,
+    "sha256": "977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46"
+  },
+  "app/src/main/assets/licenses/Tesseract4Android-Apache-2.0.txt": {
+    "url": "https://raw.githubusercontent.com/adaptech-cz/Tesseract4Android/master/LICENSE",
+    "bytes": 11357,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "app/src/main/assets/licenses/Tesseract-models-Apache-2.0.txt": {
+    "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/LICENSE",
+    "bytes": 11358,
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  "app/src/main/assets/licenses/Vosk-Apache-2.0.txt": {
+    "url": "https://raw.githubusercontent.com/alphacep/vosk-api/master/COPYING",
+    "bytes": 10173,
+    "sha256": "bb618af833c817ab01c1564bd3ec75ba4b4f9cf30910a4a2168e30a674ee8cc6"
+  },
+  "app/src/main/assets/licenses/JNA-Apache-2.0.txt": {
+    "url": "https://raw.githubusercontent.com/java-native-access/jna/5.18.1/LICENSE",
+    "bytes": 797,
+    "sha256": "07c938b23950ab7d47a24ef35f9f5da3a05ae164278dc959ad6994135ed59ff1"
+  },
+  "app/src/main/assets/licenses/Leptonica-BSD.txt": {
+    "url": "https://raw.githubusercontent.com/DanBloomberg/leptonica/1.85.0/leptonica-license.txt",
+    "bytes": 1521,
+    "sha256": "87829abb5bbb00b55a107365da89e9a33f86c4250169e5a1e5588505be7d5806"
+  },
+  "app/src/main/assets/licenses/libpng-LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/pnggroup/libpng/v1.6.48/LICENSE",
+    "bytes": 5345,
+    "sha256": "16d9daaafbf63a31a5bdc91d4600972548fef5aaa1244202393288dbd079c49a"
+  }
+}

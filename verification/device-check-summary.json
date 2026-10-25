@@ -1,0 +1,95 @@
+{
+  "checkedAt": "2026-10-23T12:30:47.787205+03:30",
+  "device": {
+    "model": "Samsung Galaxy A53 / SM-A536E",
+    "android": "16",
+    "api": 36
+  },
+  "app": {
+    "versionName": "1.2.0",
+    "versionCode": 3,
+    "apkSha256": "aff5ded6ec674edfdec85ec543ff15958396cf39ea2d5cd613a11522b78ce01e"
+  },
+  "upgrade": {
+    "meetings": {
+      "before": 1,
+      "after": 1,
+      "identicalRows": true
+    },
+    "tasks": {
+      "before": 2,
+      "after": 2,
+      "identicalRows": true
+    },
+    "reminders": {
+      "before": 2,
+      "after": 2,
+      "identicalRows": true
+    },
+    "recordings": {
+      "before": 0,
+      "after": 0,
+      "identicalRows": true
+    }
+  },
+  "afterTests": {
+    "meetings": {
+      "originalCount": 1,
+      "finalCount": 1,
+      "originalRowsUnchanged": true
+    },
+    "tasks": {
+      "originalCount": 2,
+      "finalCount": 2,
+      "originalRowsUnchanged": true
+    },
+    "reminders": {
+      "originalCount": 2,
+      "finalCount": 2,
+      "originalRowsUnchanged": true
+    },
+    "recordings": {
+      "originalCount": 0,
+      "finalCount": 2,
+      "originalRowsUnchanged": true
+    }
+  },
+  "appSettingsUnchanged": true,
+  "automaticTestTasksRemaining": 0,
+  "deviceSmoke": {
+    "sectionsAndDailySwipes": "passed",
+    "inputModesStayInsideSameEditor": "passed",
+    "nativePersianOcrUsesBundledModel": "passed",
+    "nativeSpeechModelLoadsAndProcessesSilentWav": "passed",
+    "createsPersianTaskAndChangesOnlyItsStatus": "passed"
+  },
+  "realAlarms": {
+    "first": {
+      "delivered": 1,
+      "taskNotificationActive": true,
+      "doneNotificationActive": false,
+      "checkedAt": 1792744379278
+    },
+    "second": {
+      "delivered": 2,
+      "taskNotificationActive": true,
+      "doneNotificationActive": false,
+      "checkedAt": 1792744429682
+    }
+  },
+  "manualVoice": {
+    "captureAndTranscript": "passed",
+    "durationSeconds": 12,
+    "ownerSuggested": true,
+    "playbackConfirmedByUser": true,
+    "spokenDateConverted": false
+  },
+  "notVerified": [
+    "camera/gallery and handwriting",
+    "notification tap opens correct task",
+    "forced Doze",
+    "reboot",
+    "permission denial/regrant",
+    "rotation and larger font"
+  ]
+}

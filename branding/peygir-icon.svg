@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="18 18 72 72" role="img" aria-label="Peygir">
+  <defs>
+    <linearGradient id="background" gradientUnits="userSpaceOnUse" x1="16" y1="0" x2="92" y2="108">
+      <stop stop-color="#464064"/><stop offset="1" stop-color="#19182C"/>
+    </linearGradient>
+    <clipPath id="mask"><rect x="18" y="18" width="72" height="72" rx="18"/></clipPath>
+  </defs>
+  <g clip-path="url(#mask)">
+    <path fill="url(#background)" d="M0 0H108V108H0Z"/>
+    <path d="M39,28H58L73,43V70C73,75 70,78 65,78H39C34,78 31,75 31,70V36C31,31 34,28 39,28Z" fill="#F7F5FF"/>
+    <path d="M58,28V37C58,41 60,43 64,43H73Z" fill="#B8B2D6"/>
+    <path d="M42,46H61M42,54H53" fill="none" stroke="#51466D" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M81,67A14,14 0,1 1,53,67A14,14 0,1 1,81,67Z" fill="#28243F"/>
+    <path d="M75,67A8,8 0,1 1,59,67A8,8 0,1 1,75,67Z" fill="none" stroke="#A5E6CD" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M67,62.5V67L70.5,69" fill="none" stroke="#A5E6CD" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

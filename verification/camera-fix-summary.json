@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-10-23T13:01:25.031945+03:30",
+  "versionName": "1.2.1",
+  "versionCode": 4,
+  "device": "Samsung Galaxy A53 / Android 16",
+  "instrumentationTests": 6,
+  "failures": 0,
+  "skipped": 0,
+  "cases": [
+    "gallery import and review",
+    "empty camera photo feedback and preserving fields",
+    "printed camera photo and editable text",
+    "existing handwriting diagnosis",
+    "unreadable file retry",
+    "camera cancellation feedback"
+  ],
+  "realCamera": {
+    "userConfirmed": true,
+    "previewPresent": true,
+    "feedbackType": "lowConfidence",
+    "recognitionBusy": false
+  },
+  "existingData": {
+    "meetings": {
+      "rows": 1,
+      "unchanged": true
+    },
+    "tasks": {
+      "rows": 2,
+      "unchanged": true
+    },
+    "reminders": {
+      "rows": 2,
+      "unchanged": true
+    },
+    "recordings": {
+      "rows": 0,
+      "unchanged": true
+    }
+  },
+  "handwritingReliable": false,
+  "handwritingEngineConfidence": 45,
+  "privateImagesExcludedFromSource": true
+}

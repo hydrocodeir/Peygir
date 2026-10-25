@@ -1,0 +1,16 @@
+{
+  "version": "1.8.0",
+  "device": "Samsung Galaxy A53 / SM-A536E",
+  "androidApi": 36,
+  "tests": 4,
+  "failures": 0,
+  "notificationActionsTestedThroughRealPendingIntents": true,
+  "notificationTestSyntheticTaskDeleted": true,
+  "isolatedBackupFollowUpsAndMigrationTested": true,
+  "originalTablesUnchangedAfterUpgradeAndTests": true,
+  "schemaBefore": 2,
+  "schemaAfter": 3,
+  "systemUiTapsAndFullOneHourWaitTested": false,
+  "shareSentToAnotherPerson": false,
+  "sha256": "b1ced6c723079c80c0ea347a679a34565240e5b1ea508835870770f9495baa1a"
+}

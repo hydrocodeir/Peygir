@@ -1,0 +1,27 @@
+Peygir / پیگیر
+
+Vazirmatn font: Copyright 2015 The Vazirmatn Project Authors.
+SIL Open Font License 1.1; see Vazirmatn-OFL.txt.
+
+Tesseract4Android 4.9.0: Copyright 2019 Adaptech s.r.o., Robert Pösel.
+Apache License 2.0; https://github.com/adaptech-cz/Tesseract4Android
+Includes Tesseract 5.5.1 (Apache 2.0), Leptonica 1.85.0 (BSD),
+libjpeg v9f (Independent JPEG Group license), libpng 1.6.48 (libpng license).
+Tesseract fas / eng models from tesseract-ocr/tessdata_fast, Apache 2.0.
+
+Vosk Android 0.3.75 and model vosk-model-small-fa-0.42:
+Alpha Cephei Inc.; Apache License 2.0.
+https://github.com/alphacep/vosk-api
+https://alphacephei.com/vosk/models
+Vosk is based on Kaldi, Apache License 2.0.
+https://github.com/kaldi-asr/kaldi
+
+Java Native Access (JNA) 5.18.1: Apache License 2.0 / LGPL 2.1 or later.
+Peygir uses the Apache License 2.0 option.
+https://github.com/java-native-access/jna
+
+AndroidX, Compose and Material Components: The Android Open Source Project,
+Apache License 2.0. Kotlin: JetBrains, Apache License 2.0.
+Full license texts accompany this notice in assets/licenses.
+
+This software is based in part on the work of the Independent JPEG Group.
