@@ -9,3 +9,7 @@ local.properties
 *.log
 delivery/*.apk
 delivery/*.zip
+node_modules/
+.wrangler/
+.dev.vars*
+.env*

@@ -42,6 +42,7 @@ import java.time.LocalTime
     val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {notification=Reminders.allowed(context);reschedule()}
     fun openSettings(action: String) {try {context.startActivity(Intent(action,Uri.parse("package:${context.packageName}")))} catch(_:Exception) {context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:${context.packageName}")))}}
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+        SharedPanel(message)
         Text("یادآوری‌های قابل اتکا",style=MaterialTheme.typography.headlineSmall)
         OutlinedCard {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Row {Icon(Icons.Outlined.NotificationsActive,null);Spacer(Modifier.width(10.dp));Text("اعلان‌ها",style=MaterialTheme.typography.titleMedium)}
@@ -79,6 +80,6 @@ import java.time.LocalTime
             Text(if(Build.VERSION.SDK_INT>=31) "رنگ‌ها با انتخاب پالت گوشی تغییر می‌کنند؛ حالت روشن و تیره جداگانه قابل انتخاب است." else "این قابلیت از اندروید ۱۲ به بعد در دسترس است.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }}
         BackupPanel(message,restored)
-        OutlinedCard {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {Text("پیگیر",style=MaterialTheme.typography.titleMedium);Text("نسخهٔ ${BuildConfig.VERSION_NAME.fa()} • ساخته‌شده برای پیگیری تصمیم‌ها",style=MaterialTheme.typography.bodySmall);Text("جلسات، مصوبات و صداها روی گوشی ذخیره می‌شوند. برنامه برای کارکرد خود اینترنت لازم ندارد. حذف برنامه یا پاک‌کردن داده‌های آن، اطلاعات محلی را حذف می‌کند.",style=MaterialTheme.typography.bodySmall);Text("فونت وزیرمتن • Material 3\nگفتار فارسی: Vosk\nمجوزهای متن‌باز همراه برنامه در assets/licenses قرار دارند.",style=MaterialTheme.typography.bodySmall)}}
+        OutlinedCard {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {Text("پیگیر",style=MaterialTheme.typography.titleMedium);Text("نسخهٔ ${BuildConfig.VERSION_NAME.fa()} • ساخته‌شده برای پیگیری تصمیم‌ها",style=MaterialTheme.typography.bodySmall);Text("جلسات، مصوبات و صداها روی گوشی ذخیره می‌شوند. برای تبادل اطلاعات فضای مشترک، اتصال اینترنت لازم است؛ اطلاعات دریافت‌شده آفلاین هم در دسترس‌اند. حذف برنامه یا پاک‌کردن داده‌های آن، اطلاعات محلی را حذف می‌کند.",style=MaterialTheme.typography.bodySmall);Text("فونت وزیرمتن • Material 3\nگفتار فارسی: Vosk\nمجوزهای متن‌باز همراه برنامه در assets/licenses قرار دارند.",style=MaterialTheme.typography.bodySmall)}}
     }
 }

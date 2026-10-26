@@ -274,6 +274,7 @@ class UiFlowTest {
         start();compose.onNodeWithText("مصوبهٔ معوق",substring=false).performClick()
         compose.onNodeWithText("تمدید مهلت",substring=false).performScrollTo().performClick()
         compose.onNodeWithText("دلیل (اختیاری)").performTextInput("نیاز به فرصت بیشتر")
+        compose.onNodeWithText("سه روز",substring=false).performClick()
         compose.onNodeWithText("ثبت تغییر موعد").performClick()
         compose.waitUntil(15000) {store.snapshot().history.size==1}
         compose.waitUntil(15000) {compose.onAllNodesWithText("جزئیات مصوبه").fetchSemanticsNodes().isEmpty()}

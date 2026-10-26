@@ -1,10 +1,10 @@
 {
-  "checkedAtTehran": "2026-10-25T21:59:24.712870+03:30",
-  "tests": 111,
+  "checkedAtTehran": "2026-10-26T00:02:01.980770+03:30",
+  "tests": 129,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
-  "lintWarnings": 37,
+  "lintWarnings": 42,
   "lintWarningIds": [
     "GradleDependency",
     "GradleDependency",
@@ -15,6 +15,11 @@
     "GradleDependency",
     "GradleDependency",
     "ObsoleteSdkInt",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
     "UseKtx",
     "UseKtx",
     "UseKtx",
@@ -78,6 +83,18 @@
       "tests": 2
     },
     {
+      "name": "ir.peygir.app.SharedFlowTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.SharedInfrastructureTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.SharedStoreTest",
+      "tests": 11
+    },
+    {
       "name": "ir.peygir.app.TaskToolsFlowTest",
       "tests": 5
     },
@@ -91,7 +108,7 @@
     },
     {
       "name": "ir.peygir.app.VisualTest",
-      "tests": 4
+      "tests": 5
     },
     {
       "name": "ir.peygir.app.VoiceCommandsTest",

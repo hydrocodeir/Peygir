@@ -45,6 +45,7 @@ object Reminders {
     }
     private fun pending(context: Context, reviewAt: Long = 0): PendingIntent = PendingIntent.getBroadcast(context,1,Intent(context,ReminderReceiver::class.java).setAction("ir.peygir.DISPATCH").putExtra("review_at",reviewAt),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     @Synchronized fun schedule(context: Context) {
+        if(!SharedCredentials(context).alerts()) {context.getSystemService(AlarmManager::class.java).cancel(pending(context));return}
         channels(context)
         val now=System.currentTimeMillis()
         val data=Store.get(context).snapshot()
@@ -80,6 +81,7 @@ object Reminders {
     }
     @Suppress("UNUSED_PARAMETER")
     @Synchronized fun process(context: Context, reviewAt: Long = 0) {
+        if(!SharedCredentials(context).alerts()) {schedule(context);return}
         val store=Store.get(context)
         val data=store.snapshot()
         val now=System.currentTimeMillis()
@@ -120,6 +122,7 @@ object Reminders {
         if(id<=0 || !Store.get(context).notificationAction(id,token,intent.action==ReminderActionReceiver.SNOOZE)) return false
         context.getSystemService(NotificationManager::class.java).cancel(id.toInt())
         process(context);ReviewWidget.updateAll(context)
+        SharedSync.request(context)
         return true
     }
 }

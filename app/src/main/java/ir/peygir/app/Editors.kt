@@ -108,7 +108,14 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var day by rememberSaveable { mutableStateOf(meeting.date) }
     var picker by rememberSaveable { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf(false) }
-    FullEditor(if(meeting.id==0L) "جلسهٔ تازه" else "ویرایش جلسه",busy,dismiss,{ if(title.isBlank()) error=true else save(meeting.copy(title=title,date=day,notes=notes)) },feedback=feedback) {
+    var previous by remember {mutableStateOf(meeting)}
+    var incoming by rememberSaveable {mutableStateOf(false)}
+    LaunchedEffect(meeting) {
+        fun <T> merge(old: T,current: T,new: T,assign: (T)->Unit) {if(current==old) assign(new) else if(new!=old && new!=current) incoming=true}
+        merge(previous.title,title,meeting.title){title=it};merge(previous.notes,notes,meeting.notes){notes=it};merge(previous.date,day,meeting.date){day=it};previous=meeting
+    }
+    FullEditor(if(meeting.id==0L) "جلسهٔ تازه" else "ویرایش جلسه",busy,dismiss,{ if(title.isBlank()) error=true else save(meeting.copy(title=title,date=day,notes=notes)) },canSave=!incoming,feedback=feedback) {
+        if(incoming) IncomingEditorChanges("${meeting.title}\n${Solar.label(LocalDate.ofEpochDay(meeting.date))}\n${meeting.notes}",{title=meeting.title;notes=meeting.notes;day=meeting.date;incoming=false},{incoming=false})
         Text("تصمیم‌های خوب، پیگیری می‌خواهند.",style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(title,{title=it;error=false},label={Text("عنوان جلسه *")},isError=error,singleLine=true,modifier=Modifier.fillMaxWidth())
         OutlinedButton(onClick={picker=true},modifier=Modifier.fillMaxWidth()) { Icon(Icons.Outlined.CalendarMonth,null);Spacer(Modifier.width(8.dp));Text(Solar.label(LocalDate.ofEpochDay(day))) }
@@ -147,7 +154,14 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     val focus=LocalFocusManager.current
     val suggestedOwners=remember(allTasks,owner) {Owners.suggestions(allTasks,owner)}
     var databaseTimes by remember {mutableStateOf(reminders.map{it.at}.toSet())}
-    LaunchedEffect(task.status) {status=task.status.name}
+    var previous by remember {mutableStateOf(task)}
+    var incoming by rememberSaveable {mutableStateOf(false)}
+    LaunchedEffect(task) {
+        fun <T> merge(old: T,current: T,new: T,assign: (T)->Unit) {if(current==old) assign(new) else if(new!=old && new!=current) incoming=true}
+        merge(previous.title,title,task.title){title=it};merge(previous.description,description,task.description){description=it};merge(previous.owner,owner,task.owner){owner=it}
+        merge(previous.due,day,task.due){day=it};merge(previous.priority.name,priority,task.priority.name){priority=it};merge(previous.status.name,status,task.status.name){status=it}
+        merge(previous.meetingId ?: 0L,meetingId,task.meetingId ?: 0L){meetingId=it};previous=task
+    }
     LaunchedEffect(reminders.map{it.at}.toSet()) {
         val current=reminders.map{it.at}.toSet()
         if(!autoFollowUp) {
@@ -159,7 +173,10 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     FullEditor(if(task.id==0L) "مصوبهٔ تازه" else "جزئیات مصوبه",busy,dismiss,{
         error=when {title.isBlank()->"عنوان مصوبه را وارد کنید."; owner.isBlank()->"مسئول انجام کار را مشخص کنید."; else->""}
         if(error.isEmpty()) save(task.copy(title=title,description=description,owner=owner,due=day,priority=Priority.valueOf(priority),status=Status.valueOf(status),meetingId=meetingId.takeIf{it>0}),if(autoFollowUp) listOfNotNull(DefaultFollowUp.forDue(day)) else times)
-    },canSave=!inputBusy,feedback=feedback) {
+    },canSave=!inputBusy && !incoming,feedback=feedback) {
+        if(incoming) IncomingEditorChanges("${task.title}\nمسئول: ${task.owner}\n${Solar.label(LocalDate.ofEpochDay(task.due))} • ${task.status.label}\n${task.description}",{
+            title=task.title;description=task.description;owner=task.owner;day=task.due;priority=task.priority.name;status=task.status.name;meetingId=task.meetingId ?: 0L;incoming=false
+        },{incoming=false})
         CaptureInput(meetingId.takeIf{it>0},recordings,accepted,task.id==0L,recordingId,busy,{inputBusy=it},{p->title=p.title;owner=p.owner;description=p.source;if(!inputIsVoice){p.due?.let{day=it.toEpochDay()};priority=p.priority.name};error="";proposalSelected(p.key())},refresh,message,initialSource,batchChanged,draftSession,{inputIsVoice=it!=null;recordingUsed(it)})
         OutlinedTextField(title,{title=it;error=""},label={Text("عنوان مصوبه *")},isError=error.isNotBlank() && title.isBlank(),modifier=Modifier.fillMaxWidth(),minLines=1,maxLines=3)
         OutlinedTextField(owner,{owner=it;error=""},label={Text("مسئول انجام *")},isError=error.isNotBlank() && owner.isBlank(),leadingIcon={Icon(Icons.Outlined.PersonOutline,null)},modifier=Modifier.fillMaxWidth().onFocusChanged{ownerFocused=it.isFocused},singleLine=true)
@@ -235,5 +252,16 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     }
     if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("حذف مصوبه؟")},text={Text("«${task.title}» و یادآوری‌های آن حذف می‌شوند.")},confirmButton={TextButton(onClick={confirmDelete=false;delete?.invoke()}){Text("حذف",color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick={confirmDelete=false}){Text("انصراف")}})
     ownerDetails?.let {name->OwnerTasksDialog(name,allTasks) {ownerDetails=null}}
+}
+
+@Composable private fun IncomingEditorChanges(latest: String,adopt: ()->Unit,keep: ()->Unit) {
+    Surface(color=MaterialTheme.colorScheme.errorContainer,shape=MaterialTheme.shapes.medium,modifier=Modifier.fillMaxWidth().testTag("incoming_editor_changes")) {
+        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+            Text("این مورد هم‌زمان تغییر کرده است. پیش از ذخیره، نسخهٔ تازه را بررسی کنید.",style=MaterialTheme.typography.bodyMedium)
+            Text(latest,style=MaterialTheme.typography.bodySmall)
+            TextButton(onClick=adopt){Text("استفاده از تغییرات تازه")}
+            TextButton(onClick=keep){Text("ادامه با ویرایش من")}
+        }
+    }
 }
 

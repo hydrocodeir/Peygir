@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "peygir-sync-013352",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": true,
+  "observability": {
+    "enabled": false
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "peygir-shared-013352",
+      "database_id": "bd4590e1-f7fa-4594-ad51-e095746a437a",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "account_id": "21f86f01f7c5b106e6fc5eed5798d3ff"
+}

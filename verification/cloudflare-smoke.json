@@ -1,0 +1,11 @@
+{
+  "endpoint": "https://peygir-sync-013352.shirazipooya.workers.dev",
+  "authenticatedAccounts": 2,
+  "unauthenticatedRequestsRejected": true,
+  "meetingAndTaskShared": true,
+  "managerStatusAndFollowupReturned": true,
+  "retryIdempotent": true,
+  "staleEditConflicted": true,
+  "syntheticRecordsTombstoned": true,
+  "actualPhoneTested": false
+}

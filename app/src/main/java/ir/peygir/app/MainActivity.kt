@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 data=withContext(Dispatchers.IO) {block();store.snapshot()}
                 loadError=false
                 finished();revision++
+                SharedSync.request(context)
                 if(success.isNotBlank()) message(success)
                 withContext(Dispatchers.IO) {runCatching {Reminders.process(context);ReviewWidget.updateAll(context)}}
             } catch(e:CancellationException) {throw e}
@@ -119,7 +120,8 @@ class MainActivity : ComponentActivity() {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             revision++
             withContext(Dispatchers.IO) {runCatching {Reminders.process(context);ReviewWidget.updateAll(context)}}
-            while(isActive) {today=LocalDate.now().toEpochDay();delay(30_000)}
+            SharedJobs.schedule(context)
+            while(isActive) {today=LocalDate.now().toEpochDay();SharedSync.request(context);delay(30_000)}
         }
     }
     LaunchedEffect(revision) {

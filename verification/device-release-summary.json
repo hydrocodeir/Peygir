@@ -1,9 +1,10 @@
 {
-  "version": "1.9.1",
+  "version": "2.0.0",
   "deviceConnected": false,
   "installed": false,
   "tests": 0,
-  "reason": "adb devices returned no connected devices; this version was not tested on hardware",
-  "previousDeviceReport": "device-release-summary-1.8.0.json",
-  "sha256": "9830887c45972d05047b11f3afe3795bc09a2a863a1dd3c3277aed70a164ed63"
+  "serverLiveTested": true,
+  "liveServerReport": "cloudflare-smoke.json",
+  "reason": "No ADB device connected. No hardware test for this release.",
+  "sha256": "136699e90c364420d39bc360dfbcc35f97cc780421c317dcc255c5944e093bc8"
 }

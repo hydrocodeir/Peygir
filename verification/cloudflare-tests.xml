@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="two accounts share meetings and tasks while another workspace is isolated" time="1.385672" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="idempotent retries return the original receipt; stale and simultaneous edits conflict" time="1.051715" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="meeting deletion detaches tasks; task deletion tombstones followups" time="1.047735" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="credentials, logout, invalid payloads and cross-workspace references are enforced" time="1.377396" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="login is rate limited" time="1.947914" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="a deleted parent blocks its pending child without blocking unrelated queued work" time="1.355306" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<!-- tests 6 -->
+	<!-- suites 0 -->
+	<!-- pass 6 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 9160.7456 -->
+</testsuites>

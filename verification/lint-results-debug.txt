@@ -1,25 +1,25 @@
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:37: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:38: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:38: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:39: Warning: A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0 [GradleDependency]
     implementation("androidx.activity:activity-compose:1.10.1")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:42: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.11.0 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:43: Warning: A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.11.0 [GradleDependency]
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.0")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:43: Warning: A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.19.1 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:44: Warning: A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.19.1 [GradleDependency]
     implementation("androidx.core:core-ktx:1.16.0")
                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:52: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:53: Warning: A newer version of androidx.compose:compose-bom than 2025.04.01 is available: 2026.09.00 [GradleDependency]
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.04.01"))
                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:54: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:55: Warning: A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0 [GradleDependency]
     androidTestImplementation("androidx.test:runner:1.6.2")
                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:55: Warning: A newer version of androidx.test.espresso:espresso-idling-resource than 3.6.1 is available: 3.7.0 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:56: Warning: A newer version of androidx.test.espresso:espresso-idling-resource than 3.6.1 is available: 3.7.0 [GradleDependency]
     androidTestImplementation("androidx.test.espresso:espresso-idling-resource:3.6.1")
                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:56: Warning: A newer version of androidx.test.espresso:espresso-core than 3.5.0 is available: 3.7.0 [GradleDependency]
+C:\Users\psh2610\Desktop\Dastyar\app\build.gradle.kts:57: Warning: A newer version of androidx.test.espresso:espresso-core than 3.5.0 is available: 3.7.0 [GradleDependency]
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -50,10 +50,10 @@ C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:34: 
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:108: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
     var day by rememberSaveable { mutableStateOf(meeting.date) }
                                   ~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:128: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:135: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
     var day by rememberSaveable { mutableStateOf(task.due) }
                                   ~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:131: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Editors.kt:138: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
     var meetingId by rememberSaveable { mutableStateOf(task.meetingId ?: 0L) }
                                         ~~~~~~~~~~~~~~
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:45: Information: Prefer mutableLongStateOf instead of mutableStateOf [AutoboxingStateCreation from androidx.compose.runtime]
@@ -84,13 +84,13 @@ C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Backup.kt:140: 
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Backup.kt:145: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
         context.getSharedPreferences("drafts",0).edit().clear().apply()
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:115: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:116: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
     LaunchedEffect(Unit) {drafts.edit().clear().apply()}
                           ~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:160: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:162: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
                 else if(settingsOpen) key(settingsRevision) {SettingsScreen(mode,{mode=it;prefs.edit().putString("theme",it).apply()},::message,dynamicColors,{dynamicColors=it;prefs.edit().putBoolean("dynamic_colors",it).apply()},{
                                                                                           ~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:160: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MainActivity.kt:162: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
                 else if(settingsOpen) key(settingsRevision) {SettingsScreen(mode,{mode=it;prefs.edit().putString("theme",it).apply()},::message,dynamicColors,{dynamicColors=it;prefs.edit().putBoolean("dynamic_colors",it).apply()},{
                                                                                                                                                                                 ~~~~~~~~~~~~
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MistralOcr.kt:79: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
@@ -105,13 +105,13 @@ C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\MistralOcr.kt:8
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\OcrSettingsEditor.kt:59: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
             try {context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(if(provider==OcrProvider.MISTRAL) "https://console.mistral.ai" else "https://chat.avalai.ir")))}
                                                                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:65: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:66: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
         if(reviewDay!=null) intent.setAction(WidgetLaunch.REVIEW).setData(android.net.Uri.parse("peygir://daily-review/$reviewDay")).putExtra("day",reviewDay)
                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:72: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:73: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
                     .setData(android.net.Uri.parse("peygir://task-action/$taskId/$token/${action.substringAfterLast('.')}"))
                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:111: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Reminders.kt:113: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
             if(notification(context,REVIEW_ID,"مرور مصوبات امروز | پیگیر",reviewBody(data,today),reviewDay=today)) prefs.edit().putLong("last_review",due).apply()
                                                                                                                    ~~~~~~~~~~~~
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\ReviewWidget.kt:38: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
@@ -147,16 +147,31 @@ C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.
 C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:43: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
     fun openSettings(action: String) {try {context.startActivity(Intent(action,Uri.parse("package:${context.packageName}")))} catch(_:Exception) {context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:${context.packageName}")))}}
                                                                                                                                                                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:58: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SettingsScreen.kt:59: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
             Row(verticalAlignment=Alignment.CenterVertically) {Column(Modifier.weight(1f)) {Text("مرور روزانهٔ مدیریتی",style=MaterialTheme.typography.titleMedium);Text("خلاصهٔ مصوبات امروز و تعداد معوق‌ها؛ پیش‌فرض ۸ صبح",style=MaterialTheme.typography.bodySmall)};Switch(enabled,onCheckedChange={enabled=it;prefs.edit().putBoolean("daily",it).apply();reschedule()})}
                                                                                                                                                                                                                                                                                                                     ~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:100: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SharedSync.kt:35: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun alerts(value: Boolean) {prefs.edit().putBoolean("alerts",value).apply()}
+                                ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SharedSync.kt:45: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        val edit=prefs.edit().putString("session",stored)
+                 ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SharedSync.kt:49: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+    fun clear() {check(prefs.edit().remove("session").commit())}
+                       ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SharedSync.kt:140: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().putLong("last",System.currentTimeMillis()).remove("error").remove("auth_expired").apply()
+            ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\SharedSync.kt:144: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().putString("error",message).putBoolean("auth_expired",e is SharedHttpError && e.code==401).apply();false
+            ~~~~~~~~~~~~
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:102: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
         val db=writableDatabase;db.beginTransaction()
                                 ~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:149: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:151: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
     @Synchronized fun delivered(ids: List<Long>) { val db=writableDatabase; db.beginTransaction(); try { ids.forEach { db.execSQL("UPDATE reminders SET delivered=1 WHERE id=?",arrayOf(it)) }; db.setTransactionSuccessful() } finally { db.endTransaction() } }
                                                                             ~~~~~~~~~~~~~~~~~~~~~
-C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:154: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
+C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:157: Warning: Use the KTX extension function SQLiteDatabase.transaction instead? [UseKtx]
         db.beginTransaction()
         ~~~~~~~~~~~~~~~~~~~~~
 
@@ -213,4 +228,4 @@ C:\Users\psh2610\Desktop\Dastyar\app\src\main\java\ir\peygir\app\Store.kt:154: W
    </lint>
    ```
 
-0 errors, 37 warnings
+0 errors, 42 warnings

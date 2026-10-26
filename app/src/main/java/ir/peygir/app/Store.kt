@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 4) {
+class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 5) {
     val externalChanges=kotlinx.coroutines.flow.MutableStateFlow(0L)
     private val recordingDirectory=java.io.File(context.filesDir,"recordings").canonicalFile
     private val closedDrafts=mutableSetOf<String>()
@@ -19,6 +19,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createHistory(db)
         createFollowUps(db)
         createBacklog(db)
+        SharedStore.create(db)
     }
     private fun createHistory(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE due_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,old_due INTEGER NOT NULL,new_due INTEGER NOT NULL,changed_at INTEGER NOT NULL,kind TEXT NOT NULL,reason TEXT NOT NULL)")
@@ -36,7 +37,8 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createHistory(db)
         val hasDraft=db.rawQuery("PRAGMA table_info(recordings)",null).use{c->var found=false;while(c.moveToNext()) if(c.getString(1)=="draft_session") found=true;found}
         if(!hasDraft) db.execSQL("ALTER TABLE recordings ADD COLUMN draft_session TEXT NOT NULL DEFAULT ''")
-    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db)}
+    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db)}
+    @Synchronized internal fun <T> syncDb(block: (SQLiteDatabase)->T): T = block(writableDatabase)
     @Synchronized fun snapshot(): Snapshot {
         val db = readableDatabase
         val history=db.rawQuery("SELECT * FROM due_changes ORDER BY id DESC",null).use {c->buildList{while(c.moveToNext()) add(DueChange(c.getLong(0),c.getLong(1),c.getLong(2),c.getLong(3),c.getLong(4),DueChangeKind.valueOf(c.getString(5)),c.getString(6)))}}
@@ -151,6 +153,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
     /** Replace validated backup data in one transaction, preserving IDs and foreign keys. */
     @Synchronized fun replaceAll(data: Snapshot, beforeCommit: ()->Unit = {}) {
         val db=writableDatabase
+        check(SharedStore(this).binding().isEmpty()) {"برای بازیابی پشتیبان، ابتدا از حساب مشترک خارج شوید و اتصال فضای مشترک را از همین گوشی جدا کنید."}
         db.beginTransaction()
         try {
             listOf("backlog","notification_tokens","follow_ups","recordings","reminders","due_changes","tasks","meetings").forEach {db.delete(it,null,null)}
@@ -161,6 +164,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
             data.history.forEach {h->db.insertOrThrow("due_changes",null,ContentValues().apply {put("id",h.id);put("task_id",h.taskId);put("old_due",h.oldDue);put("new_due",h.newDue);put("changed_at",h.changedAt);put("kind",h.kind.name);put("reason",h.reason)})}
             data.followUps.forEach {f->db.insertOrThrow("follow_ups",null,ContentValues().apply {put("id",f.id);put("task_id",f.taskId);put("text",f.text);put("created",f.created)})}
             data.recordings.forEach {r->db.insertOrThrow("recordings",null,ContentValues().apply {put("id",r.id);put("meeting_id",r.meetingId);put("path",r.path);put("created",r.created);put("seconds",r.seconds);put("transcript",r.transcript);put("draft_session","")})}
+            db.delete("sync_objects",null,null);db.delete("sync_dirty",null,null)
             beforeCommit()
             db.setTransactionSuccessful()
         } finally {db.endTransaction()}

@@ -21,6 +21,20 @@ import java.time.LocalDate
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VisualTest {
     @get:Rule val compose=createAndroidComposeRule<ComponentActivity>()
+    @Test fun rendersSharedSettingsAndLoginWithoutPrivateCredentials() {
+        val context=RuntimeEnvironment.getApplication()
+        Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
+        context.deleteDatabase("peygir.db");context.getSharedPreferences("shared_private",0).edit().clear().commit()
+        context.getSharedPreferences("settings",0).edit().clear().putString("theme","light").commit()
+        compose.setContent{PeygirApp()}
+        compose.waitUntil(15000){compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("تنظیمات").performClick()
+        compose.onNodeWithText("ورود به فضای مشترک").performScrollTo()
+        capture("shared-settings")
+        compose.onNodeWithText("ورود به فضای مشترک").performClick()
+        compose.onNodeWithText("نام کاربری").assertExists()
+        capture("shared-login")
+    }
     @Test fun rendersDashboardAndTaskEditor() {
         val context=RuntimeEnvironment.getApplication()
         Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
@@ -59,6 +73,7 @@ class VisualTest {
         capture("owner-tasks-light")
         compose.onNodeWithContentDescription("بستن مصوبات مسئول").performClick()
         compose.onNodeWithText("تمدید مهلت",substring=false).performScrollTo().performClick()
+        compose.onNodeWithText("سه روز",substring=false).performClick()
         capture("reschedule-light")
         compose.onNodeWithText("دلیل (اختیاری)").performTextInput("دریافت گزارش تکمیلی")
         compose.onNodeWithText("ثبت تغییر موعد").performClick()
@@ -144,7 +159,7 @@ class VisualTest {
     private fun capture(name: String) {
         compose.waitForIdle()
         compose.runOnIdle {
-            val view=if(name in listOf("editor-light","solar-picker","input-voice","reschedule-light","due-history-light","meeting-delete-light","task-tools-light","follow-ups-light","owner-tasks-light","owner-suggestions-light")) ShadowDialog.getShownDialogs().last{it.isShowing}.window!!.decorView else compose.activity.window.decorView
+            val view=if(name in listOf("editor-light","solar-picker","input-voice","reschedule-light","due-history-light","meeting-delete-light","task-tools-light","follow-ups-light","owner-tasks-light","owner-suggestions-light","shared-login")) ShadowDialog.getShownDialogs().last{it.isShowing}.window!!.decorView else compose.activity.window.decorView
             if(view.width==0 || view.height==0) {
                 val dm=compose.activity.resources.displayMetrics
                 view.measure(android.view.View.MeasureSpec.makeMeasureSpec(dm.widthPixels,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(dm.heightPixels,android.view.View.MeasureSpec.EXACTLY))

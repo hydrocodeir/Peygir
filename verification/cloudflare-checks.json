@@ -1,0 +1,10 @@
+{
+  "tests": 6,
+  "failures": 0,
+  "skipped": 0,
+  "runtime": "Cloudflare Workers runtime + local D1 through Miniflare",
+  "wrangler": "4.152.0",
+  "npmAuditVulnerabilities": 0,
+  "liveServiceTest": "cloudflare-smoke.json",
+  "actualPhonesTested": false
+}
