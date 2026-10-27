@@ -9,6 +9,7 @@ local.properties
 *.log
 delivery/*.apk
 delivery/*.zip
+delivery/*.padvish.backup.stt
 node_modules/
 .wrangler/
 .dev.vars*
