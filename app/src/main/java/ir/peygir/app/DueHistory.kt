@@ -31,7 +31,7 @@ import java.time.*
     },feedback=feedback,saveLabel="ثبت تغییر موعد") {
         Text(task.title,style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold)
         Text("موعد فعلی: ${Solar.label(LocalDate.ofEpochDay(task.due))}",style=MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick={picker=true},enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("موعد جدید | ${Solar.label(LocalDate.ofEpochDay(day))}")}
+        OutlinedButton(onClick={picker=true},enabled=!busy,modifier=Modifier.fillMaxWidth()) {Text("موعد جدید - ${Solar.label(LocalDate.ofEpochDay(day))}")}
         Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
             listOf(1L to "یک روز",3L to "سه روز",7L to "یک هفته").forEach{(days,label)->OutlinedButton(onClick={day=maxOf(task.due,LocalDate.now().toEpochDay())+days;error=""},enabled=!busy,contentPadding=PaddingValues(horizontal=10.dp)){Text(label)}}
         }
@@ -48,7 +48,7 @@ import java.time.*
     changes.forEach {change->
         Column(Modifier.fillMaxWidth().padding(vertical=6.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
             val at=Instant.ofEpochMilli(change.changedAt).atZone(ZoneId.systemDefault())
-            Text("${change.kind.label} • ${Solar.numeric(at.toLocalDate())} | ${at.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+            Text("${change.kind.label} - ${Solar.numeric(at.toLocalDate())} - ${at.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
             Text("از ${Solar.label(LocalDate.ofEpochDay(change.oldDue))}\nبه ${Solar.label(LocalDate.ofEpochDay(change.newDue))}",style=MaterialTheme.typography.bodySmall)
             if(change.reason.isNotBlank()) Text("دلیل: ${change.reason}",style=MaterialTheme.typography.bodySmall)
             HorizontalDivider()

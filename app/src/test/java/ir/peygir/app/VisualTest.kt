@@ -21,14 +21,192 @@ import java.time.LocalDate
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VisualTest {
     @get:Rule val compose=createAndroidComposeRule<ComponentActivity>()
+    @Test @Config(qualifiers="fa-rIR-w360dp-h740dp-mdpi")
+    fun rendersSimpleExecutiveInterfaceWithLargeFont() {
+        val c=RuntimeEnvironment.getApplication()
+        c.getSharedPreferences("shared_private",0).edit().clear().commit()
+        OrgAccess.set(c,SharedSession("https://test.invalid","","","","رئیس","manager","chief"))
+        Organization.members.value=listOf(CompanyUser("a","علی احمدی","deputy"),CompanyUser("b","سمیه رضایی","deputy"))
+        val configuration=android.content.res.Configuration(compose.activity.resources.configuration).apply{fontScale=1.5f}
+        @Suppress("DEPRECATION")
+        compose.activity.resources.updateConfiguration(configuration,compose.activity.resources.displayMetrics)
+        val day=LocalDate.now().toEpochDay()
+        val meeting=Meeting(id=1,title="شورای معاونین",date=day,start=540,end=600,location="سالن مدیریت",notes="مرور برنامه و مصوبات ماهانه",attendees=listOf("a","b"))
+        val review=Resolution(id=1,title="تأیید گزارش عملکرد",owner="علی احمدی",assignee="a",due=day,status=Status.REVIEW,description="توضیحات و مدارک تکمیلی")
+        val data=Snapshot(meetings=listOf(meeting),tasks=listOf(review,Resolution(id=2,title="ارسال قرارداد",owner="سمیه رضایی",due=day-1)),followUps=listOf(FollowUp(1,1,"گزارش آماده است؛ منتظر تأیید نهایی",System.currentTimeMillis())))
+        val screen=androidx.compose.runtime.mutableIntStateOf(0);val theme=androidx.compose.runtime.mutableStateOf("light")
+        compose.setContent{PeygirTheme(theme.value){androidx.compose.material3.Surface{when(screen.intValue){
+            0->DashboardScreen(data,day,{},{},{_,_->},{},{})
+            1->TaskSummary(review,data,false,{}, {},{_,_->},edit={})
+            2->MeetingDetail(data,1,day,{}, {_,_->},{},{},{},copy={})
+            else->SettingsScreen(theme.value,{theme.value=it},{})
+        }}}}
+        capture("simple-followup-chief-large")
+        compose.runOnIdle{screen.intValue=1};compose.onNodeWithTag("task_primary_action").assertIsDisplayed();compose.onAllNodesWithText(Status.REVIEW.label,substring=false).assertCountEquals(1);capture("simple-task-light-large")
+        compose.runOnIdle{theme.value="dark"};capture("simple-task-dark-large")
+        compose.onNodeWithTag("task_summary_more").performClick();capture("simple-task-expanded-large")
+        compose.runOnIdle{screen.intValue=2;theme.value="light"};capture("simple-meeting-large")
+        compose.runOnIdle{screen.intValue=3};capture("simple-settings-large")
+        OrgAccess.set(c,null);Organization.members.value=emptyList()
+    }
+    @Test fun rendersCompactMeetingFormOptionalDetailsConflictsAndCopy() {
+        val context=RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("shared_private",0).edit().clear().commit();OrgAccess.set(context,null)
+        Organization.members.value=listOf(CompanyUser("a","علی احمدی","deputy"),CompanyUser("b","سمیه رضایی","deputy"))
+        val day=LocalDate.now().toEpochDay()
+        val source=Meeting(id=11,title="شورای معاونین",date=day,notes="بررسی پیشرفت برنامهٔ ماهانه",start=540,end=630,location="سالن مدیریت",attendees=listOf("a","b"))
+        val events=androidx.compose.runtime.mutableStateOf(emptyList<Meeting>())
+        val theme=androidx.compose.runtime.mutableStateOf("light")
+        val copied=androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent{PeygirTheme(theme.value){androidx.compose.runtime.key(copied.value){MeetingEditor(if(copied.value) MeetingCopies.draft(source) else source,false,{}, {},allMeetings=events.value,copied=copied.value)}}}
+        capture("meeting-tools-compact-light")
+        compose.onNodeWithTag("meeting_more_details").performClick();capture("meeting-tools-expanded-light")
+        compose.onNodeWithTag("meeting_more_details").performScrollTo().performClick()
+        compose.runOnIdle{events.value=listOf(Meeting(id=12,title="بررسی بودجه",date=day,start=600,end=660,attendees=listOf("a")))}
+        compose.onNodeWithTag("meeting_conflicts").assertIsDisplayed();capture("meeting-tools-conflict-light")
+        compose.runOnIdle{theme.value="dark"};capture("meeting-tools-conflict-dark")
+        compose.runOnIdle{theme.value="light";copied.value=true;events.value=emptyList()};capture("meeting-tools-copy-light")
+        Organization.members.value=emptyList()
+    }
+    @Test fun rendersCalendarTimeSelectionAndPrefilledMeetingDraft() {
+        val context=RuntimeEnvironment.getApplication()
+        context.getSharedPreferences("shared_private",0).edit().clear().commit();OrgAccess.set(context,null)
+        val day=Solar.toDate(1405,8,6)!!.toEpochDay()
+        val draft=androidx.compose.runtime.mutableStateOf<Pair<Long,Int>?>(null)
+        compose.setContent{PeygirTheme("light"){
+            androidx.compose.material3.Surface{MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="MONTH",createAt={d,m->draft.value=d to m})}
+            draft.value?.let{(d,m)->MeetingEditor(Meeting(date=d),false,{draft.value=null},{},initialStart=m)}
+        }}
+        compose.onNodeWithTag("meeting_day_$day").performClick();capture("calendar-create-time")
+        compose.runOnIdle{val dialog=ShadowDialog.getLatestDialog() as android.app.TimePickerDialog;dialog.updateTime(14,30);dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()}
+        compose.onNodeWithTag("meeting_start_time").assertTextContains("شروع: ۱۴:۳۰")
+        compose.onNodeWithTag("meeting_end_time").assertTextContains("پایان: ۱۵:۳۰")
+        capture("calendar-create-editor")
+    }
+    @Test fun rendersTimetableOverlapsInWeekDayAndDarkMode() {
+        val day=Solar.toDate(1405,8,5)!!.toEpochDay()
+        val week=MeetingTimeline.weekStart(day)
+        val data=Snapshot(meetings=listOf(
+            Meeting(id=21,title="شورای معاونین",date=day,start=540,end=660),
+            Meeting(id=22,title="برنامهٔ فروش",date=day,start=570,end=630),
+            Meeting(id=23,title="جلسهٔ پروژه",date=day,start=600,end=720),
+            Meeting(id=24,title="مرور بودجه",date=week+1,start=480,end=600),
+            Meeting(id=25,title="بررسی قراردادها",date=week+4,start=660,end=780),
+            Meeting(id=26,title="جلسهٔ قدیمی",date=week+2,start=null,end=null)
+        ))
+        val theme=androidx.compose.runtime.mutableStateOf("light")
+        compose.setContent{PeygirTheme(theme.value){androidx.compose.material3.Surface{MeetingCalendarScreen(data,{},{},initialDay=day)}}}
+        compose.onNodeWithTag("meeting_mode_WEEK").assertIsSelected()
+        capture("meeting-timetable-week-light")
+        compose.onNodeWithTag("meeting_mode_DAY").performClick()
+        val bounds=(21L..23L).map{compose.onNodeWithTag("meeting_card_$it").fetchSemanticsNode().boundsInRoot}
+        for(i in bounds.indices) for(j in i+1 until bounds.size) org.junit.Assert.assertTrue("Overlapping appointments must have distinct columns",bounds[i].right<=bounds[j].left || bounds[j].right<=bounds[i].left)
+        org.junit.Assert.assertTrue(bounds[1].top>bounds[0].top)
+        org.junit.Assert.assertTrue(bounds[0].height>bounds[1].height*1.8f)
+        capture("meeting-timetable-day-light")
+        compose.runOnIdle{theme.value="dark"};capture("meeting-timetable-day-dark")
+        compose.onNodeWithTag("meeting_mode_WEEK").performClick();capture("meeting-timetable-week-dark")
+    }
+    @Test @Config(qualifiers="fa-rIR-w360dp-h800dp-mdpi")
+    fun monthMeetingIndicatorsStayInsideAdjacentDatesWithLargeFontInBothThemes() {
+        val configuration=android.content.res.Configuration(compose.activity.resources.configuration).apply{fontScale=2f}
+        @Suppress("DEPRECATION")
+        compose.activity.resources.updateConfiguration(configuration,compose.activity.resources.displayMetrics)
+        val first=Solar.toDate(1405,8,2)!!.toEpochDay()
+        val meetings=listOf(1,2,12).flatMapIndexed {offset,count->(1..count).map{Meeting(id=(offset*100+it).toLong(),title="جلسهٔ نمونه",date=first+offset)}}
+        val mode=androidx.compose.runtime.mutableStateOf("dark")
+        compose.setContent{PeygirTheme(mode.value){androidx.compose.material3.Surface{MeetingCalendarScreen(Snapshot(meetings=meetings),{},{},initialDay=first,initialMode="MONTH")}}}
+        fun assertMarkersFit() {
+            for(day in first..first+2) {
+                val cell=compose.onNodeWithTag("meeting_day_$day").fetchSemanticsNode().boundsInRoot
+                val marker=compose.onNodeWithTag("meeting_day_marker_$day",useUnmergedTree=true).fetchSemanticsNode().boundsInRoot
+                org.junit.Assert.assertTrue("Day indicator must fit inside its date cell: cell=$cell marker=$marker",marker.left>=cell.left && marker.right<=cell.right && marker.top>=cell.top && marker.bottom<=cell.bottom)
+            }
+        }
+        assertMarkersFit();capture("meeting-markers-dark-large")
+        compose.runOnIdle{mode.value="light"};assertMarkersFit();capture("meeting-markers-light-large")
+        compose.onNodeWithTag("meeting_day_${first+1}").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("۳ آبان ۱۴۰۵، ۲ جلسه").assertExists()
+    }
+    @Test @Config(qualifiers="fa-rIR-w360dp-h720dp-mdpi")
+    fun timetableLeavesMorningMeetingsVisibleOnSmallScreenWithLargeFont() {
+        val context=RuntimeEnvironment.getApplication()
+        val configuration=android.content.res.Configuration(compose.activity.resources.configuration).apply{fontScale=1.3f}
+        @Suppress("DEPRECATION")
+        compose.activity.resources.updateConfiguration(configuration,compose.activity.resources.displayMetrics)
+        Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
+        context.deleteDatabase("peygir.db");context.getSharedPreferences("shared_private",0).edit().clear().commit();OrgAccess.set(context,null)
+        context.getSharedPreferences("settings",0).edit().clear().putString("theme","light").commit()
+        val store=Store.get(context);val today=LocalDate.now().toEpochDay()
+        val one=store.saveMeeting(Meeting(title="جلسهٔ برنامه‌ریزی فروش",date=today,start=540,end=600,location="اتاق مدیریت"))
+        val two=store.saveMeeting(Meeting(title="مرور پیشرفت پروژه",date=today,start=600,end=660,location="سالن جلسات"))
+        store.saveTask(Resolution(title="تهیه گزارش فروش",owner="احمدی",due=today),emptyList())
+        store.saveTask(Resolution(title="ارسال قرارداد",owner="رضایی",due=today,status=Status.ACTIVE),emptyList())
+        var measuredFontScale=0f
+        compose.setContent{val density=androidx.compose.ui.platform.LocalDensity.current;androidx.compose.runtime.SideEffect{measuredFontScale=density.fontScale};PeygirApp(initialSection=0)}
+        compose.waitUntil(15000){compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
+        compose.runOnIdle{org.junit.Assert.assertEquals(1.3f,measuredFontScale,0.01f)}
+        compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithTag("meeting_mode_WEEK").performClick()
+        compose.onNodeWithTag("meeting_search_field").assertDoesNotExist()
+        val viewport=compose.onNodeWithTag("meeting_day_page_$today").fetchSemanticsNode().boundsInRoot
+        for(id in listOf(one,two)) {
+            val card=compose.onNodeWithTag("meeting_card_$id").fetchSemanticsNode().boundsInRoot
+            org.junit.Assert.assertTrue("Whole meeting card must fit above navigation",card.top>=viewport.top && card.bottom<=viewport.bottom)
+        }
+        capture("company-calendar-compact-week-small")
+        compose.onNodeWithTag("meeting_mode_DAY").performClick();capture("company-calendar-compact-day-small")
+        compose.onNodeWithTag("meeting_mode_MONTH").performClick();capture("company-calendar-compact-month-small")
+        compose.onNodeWithContentDescription("جست‌وجوی جلسات").performClick()
+        compose.onNodeWithTag("meeting_search_field").performTextInput("پروژه")
+        compose.onNodeWithText("مرور پیشرفت پروژه").assertIsDisplayed();capture("company-calendar-search-small")
+        compose.onNodeWithContentDescription("بستن جست‌وجوی جلسات").performClick()
+        compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick();capture("tasks-compact-small")
+        compose.onNodeWithContentDescription("جست‌وجوی مصوبات").performClick()
+        compose.onNodeWithTag("task_search_field").performTextInput("احمدی");capture("tasks-search-small")
+    }
+    @Test fun rendersFirstRunPermissionStepsAndLoginWithoutCredentials() {
+        val c=RuntimeEnvironment.getApplication()
+        c.getSharedPreferences("first_run",0).edit().clear().commit()
+        org.robolectric.Shadows.shadowOf(c as Application).denyPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        org.robolectric.shadows.ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        compose.setContent{PeygirTheme("light"){FirstRunScreen(autoAsk=false){}}}
+        capture("first-run-notifications")
+        compose.onNodeWithTag("first_run_later").performClick();capture("first-run-exact-alarm")
+        compose.onNodeWithTag("first_run_later").performClick();capture("first-run-login")
+    }
+    @Test fun rendersCompanyCalendarAcrossModesAndPersianParticipantSearch() {
+        val person=CompanyUser("deputy-test","علی احمدی — معاون مالی","deputy")
+        Organization.members.value=listOf(person)
+        val today=LocalDate.now().toEpochDay()
+        val data=Snapshot(meetings=listOf(
+            Meeting(id=1,title="شورای معاونین",date=today,start=540,end=600,location="سالن جلسات مدیریت",attendees=listOf(person.id),repeat="WEEKLY"),
+            Meeting(id=2,title="بررسی بودجه و نقدینگی",date=today,start=660,end=720,attendees=listOf(person.id)),
+            Meeting(id=3,title="مرور برنامهٔ فروش",date=today+2,start=600,end=660),
+            Meeting(id=4,title="جلسهٔ ماه قبل",date=today-32,attendees=listOf(person.id))
+        ))
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(data,{},{},initialMode="MONTH")}}
+        capture("company-calendar-month")
+        compose.onNodeWithTag("meeting_mode_WEEK").performClick();capture("company-calendar-week")
+        compose.onNodeWithTag("meeting_days_pager").performTouchInput{swipeRight()}
+        compose.onNodeWithTag("meeting_day_page_${today+7}").assertIsDisplayed();capture("company-calendar-week-next-day")
+        compose.onNodeWithTag("meeting_mode_DAY").performClick();capture("company-calendar-day")
+        compose.onNodeWithTag("meeting_days_pager").performTouchInput{swipeLeft()}
+        compose.onNodeWithTag("meeting_day_page_${today+6}").assertIsDisplayed();capture("company-calendar-day-previous")
+        compose.onNodeWithContentDescription("جست‌وجوی جلسات").performClick()
+        compose.onNodeWithTag("meeting_search_field").performTextInput("احمدی")
+        capture("company-calendar-search")
+        Organization.members.value=emptyList()
+    }
     @Test fun rendersSharedSettingsAndLoginWithoutPrivateCredentials() {
         val context=RuntimeEnvironment.getApplication()
         Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
         context.deleteDatabase("peygir.db");context.getSharedPreferences("shared_private",0).edit().clear().commit()
         context.getSharedPreferences("settings",0).edit().clear().putString("theme","light").commit()
-        compose.setContent{PeygirApp()}
+        compose.setContent{PeygirApp(initialSection=0)}
         compose.waitUntil(15000){compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithContentDescription("تنظیمات").performClick()
+        compose.onNodeWithTag("settings_account").performClick()
         compose.onNodeWithText("ورود به فضای مشترک").performScrollTo()
         capture("shared-settings")
         compose.onNodeWithText("ورود به فضای مشترک").performClick()
@@ -49,37 +227,37 @@ class VisualTest {
         store.addFollowUp(tracked,"منتظر تأیید مالی است")
         store.saveTask(Resolution(title="پیگیری قرارداد تأمین‌کننده",owner="آقای احمدی",meetingId=m,due=today+1,status=Status.ACTIVE),emptyList())
         store.saveTask(Resolution(title="ارسال صورت‌جلسه",owner="خانم محمدی",meetingId=m,due=today,status=Status.DONE),emptyList())
-        compose.setContent {PeygirApp()}
+        compose.setContent {PeygirApp(initialSection=0)}
         compose.waitUntil(15000) {compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         capture("dashboard-light")
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
         capture("review-light")
         compose.onNodeWithText("پیگیری",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("جلسات",useUnmergedTree=true).performClick()
+        compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
         capture("meetings-light")
-        compose.onNodeWithText("شورای راهبری | آبان",substring=false).performClick()
+        compose.onNodeWithText("شورای راهبری | آبان",substring=false).performScrollTo().performClick()
         capture("meeting-detail-light")
-        compose.onNodeWithText("حذف جلسه",substring=false).performClick()
+        compose.onNodeWithContentDescription("گزینه‌های جلسه").performClick();compose.onNodeWithText("حذف جلسه",substring=false).performClick()
         capture("meeting-delete-light")
         compose.onNodeWithText("انصراف",substring=false).performClick()
-        compose.onNodeWithText("مصوبات",useUnmergedTree=true).performClick()
+        compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
         compose.onNodeWithText("آماده‌سازی گزارش عملکرد پاییز").assertIsDisplayed()
         capture("tasks-light")
         compose.onNodeWithText("آماده‌سازی گزارش عملکرد پاییز").performClick()
         capture("task-tools-light")
-        compose.onNodeWithText("سوابق پیگیری (۲)").performScrollTo().performClick()
+        compose.onNodeWithTag("task_summary_more").performScrollTo().performClick()
         capture("follow-ups-light")
         compose.onNodeWithTag("owner_open_tasks").performScrollTo().performClick()
         capture("owner-tasks-light")
         compose.onNodeWithContentDescription("بستن مصوبات مسئول").performClick()
-        compose.onNodeWithText("تمدید مهلت",substring=false).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های مصوبه").performClick();compose.onNodeWithText("تمدید مهلت",substring=false).performClick()
         compose.onNodeWithText("سه روز",substring=false).performClick()
         capture("reschedule-light")
         compose.onNodeWithText("دلیل (اختیاری)").performTextInput("دریافت گزارش تکمیلی")
         compose.onNodeWithText("ثبت تغییر موعد").performClick()
-        compose.waitUntil(15000) {store.snapshot().history.size==1 && compose.onAllNodesWithText("جزئیات مصوبه").fetchSemanticsNodes().isEmpty()}
+        compose.waitUntil(15000) {store.snapshot().history.size==1 && compose.onAllNodesWithTag("task_summary").fetchSemanticsNodes().isEmpty()}
         compose.onNodeWithText("آماده‌سازی گزارش عملکرد پاییز").performClick()
-        compose.onNodeWithText("تاریخچهٔ موعد (۱)").performScrollTo().performClick()
+        compose.onNodeWithTag("task_summary_more").performScrollTo().performClick()
         compose.onNodeWithText("دلیل: دریافت گزارش تکمیلی").performScrollTo().assertIsDisplayed()
         capture("due-history-light")
         compose.onNodeWithContentDescription("بستن").performClick()
@@ -91,7 +269,7 @@ class VisualTest {
         compose.onNodeWithTag("input_voice").performClick()
         capture("input-voice")
         compose.onNodeWithTag("input_write").performClick()
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.now().plusDays(1))}").performClick()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.now().plusDays(1))}").performClick()
         compose.onNodeWithText("انتخاب تاریخ شمسی").assertIsDisplayed()
         capture("solar-picker")
     }
@@ -101,7 +279,7 @@ class VisualTest {
         context.deleteDatabase("peygir.db")
         context.getSharedPreferences("drafts",0).edit().clear().commit()
         context.getSharedPreferences("settings",0).edit().clear().putString("theme","dark").commit()
-        compose.setContent {PeygirApp()}
+        compose.setContent {PeygirApp(initialSection=0)}
         compose.waitUntil(15000) {compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         capture("dashboard-dark-small")
     }
@@ -145,21 +323,24 @@ class VisualTest {
         Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
         context.deleteDatabase("peygir.db")
         context.getSharedPreferences("settings",0).edit().clear().putString("theme","light").commit()
-        compose.setContent {PeygirApp()}
+        compose.setContent {PeygirApp(initialSection=0)}
         compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("تنظیمات").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithContentDescription("تنظیمات").performClick()
-        compose.waitUntil(15000) {compose.onAllNodesWithText("مرور روزانهٔ مدیریتی").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(15000) {compose.onAllNodesWithTag("settings_notifications").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("settings_notifications").performClick()
         compose.onNodeWithText("مرور روزانهٔ مدیریتی").performScrollTo()
         capture("settings-review")
+        compose.onNodeWithTag("settings_appearance").performScrollTo().performClick()
         compose.onNodeWithText("رنگ‌های گوشی").performScrollTo()
         capture("settings-colors")
+        compose.onNodeWithTag("settings_backup").performScrollTo().performClick()
         compose.onNodeWithText("ذخیرهٔ فایل پشتیبان").performScrollTo()
         capture("settings-backup")
     }
     private fun capture(name: String) {
         compose.waitForIdle()
         compose.runOnIdle {
-            val view=if(name in listOf("editor-light","solar-picker","input-voice","reschedule-light","due-history-light","meeting-delete-light","task-tools-light","follow-ups-light","owner-tasks-light","owner-suggestions-light","shared-login")) ShadowDialog.getShownDialogs().last{it.isShowing}.window!!.decorView else compose.activity.window.decorView
+            val view=if(name.startsWith("simple-task-") || name.startsWith("meeting-tools-") || name.startsWith("calendar-create-") || name.startsWith("company-calendar-search") || name=="tasks-search-small" || name=="first-run-login" || name in listOf("editor-light","solar-picker","input-voice","reschedule-light","due-history-light","meeting-delete-light","task-tools-light","follow-ups-light","owner-tasks-light","owner-suggestions-light","shared-login")) ShadowDialog.getShownDialogs().last{it.isShowing}.window!!.decorView else compose.activity.window.decorView
             if(view.width==0 || view.height==0) {
                 val dm=compose.activity.resources.displayMetrics
                 view.measure(android.view.View.MeasureSpec.makeMeasureSpec(dm.widthPixels,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(dm.heightPixels,android.view.View.MeasureSpec.EXACTLY))

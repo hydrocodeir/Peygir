@@ -15,5 +15,10 @@
       "migrations_dir": "migrations"
     }
   ],
-  "account_id": "21f86f01f7c5b106e6fc5eed5798d3ff"
+  "account_id": "21f86f01f7c5b106e6fc5eed5798d3ff",
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  }
 }

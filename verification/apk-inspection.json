@@ -1,6 +1,6 @@
 {
-  "apkBytes": 146277602,
-  "sha256": "136699e90c364420d39bc360dfbcc35f97cc780421c317dcc255c5944e093bc8",
+  "apkBytes": 147734747,
+  "sha256": "43fe791956670f86aaa227b799d061b4f0364eb9c01606ff544ad6a873da5ad7",
   "localBuildHelperPackaged": false,
   "bundledAssets": {
     "assets/tessdata/fas.traineddata": {
@@ -18,6 +18,11 @@
   },
   "nativeElfLoadAlignment": {
     "lib/arm64-v8a/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libdatastore_shared_counter.so": [
       16384,
       16384,
       16384
@@ -52,6 +57,10 @@
     ],
     "lib/armeabi-v7a/libandroidx.graphics.path.so": [
       16384,
+      16384,
+      16384
+    ],
+    "lib/armeabi-v7a/libdatastore_shared_counter.so": [
       16384,
       16384
     ],
@@ -100,6 +109,10 @@
       16384,
       16384
     ],
+    "lib/x86/libdatastore_shared_counter.so": [
+      16384,
+      16384
+    ],
     "lib/x86/libjnidispatch.so": [
       16384,
       16384
@@ -130,6 +143,10 @@
     ],
     "lib/x86_64/libandroidx.graphics.path.so": [
       16384,
+      16384,
+      16384
+    ],
+    "lib/x86_64/libdatastore_shared_counter.so": [
       16384,
       16384
     ],

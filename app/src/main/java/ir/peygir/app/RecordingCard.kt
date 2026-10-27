@@ -43,7 +43,7 @@ import java.time.*
     val dt=Instant.ofEpochMilli(r.created).atZone(ZoneId.systemDefault())
     OutlinedCard {Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {Text("${Solar.label(dt.toLocalDate())} | ${dt.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.titleSmall);Text("${r.seconds.fa()} ثانیه${meeting?.let{" • $it"}.orEmpty()}",style=MaterialTheme.typography.labelSmall)}
+            Column(Modifier.weight(1f)) {Text("${Solar.label(dt.toLocalDate())} - ${dt.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.titleSmall);Text("${r.seconds.fa()} ثانیه${meeting?.let{" - $it"}.orEmpty()}",style=MaterialTheme.typography.labelSmall)}
             IconButton(enabled=!busy,onClick={
                 if(playing) {player?.release();player=null;playing=false} else {
                     error=""

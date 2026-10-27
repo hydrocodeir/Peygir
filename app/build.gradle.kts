@@ -10,8 +10,8 @@ android {
         applicationId = "ir.peygir.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "2.0.0"
+        versionCode = 27
+        versionName = "3.4.2"
         buildConfigField("String","SYNC_URL","\"${providers.gradleProperty("peygir.syncUrl").orElse("").get()}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -35,6 +35,7 @@ tasks.withType<Test>().configureEach {
     }
 }
 dependencies {
+    implementation("com.google.firebase:firebase-messaging:26.0.1")
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.compose.material3:material3")

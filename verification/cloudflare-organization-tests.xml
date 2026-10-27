@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="organization meetings require both start and end times with a strictly increasing range" time="2.295875" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="deputies receive only their tasks, their followups and invited meetings, including on a fresh full sync" time="1.857538" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="guessed IDs, stale operations and another user receipt never expose a different deputy task" time="1.817346" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="deputy cannot change assignment, title, date, priority, delete or approve; chief alone approves REVIEW" time="1.917135" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="reassignment revokes cached parent and notes, and exposes all existing child history to the new assignee" time="2.082767" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="removing a meeting invite revokes meeting data and projects the retained own task without the hidden meeting" time="1.907811" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="inviting someone to an old meeting works even with no new task revision, and cross-company IDs are rejected" time="2.475074" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="account creation, reset and deactivation are admin-only, revoke sessions and protect the last chief" time="2.930047" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="deputy can append a report to own task; unrelated or editable reports and meeting writes are blocked" time="5.221826" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="stale authorized edits receive the current version and canonical review/report receipts survive lost responses" time="7.881590" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="push outbox contains only the chief and allowed assignee/invitees, never other deputies" time="1.913627" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="inventory pagination catches up without omissions and does not repeatedly return unknown tombstones" time="4.941258" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\organization.test.mjs"/>
+	<testcase name="two accounts share meetings and tasks while another workspace is isolated" time="2.013178" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="idempotent retries return the original receipt; stale and simultaneous edits conflict" time="1.260262" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="meeting deletion detaches tasks; task deletion tombstones followups" time="1.285261" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="credentials, logout, invalid payloads and cross-workspace references are enforced" time="1.708190" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="login is rate limited" time="2.096660" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<testcase name="a deleted parent blocks its pending child without blocking unrelated queued work" time="1.478366" classname="test" file="C:\Users\psh2610\Desktop\Dastyar\cloudflare\test\worker.test.mjs"/>
+	<!-- tests 18 -->
+	<!-- suites 0 -->
+	<!-- pass 18 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 38196.3194 -->
+</testsuites>

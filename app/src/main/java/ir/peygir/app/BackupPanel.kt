@@ -53,7 +53,7 @@ import java.time.LocalDate
     }}
     preview?.let {prepared->
         AlertDialog(onDismissRequest={if(!working) {preview=null;prepared.close()}},title={Text("بازیابی پشتیبان")},
-            text={Text("${prepared.data.meetings.size.fa()} جلسه، ${prepared.data.tasks.size.fa()} مصوبه، ${prepared.data.followUps.size.fa()} نتیجهٔ پیگیری و ${prepared.data.recordings.size.fa()} صوت آرشیوی\n\nاطلاعات و تنظیمات فعلی با این پشتیبان جایگزین می‌شوند. برای حفظ اطلاعات فعلی، ابتدا از آن‌ها پشتیبان بگیرید.")},
+            text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){CountLabel("جلسات",prepared.data.meetings.size);CountLabel("مصوبات",prepared.data.tasks.size);CountLabel("نتایج پیگیری",prepared.data.followUps.size);CountLabel("صداهای آرشیوی",prepared.data.recordings.size);Text("اطلاعات و تنظیمات فعلی با این پشتیبان جایگزین می‌شوند. برای حفظ اطلاعات فعلی، ابتدا از آن‌ها پشتیبان بگیرید.")}},
             dismissButton={TextButton(onClick={preview=null;prepared.close()},enabled=!working) {Text("انصراف")}},
             confirmButton={Button(enabled=!working,onClick={scope.launch {
                 working=true;preview=null

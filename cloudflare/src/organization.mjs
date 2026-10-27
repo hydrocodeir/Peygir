@@ -1,0 +1,222 @@
+import {ApiError,authenticate,body,json,record,getRecord,requireValue,text,integer,ID,sha,passwordHash,hex,login,validateOperation} from './worker.mjs';
+import {sendPush} from './push.mjs';
+
+const admin = u => u.role === 'assistant' || u.role === 'manager';
+const ref = v => v === null || (typeof v === 'string' && ID.test(v));
+const day = v => integer(v,-100000,100000);
+const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+export function normalize(kind,value) {
+  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],repeat:'NONE',until:null,series:null,...value};
+  if(kind==='task') return {assignee:null,submitted:0,approved:0,approvedBy:null,...value};
+  return {...value};
+}
+function validate(op) {
+  const p=op.payload, core={...p};
+  if(op.kind==='meeting') {
+    requireValue((op.deleted && p.start===null && p.end===null) || (integer(p.start,0,1438) && integer(p.end,p.start+1,1439)),'ساعت پایان باید بعد از شروع و در همان روز باشد.');
+    requireValue(text(p.location,2000) && Array.isArray(p.attendees) && p.attendees.length<=200 && p.attendees.every(x=>typeof x==='string' && ID.test(x)) && new Set(p.attendees).size===p.attendees.length);
+    requireValue(['NONE','DAILY','WEEKLY','MONTHLY'].includes(p.repeat) && ref(p.series) && (p.until===null || day(p.until)));
+    requireValue(p.repeat==='NONE' || (p.series!==null && p.until>=p.date && p.until-p.date<=366));
+    for(const k of ['start','end','location','attendees','repeat','until','series']) delete core[k];
+  } else if(op.kind==='task') {
+    requireValue(ref(p.assignee) && integer(p.submitted) && integer(p.approved) && ref(p.approvedBy));
+    for(const k of ['assignee','submitted','approved','approvedBy']) delete core[k];
+    if(core.status==='REVIEW') core.status='ACTIVE';
+  }
+  validateOperation({...op,payload:core});
+}
+async function visible(env,user,r) {
+  if(admin(user)) return true;
+  if(r.kind==='meeting') return normalize(r.kind,r.payload).attendees.includes(user.id);
+  if(r.kind==='task') return normalize(r.kind,r.payload).assignee===user.id;
+  const parent=await getRecord(env,user.workspace,r.payload.task);
+  return parent && !parent.deleted && normalize('task',parent.payload).assignee===user.id;
+}
+async function projected(env,user,r,visibleMeetings=null) {
+  const p=normalize(r.kind,r.payload);
+  if(!admin(user) && r.kind==='task' && p.meeting) {
+    if(visibleMeetings) {if(!visibleMeetings.has(p.meeting)) p.meeting=null;}
+    else {const m=await getRecord(env,user.workspace,p.meeting);if(!m || m.deleted || !await visible(env,user,m)) p.meeting=null;}
+  }
+  const out={...r,payload:p};out.view=await sha(JSON.stringify(p));return out;
+}
+function revoked(op) {
+  return {id:op.recordId,kind:op.kind,revision:op.baseRevision+1,deleted:true,revoked:true,payload:{},actor:'',changed:Date.now(),view:'revoked'};
+}
+async function people(env,user) {
+  const rows=await env.DB.prepare('SELECT id,name,username,COALESCE(access_role,role) AS role,active FROM users WHERE workspace=? ORDER BY name,id').bind(user.workspace).all();
+  return rows.results.map(r=>admin(user)?r:{id:r.id,name:r.name,role:r.role,active:r.active});
+}
+async function validatePeople(env,user,ids) {
+  if(!ids.length) return;
+  const rows=await env.DB.prepare(`SELECT id FROM users WHERE workspace=? AND active=1 AND id IN (${ids.map(()=>'?').join(',')})`).bind(user.workspace,...ids).all();
+  requireValue(rows.results.length===new Set(ids).size,'یکی از حساب‌های انتخاب‌شده غیرفعال است یا در شرکت شما نیست.');
+}
+async function mutate(env,user,op) {
+  validate(op);
+  const previous=await getRecord(env,user.workspace,op.recordId);
+  // Check current authorization before receipts, stale-version replies, or parent errors.
+  if(!admin(user) && (!previous && op.kind!=='followup' || previous && !await visible(env,user,previous))) return {opId:op.id,ok:false,denied:true,record:revoked(op)};
+  const fingerprint=await sha(JSON.stringify(op));
+  const receipt=await env.DB.prepare('SELECT fingerprint,response,user_id FROM operations WHERE workspace=? AND id=?').bind(user.workspace,op.id).first();
+  if(receipt) {
+    requireValue(receipt.user_id===user.id && receipt.fingerprint===fingerprint,'شناسهٔ عملیات متعلق به این درخواست نیست.');
+    const result=JSON.parse(receipt.response);
+    // A cached receipt must never reveal a task after reassignment or an invitation withdrawal.
+    if(!admin(user) && !await visible(env,user,result.record)) return {opId:op.id,ok:false,denied:true,record:revoked(op)};
+    return {...result,record:await projected(env,user,result.record)};
+  }
+  if((previous?.revision||0)!==op.baseRevision || previous && previous.kind!==op.kind) return {opId:op.id,ok:false,record:previous?await projected(env,user,previous):revoked(op)};
+  let p={...op.payload};
+  if(!admin(user)) {
+    requireValue(!op.deleted,'معاون اجازهٔ حذف ندارد.');
+    if(op.kind==='task') {
+      const old=(await projected(env,user,previous)).payload;
+      for(const key of Object.keys(old)) if(!['status','reminders'].includes(key)) requireValue(same(old[key],p[key]),'فقط وضعیت و زمان یادآوری مصوبهٔ خودتان قابل تغییر است.');
+      requireValue(['WAITING','ACTIVE','REVIEW'].includes(p.status) && old.status!=='DONE','تأیید نهایی فقط با رئیس است.');
+      p.meeting=previous.payload.meeting;
+    } else if(op.kind==='followup') {
+      requireValue(!previous,'گزارش ثبت‌شده قابل بازنویسی نیست.');
+      const parent=await getRecord(env,user.workspace,p.task);
+      if(!parent || parent.deleted || !await visible(env,user,parent)) return {opId:op.id,ok:false,denied:true,record:revoked(op)};
+    } else throw new ApiError(403,'این تغییر فقط در دسترس رئیس و دستیار است.');
+  }
+  if(!op.deleted) {
+    const parentId=op.kind==='task'?p.meeting:['followup','history'].includes(op.kind)?p.task:null;
+    if(parentId) {
+      const parent=await getRecord(env,user.workspace,parentId);
+      if(!parent || parent.deleted || parent.kind!==(op.kind==='task'?'meeting':'task')) return {opId:op.id,ok:false,record:{...(previous?await projected(env,user,previous):revoked(op)),reason:'parent_deleted',revoked:false}};
+    }
+    if(admin(user)) {
+      if(op.kind==='meeting') await validatePeople(env,user,p.attendees.filter(x=>!normalize('meeting',previous?.payload||{}).attendees?.includes(x)));
+      if(op.kind==='task' && p.assignee!==normalize('task',previous?.payload||{}).assignee) await validatePeople(env,user,p.assignee?[p.assignee]:[]);
+    }
+  }
+  const now=Date.now();
+  if(op.kind==='task') {
+    const old=normalize('task',previous?.payload||{});
+    if(p.assignee && p.status==='DONE' && old.status!=='DONE') requireValue(user.role==='manager' && old.status==='REVIEW','انجام مصوبهٔ واگذارشده باید ابتدا گزارش و سپس توسط رئیس تأیید شود.');
+    if(user.role!=='manager' && p.assignee) requireValue(p.status!=='DONE' || old.status==='DONE','تأیید نهایی فقط با رئیس است.');
+    p.submitted=p.status==='REVIEW'?(old.status==='REVIEW'?old.submitted:now):old.submitted||0;
+    p.approved=p.status==='DONE'?(old.status==='DONE'?old.approved:now):0;
+    p.approvedBy=p.status==='DONE'?(old.status==='DONE'?old.approvedBy:user.id):null;
+    if(p.assignee!==old.assignee) {requireValue(['WAITING','ACTIVE'].includes(p.status),'برای تغییر مسئول، وضعیت را در انتظار یا در حال انجام بگذارید.');p.submitted=0;p.approved=0;p.approvedBy=null;}
+  }
+  const next=op.baseRevision+1;
+  const result={opId:op.id,ok:true,record:{id:op.recordId,kind:op.kind,revision:next,payload:p,deleted:op.deleted,actor:user.name,changed:now}};
+  const guard=admin(user)?'1':op.kind==='task'?"EXISTS(SELECT 1 FROM records g WHERE g.workspace=? AND g.id=? AND g.deleted=0 AND json_extract(g.payload,'$.assignee')=?)":"EXISTS(SELECT 1 FROM records g WHERE g.workspace=? AND g.id=? AND g.kind='task' AND g.deleted=0 AND json_extract(g.payload,'$.assignee')=?)";
+  const guardArgs=admin(user)?[]:[user.workspace,op.kind==='task'?op.recordId:p.task,user.id];
+  const statements=[
+    env.DB.prepare(`INSERT INTO records(workspace,id,kind,revision,payload,deleted,actor,changed,operation)
+      SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM operations WHERE workspace=? AND id=?) AND ${guard}
+      ON CONFLICT(workspace,id) DO UPDATE SET revision=excluded.revision,payload=excluded.payload,deleted=excluded.deleted,actor=excluded.actor,changed=excluded.changed,operation=excluded.operation
+      WHERE records.revision=? AND records.kind=? AND ?>0`).bind(user.workspace,op.recordId,op.kind,next,JSON.stringify(p),op.deleted?1:0,user.name,now,op.id,user.workspace,op.id,...guardArgs,op.baseRevision,op.kind,op.baseRevision),
+    env.DB.prepare('INSERT OR IGNORE INTO operations(workspace,id,fingerprint,response,user_id) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM records WHERE workspace=? AND id=? AND operation=?)').bind(user.workspace,op.id,fingerprint,JSON.stringify(result),user.id,user.workspace,op.recordId,op.id),
+  ];
+  const committed="EXISTS(SELECT 1 FROM records WHERE workspace=? AND id=? AND operation=?)";
+  if(op.deleted && op.kind==='task') statements.push(env.DB.prepare(`UPDATE records SET revision=revision+1,deleted=1,actor=?,changed=?,operation=? WHERE workspace=? AND kind IN ('followup','history') AND deleted=0 AND json_extract(payload,'$.task')=? AND ${committed}`).bind(user.name,now,op.id+'-cascade',user.workspace,op.recordId,user.workspace,op.recordId,op.id));
+  if(op.deleted && op.kind==='meeting') statements.push(env.DB.prepare(`UPDATE records SET revision=revision+1,payload=json_set(payload,'$.meeting',NULL),actor=?,changed=?,operation=? WHERE workspace=? AND kind='task' AND deleted=0 AND json_extract(payload,'$.meeting')=? AND ${committed}`).bind(user.name,now,op.id+'-detach',user.workspace,op.recordId,user.workspace,op.recordId,op.id));
+  // Durable, transactional outbox: a crash after committing cannot lose the push event.
+  let taskRecord=op.kind==='task'?result.record:['followup','history'].includes(op.kind)?await getRecord(env,user.workspace,p.task):null;
+  const recipients=new Set();
+  const chiefs=await env.DB.prepare("SELECT id FROM users WHERE workspace=? AND active=1 AND COALESCE(access_role,role)='manager'").bind(user.workspace).all();
+  chiefs.results.forEach(x=>recipients.add(x.id));
+  if(op.kind==='meeting') p.attendees.forEach(x=>recipients.add(x));
+  if(taskRecord?.payload.assignee) recipients.add(taskRecord.payload.assignee);
+  recipients.delete(user.id);
+  for(const recipient of recipients) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,op.kind==='meeting'?'meeting':p.status==='REVIEW'?'review':'task',now,user.workspace,op.recordId,op.id));
+  await env.DB.batch(statements);
+  const saved=await env.DB.prepare('SELECT response,user_id,fingerprint FROM operations WHERE workspace=? AND id=?').bind(user.workspace,op.id).first();
+  if(saved) {requireValue(saved.user_id===user.id && saved.fingerprint===fingerprint);return {...JSON.parse(saved.response),record:await projected(env,user,JSON.parse(saved.response).record)};}
+  const latest=await getRecord(env,user.workspace,op.recordId);
+  return {opId:op.id,ok:false,record:latest && await visible(env,user,latest)?await projected(env,user,latest):revoked(op)};
+}
+async function sync(request,env,user,ctx) {
+  const b=await body(request,4*1024*1024);
+  requireValue(b.protocol===2 && Array.isArray(b.operations) && b.operations.length<=20 && Array.isArray(b.inventory) && b.inventory.length<=10000);
+  const inventory=new Map();
+  for(const i of b.inventory) {requireValue(ID.test(i.id) && ['task','meeting','history','followup'].includes(i.kind) && integer(i.revision) && text(i.view,64));inventory.set(i.id,i);}
+  await env.DB.prepare('INSERT INTO organization_settings(workspace,enabled) VALUES(?,1) ON CONFLICT(workspace) DO UPDATE SET enabled=1').bind(user.workspace).run();
+  const results=[];for(const op of b.operations) results.push(await mutate(env,user,op));
+  const rows=await env.DB.prepare(`SELECT * FROM records r WHERE workspace=? ${admin(user)?'':`AND (
+    (r.kind='task' AND json_extract(r.payload,'$.assignee')=?) OR
+    (r.kind='meeting' AND EXISTS(SELECT 1 FROM json_each(json_extract(r.payload,'$.attendees')) a WHERE a.value=?)) OR
+    (r.kind IN ('history','followup') AND EXISTS(SELECT 1 FROM records t WHERE t.workspace=r.workspace AND t.id=json_extract(r.payload,'$.task') AND t.kind='task' AND t.deleted=0 AND json_extract(t.payload,'$.assignee')=?)))`}
+    ORDER BY CASE r.kind WHEN 'meeting' THEN 0 WHEN 'task' THEN 1 ELSE 2 END,r.changed,r.id`).bind(user.workspace,...(admin(user)?[]:[user.id,user.id,user.id])).all();
+  const changes=[],allowed=new Set();
+  const visibleMeetings=new Set(rows.results.filter(r=>r.kind==='meeting' && !r.deleted).map(r=>r.id));
+  for(const row of rows.results) {
+    allowed.add(row.id);const known=inventory.get(row.id);
+    if(row.deleted && !known) continue;
+    const r=await projected(env,user,record(row),visibleMeetings);
+    if(!known || known.revision!==r.revision || known.view!==r.view) changes.push(r);
+  }
+  // Return only generic revocations for IDs the caller already knows. Never historical private payloads.
+  for(const [id,i] of inventory) if(!allowed.has(id)) changes.unshift(revoked({recordId:id,kind:i.kind,baseRevision:i.revision}));
+  ctx?.waitUntil(flushPush(env));
+  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),userId:user.id,role:user.role,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+}
+async function accounts(request,env,user) {
+  if(!admin(user)) throw new ApiError(403,'مدیریت حساب‌ها فقط برای رئیس و دستیار است.');
+  const b=await body(request);
+  if(b.action==='list') return json({users:await people(env,user)});
+  requireValue(['create','update','reset'].includes(b.action) && ID.test(b.id));
+  const previous=await env.DB.prepare('SELECT * FROM users WHERE workspace=? AND id=?').bind(user.workspace,b.id).first();
+  const statements=[];let password;
+  if(b.action==='create') {
+    requireValue(!previous && text(b.name,200,true) && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(b.username) && b.role==='deputy','نام، نام کاربری یکتا و نقش معاون را مشخص کنید.');
+    requireValue(text(b.password,256,true) && b.password.length>=12,'رمز باید حداقل ۱۲ نویسه باشد.');
+    const salt=hex(crypto.getRandomValues(new Uint8Array(16)));password=b.password;
+    const existing=await env.DB.prepare('SELECT 1 FROM users WHERE username=?').bind(b.username).first();requireValue(!existing,'این نام کاربری قبلاً استفاده شده است.');
+    statements.push(env.DB.prepare("INSERT INTO users(id,workspace,username,name,role,access_role,salt,password_hash,iterations) VALUES(?,?,?,?,'assistant','deputy',?,?,100000)").bind(b.id,user.workspace,b.username,b.name.trim(),salt,await passwordHash(password,salt)));
+    statements.push(env.DB.prepare('INSERT INTO organization_settings(workspace,enabled) VALUES(?,1) ON CONFLICT(workspace) DO UPDATE SET enabled=1').bind(user.workspace));
+  } else {
+    requireValue(previous,'حساب پیدا نشد.');
+    if(b.action==='update') {
+      requireValue(text(b.name,200,true) && typeof b.active==='boolean');
+      requireValue(previous.id!==user.id || b.active,'نمی‌توانید حساب خودتان را غیرفعال کنید.');
+      if((previous.access_role||previous.role)==='manager' && !b.active) {
+        const count=await env.DB.prepare("SELECT count(*) AS n FROM users WHERE workspace=? AND active=1 AND COALESCE(access_role,role)='manager'").bind(user.workspace).first();requireValue(count.n>1,'حداقل یک حساب رئیس باید فعال بماند.');
+      }
+      statements.push(env.DB.prepare('UPDATE users SET name=?,active=? WHERE workspace=? AND id=?').bind(b.name.trim(),b.active?1:0,user.workspace,b.id));
+      if(!b.active) statements.push(env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(b.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(b.id));
+    } else {
+      requireValue(text(b.password,256,true) && b.password.length>=12,'رمز باید حداقل ۱۲ نویسه باشد.');password=b.password;
+      const salt=hex(crypto.getRandomValues(new Uint8Array(16)));
+      statements.push(env.DB.prepare('UPDATE users SET salt=?,password_hash=?,iterations=100000 WHERE workspace=? AND id=?').bind(salt,await passwordHash(password,salt),user.workspace,b.id),env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(b.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(b.id));
+    }
+  }
+  statements.push(env.DB.prepare('INSERT INTO account_audit VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),user.workspace,user.id,b.id,b.action,Date.now()));
+  await env.DB.batch(statements);return json({ok:true,users:await people(env,user)});
+}
+export async function flushPush(env) {
+  if(!env.FCM_SERVICE_ACCOUNT) return;
+  const rows=await env.DB.prepare('SELECT * FROM push_outbox WHERE next_attempt<=? ORDER BY created LIMIT 30').bind(Date.now()).all();
+  for(const item of rows.results) {
+    const user=await env.DB.prepare('SELECT id,workspace,COALESCE(access_role,role) AS role,active FROM users WHERE id=?').bind(item.user_id).first();
+    const r=await getRecord(env,item.workspace,item.record_id);
+    if(!user?.active || !r || r.deleted || !await visible(env,user,r)) {await env.DB.prepare('DELETE FROM push_outbox WHERE id=?').bind(item.id).run();continue;}
+    const devices=await env.DB.prepare('SELECT d.token FROM push_devices d JOIN sessions s ON s.token_hash=d.session_hash WHERE d.user_id=? AND d.enabled=1 AND s.expires>?').bind(user.id,Date.now()).all();
+    let retry=false;
+    for(const device of devices.results) {
+      try {const status=await sendPush(env,device.token,{userId:user.id,eventId:item.id,recordId:item.record_id,kind:item.kind});if(status==='invalid') await env.DB.prepare('DELETE FROM push_devices WHERE token=?').bind(device.token).run();else if(status!=='ok') retry=true;}
+      catch {retry=true;}
+    }
+    if(retry && item.attempts<8) await env.DB.prepare('UPDATE push_outbox SET attempts=attempts+1,next_attempt=? WHERE id=?').bind(Date.now()+Math.min(3600000,30000*2**item.attempts),item.id).run();
+    else await env.DB.prepare('DELETE FROM push_outbox WHERE id=?').bind(item.id).run();
+  }
+}
+export async function organizationRoute(request,env,ctx) {
+  const path=new URL(request.url).pathname;
+  requireValue(request.method==='POST');
+  if(path==='/v2/login') return login(request,env);
+  const user=await authenticate(request,env);
+  if(path==='/v2/sync') return sync(request,env,user,ctx);
+  if(path==='/v2/users') return accounts(request,env,user);
+  if(path==='/v2/config') return json({firebase:env.FCM_PUBLIC_JSON?JSON.parse(env.FCM_PUBLIC_JSON):null,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+  if(path==='/v2/device') {
+    const b=await body(request);requireValue(text(b.token,4096,true) && typeof b.enabled==='boolean');
+    await env.DB.prepare('INSERT INTO push_devices(token,user_id,session_hash,enabled,updated) VALUES(?,?,?,?,?) ON CONFLICT(token) DO UPDATE SET user_id=excluded.user_id,session_hash=excluded.session_hash,enabled=excluded.enabled,updated=excluded.updated').bind(b.token,user.id,user.tokenHash,b.enabled?1:0,Date.now()).run();return json({ok:true});
+  }
+  throw new ApiError(404,'مسیر پیدا نشد.');
+}

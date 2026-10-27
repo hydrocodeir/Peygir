@@ -30,16 +30,16 @@ private val PeygirTypography = with(BaseTypography) {
         displaySmall = displaySmall.copy(fontFamily = PersianFont, letterSpacing = 0.sp),
         headlineLarge = headlineLarge.copy(fontFamily = PersianFont, lineHeight = 48.sp, letterSpacing = 0.sp),
         headlineMedium = headlineMedium.copy(fontFamily = PersianFont, lineHeight = 44.sp, letterSpacing = 0.sp),
-        headlineSmall = headlineSmall.copy(fontFamily = PersianFont, lineHeight = 38.sp, letterSpacing = 0.sp),
-        titleLarge = titleLarge.copy(fontFamily = PersianFont, lineHeight = 34.sp, letterSpacing = 0.sp),
+        headlineSmall = headlineSmall.copy(fontFamily = PersianFont, fontSize = 22.sp, lineHeight = 32.sp, letterSpacing = 0.sp),
+        titleLarge = titleLarge.copy(fontFamily = PersianFont, fontSize = 20.sp, lineHeight = 30.sp, letterSpacing = 0.sp),
         titleMedium = titleMedium.copy(fontFamily = PersianFont, lineHeight = 28.sp, letterSpacing = 0.sp),
         titleSmall = titleSmall.copy(fontFamily = PersianFont, lineHeight = 24.sp, letterSpacing = 0.sp),
         bodyLarge = bodyLarge.copy(fontFamily = PersianFont, lineHeight = 30.sp, letterSpacing = 0.sp),
-        bodyMedium = bodyMedium.copy(fontFamily = PersianFont, lineHeight = 26.sp, letterSpacing = 0.sp),
-        bodySmall = bodySmall.copy(fontFamily = PersianFont, lineHeight = 22.sp, letterSpacing = 0.sp),
+        bodyMedium = bodyMedium.copy(fontFamily = PersianFont, fontSize = 15.sp, lineHeight = 24.sp, letterSpacing = 0.sp),
+        bodySmall = bodySmall.copy(fontFamily = PersianFont, fontSize = 13.sp, lineHeight = 20.sp, letterSpacing = 0.sp),
         labelLarge = labelLarge.copy(fontFamily = PersianFont, lineHeight = 24.sp, letterSpacing = 0.sp),
         labelMedium = labelMedium.copy(fontFamily = PersianFont, lineHeight = 22.sp, letterSpacing = 0.sp),
-        labelSmall = labelSmall.copy(fontFamily = PersianFont, lineHeight = 20.sp, letterSpacing = 0.sp)
+        labelSmall = labelSmall.copy(fontFamily = PersianFont, fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.sp)
     )
 }
 

@@ -35,6 +35,6 @@ class VoiceInputFlowTest {
         compose.onNodeWithText("بازبینی متن گفتار").performScrollTo().performClick()
         compose.onNodeWithText("اعمال متن گفتار").performScrollTo().performClick()
         compose.onNodeWithText("عنوان مصوبه *").assertTextContains("تهیه گزارش فروش")
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.now().plusDays(1))}").assertExists()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.now().plusDays(1))}").assertExists()
     }
 }

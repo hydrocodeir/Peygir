@@ -27,6 +27,7 @@ import java.time.ZoneId
     var notes by remember {mutableStateOf(emptyList<SharedStore.Conflict>())}
     var error by remember {mutableStateOf("")};var last by remember {mutableLongStateOf(0)}
     var alerts by remember {mutableStateOf(true)};var login by remember {mutableStateOf(false)}
+    var logout by remember {mutableStateOf(false)}
     var working by remember {mutableStateOf(false)};var detach by remember {mutableStateOf(false)}
     fun refresh() {SharedSync.revision.value++}
     LaunchedEffect(revision) {
@@ -37,23 +38,25 @@ import java.time.ZoneId
         }
     }
     OutlinedCard(Modifier.fillMaxWidth().testTag("shared_panel")) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        Text("فضای مشترک با مدیر",style=MaterialTheme.typography.titleMedium)
+        Text("فضای سازمانی شرکت",style=MaterialTheme.typography.titleMedium)
         if(session==null) {
             Text("شما ثبت کنید؛ مدیر در گوشی خودش ببیند و نتیجهٔ پیگیری را ثبت کند.",style=MaterialTheme.typography.bodySmall)
             FilledTonalButton(onClick={login=true},enabled=!working,modifier=Modifier.fillMaxWidth()){Text("ورود به فضای مشترک")}
             if(binding.isNotEmpty()) TextButton(onClick={detach=true},enabled=!working){Text("جدا کردن اتصال قبلی از این گوشی")}
         } else {
-            Text("${session!!.workspaceName} • ${session!!.name} (${if(session!!.role=="manager") "مدیر" else "دستیار"})",style=MaterialTheme.typography.bodyMedium)
-            Text(if(syncing) "در حال همگام‌سازی…" else if(counts.first>0) "${counts.first.fa()} تغییر در انتظار ارسال" else "تغییر ارسال‌نشده‌ای ندارید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)
-            if(last>0) {val at=Instant.ofEpochMilli(last).atZone(ZoneId.systemDefault());Text("آخرین همگام‌سازی: ${Solar.label(at.toLocalDate())} • ${at.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.labelSmall)}
+            Text("${session!!.workspaceName} - ${session!!.name} (${when(session!!.role){"manager"->"رئیس";"deputy"->"معاون";else->"دستیار"}})",style=MaterialTheme.typography.bodyMedium)
+            if(!syncing && counts.first>0) CountLabel("تغییرات در انتظار ارسال",counts.first,color=MaterialTheme.colorScheme.primary)
+            else Text(if(syncing) "در حال همگام‌سازی…" else "تغییر ارسال‌نشده‌ای ندارید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)
+            if(last>0) {val at=Instant.ofEpochMilli(last).atZone(ZoneId.systemDefault());Text("آخرین همگام‌سازی: ${Solar.label(at.toLocalDate())} - ${at.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.labelSmall)}
             if(error.isNotBlank()) Text(error,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
+            Text("اعلان فوری: ${PushRegistration.status(context)}",style=MaterialTheme.typography.bodySmall)
             Row {OutlinedButton(onClick={SharedSync.request(context)},enabled=!working && !syncing){Text("همگام‌سازی اکنون")};TextButton(onClick={login=true},enabled=!working && !syncing){Text("ورود دوباره")}}
-            Row {Text("یادآوری در این گوشی",Modifier.weight(1f));Switch(alerts,{value->alerts=value;SharedCredentials(context).alerts(value);if(!value) context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Reminders.background{Reminders.process(context)}},enabled=!working)}
-            TextButton(onClick={scope.launch {working=true;try {withContext(Dispatchers.IO){SharedSync.disconnect(context)};session=null;refresh()} finally {working=false}}},enabled=!working && !syncing){Text("خروج از حساب")}
+            Row {Text("یادآوری در این گوشی",Modifier.weight(1f));Switch(alerts,{value->alerts=value;SharedCredentials(context).alerts(value);SharedSync.request(context);if(!value) context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Reminders.background{Reminders.process(context)}},enabled=!working)}
+            TextButton(onClick={logout=true},enabled=!working && !syncing){Text("خروج از حساب")}
         }
-        Text("اطلاعات دریافت‌شده آفلاین در دسترس‌اند. با اپ باز، همگام‌سازی هنگام ثبت و حدود هر ۳۰ ثانیه بررسی می‌شود؛ در پس‌زمینه حدود هر ۱۵ دقیقه و با توجه به محدودیت‌های اندروید. اعلان فوریِ ورود مصوبه در این نسخه وجود ندارد.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("اطلاعات دریافت‌شده آفلاین در دسترس‌اند. با اپ باز، همگام‌سازی هنگام ثبت و حدود هر ۳۰ ثانیه بررسی می‌شود؛ در پس‌زمینه حدود هر ۱۵ دقیقه و با توجه به محدودیت‌های اندروید. اعلان فوری پس از راه‌اندازی Firebase و اجازهٔ اعلان فعال می‌شود.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         if(notes.isNotEmpty()) {
-            HorizontalDivider();Text("${notes.size.fa()} تغییر هم‌زمان نیاز به انتخاب دارد",color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.titleSmall)
+            HorizontalDivider();CountLabel("تغییرات هم‌زمان نیازمند انتخاب",notes.size,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.titleSmall)
             notes.take(10).forEach {conflict->
                 Text(conflict.title,style=MaterialTheme.typography.titleSmall)
                 if(conflict.remote.optString("reason")=="parent_deleted") Text("جلسه یا مصوبهٔ مرتبط حذف شده است؛ برای حفظ این مورد، ابتدا مورد اصلی را بازیابی کنید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
@@ -65,6 +68,7 @@ import java.time.ZoneId
             }
         }
     }}
+    if(logout) AlertDialog(onDismissRequest={logout=false},title={Text("خروج از حساب شرکت؟")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(counts.first>0) CountLabel("تغییرات ارسال‌نشده",counts.first);Text(if(counts.first>0) "ابتدا همگام‌سازی کنید. خروج، نسخهٔ اطلاعات شرکت را از این گوشی پاک می‌کند." else "نسخهٔ اطلاعات شرکت از این گوشی پاک می‌شود و پس از ورود دوباره دریافت خواهد شد. اطلاعات سرور حفظ می‌شود.")}},confirmButton={TextButton(onClick={scope.launch{working=true;try{withContext(Dispatchers.IO){SharedSync.disconnect(context)};session=null;logout=false;refresh()}finally{working=false}}},enabled=!working && counts.first==0){Text("خروج")}},dismissButton={TextButton(onClick={logout=false}){Text("انصراف")}})
     if(login) SharedLoginDialog({login=false},{s->session=s;login=false;refresh();SharedSync.request(context)})
     if(detach) AlertDialog(onDismissRequest={if(!working) detach=false},title={Text("جدا کردن فضای مشترک؟")},text={Text("اطلاعات فعلی روی این گوشی می‌ماند و دیگر به فضای مشترک ارسال نمی‌شود. این کار اطلاعات گوشی مدیر را حذف نمی‌کند. برای اتصال به فضای دیگری، ابتدا از اطلاعات فعلی پشتیبان بگیرید.")},confirmButton={TextButton(onClick={scope.launch {working=true;try {withContext(Dispatchers.IO){SharedSync.disconnect(context,true)};detach=false;refresh()} finally {working=false}}},enabled=!working){Text("جدا کردن")}},dismissButton={TextButton(onClick={detach=false},enabled=!working){Text("انصراف")}})
 }
@@ -74,11 +78,11 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
     listOf("title","owner","text","description","notes","reason").forEach {key->p.optString(key).takeIf{it.isNotBlank()}?.let{parts+=it.take(300)}}
     p.optString("status").takeIf{it.isNotBlank()}?.let{value->parts+=runCatching{Status.valueOf(value).label}.getOrDefault(value)}
     if(p.has("due")) parts+=Solar.label(java.time.LocalDate.ofEpochDay(p.getLong("due")))
-    return parts.joinToString(" • ")
+    return parts.joinToString(" - ")
 }
-@Composable private fun SharedLoginDialog(dismiss: ()->Unit,connected: (SharedSession)->Unit) {
+@Composable internal fun SharedLoginDialog(dismiss: ()->Unit,connected: (SharedSession)->Unit,onboarding: Boolean=false) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
-    var endpoint by remember {mutableStateOf(BuildConfig.SYNC_URL)};var username by remember{mutableStateOf("assistant")};var password by remember{mutableStateOf("")}
+    var endpoint by remember {mutableStateOf(BuildConfig.SYNC_URL)};var username by remember{mutableStateOf(if(onboarding) "" else "assistant")};var password by remember{mutableStateOf("")}
     var working by remember {mutableStateOf(false)};var error by remember {mutableStateOf("")};var pending by remember {mutableStateOf<SharedSession?>(null)}
     var existing by remember {mutableIntStateOf(0)}
     fun connect(s: SharedSession) {scope.launch {working=true;try {withContext(Dispatchers.IO){SharedSync.connect(context,s)};password="";connected(s)} catch(e:Exception){error=e.message ?: "اتصال ناموفق بود."} finally {working=false}}}
@@ -95,18 +99,18 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
         }
     }
     FullEditor(if(pending==null) "ورود به فضای مشترک" else "اشتراک اطلاعات این گوشی",working,dismiss,submit,
-        canSave=pending!=null || (endpoint.isNotBlank() && username.isNotBlank() && password.isNotBlank()),feedback=error,saveLabel=if(pending==null) "ورود" else "اتصال") {
+        canSave=pending!=null || (endpoint.isNotBlank() && username.isNotBlank() && password.isNotBlank()),feedback=error,saveLabel=if(pending==null) "ورود" else "اتصال",dismissible=!onboarding) {
         if(pending==null) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 OutlinedTextField(endpoint,{endpoint=it},label={Text("نشانی سرویس")},singleLine=true,modifier=Modifier.fillMaxWidth(),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Uri))
             }
-            Row {FilterChip(username=="assistant",{username="assistant"},label={Text("دستیار")});Spacer(Modifier.width(8.dp));FilterChip(username=="manager",{username="manager"},label={Text("مدیر")})}
+            if(!onboarding) Row {FilterChip(username=="assistant",{username="assistant"},label={Text("دستیار")});Spacer(Modifier.width(8.dp));FilterChip(username=="manager",{username="manager"},label={Text("مدیر")})}
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 OutlinedTextField(username,{username=it},label={Text("نام کاربری")},singleLine=true,modifier=Modifier.fillMaxWidth(),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Ascii))
                 OutlinedTextField(password,{password=it},label={Text("رمز ورود")},singleLine=true,modifier=Modifier.fillMaxWidth(),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),visualTransformation=PasswordVisualTransformation())
             }
             Text("حساب‌ها را راه‌انداز سرویس در اختیار شما می‌گذارد. رمز فقط برای ورود استفاده می‌شود و در گوشی ذخیره نمی‌شود.",style=MaterialTheme.typography.bodySmall)
-        } else Text("${existing.fa()} جلسه و مصوبهٔ فعلی این گوشی به فضای مشترک «${pending!!.workspaceName}» افزوده می‌شود و برای هر دو حساب قابل مشاهده خواهد بود. اطلاعات قبلی جایگزین نمی‌شود. ادامه می‌دهید؟")
+        } else {CountLabel("جلسات و مصوبات این گوشی",existing);Text("اطلاعات فعلی این گوشی به فضای مشترک «${pending!!.workspaceName}» افزوده می‌شود و برای رئیس و دستیار قابل مشاهده خواهد بود. اطلاعات قبلی جایگزین نمی‌شود. ادامه می‌دهید؟")}
         if(working) LinearProgressIndicator(Modifier.fillMaxWidth())
     }
 }

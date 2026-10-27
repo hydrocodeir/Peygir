@@ -19,12 +19,12 @@ class ReviewDaysTest {
         assertEquals(listOf(1L),ReviewDays.forDay(data,day,true,zone).tasks.map{it.id})
         assertEquals(listOf(2L),ReviewDays.forDay(data,day-1,true,zone).tasks.map{it.id})
     }
-    @Test fun meetingsAndRecordingsAppearOnTheirOwnDaysWithoutTruncatingLargeLists() {
+    @Test fun reviewContainsOnlyResolutionsEvenWhenMeetingsAndRecordingsExist() {
         val midnight=LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()
         val data=Snapshot(meetings=listOf(Meeting(id=1,date=day),Meeting(id=2,date=day-1)),tasks=(1..2000).map{Resolution(id=it.toLong(),due=day)},recordings=listOf(Recording(id=1,path="a.wav",created=midnight,seconds=2),Recording(id=2,path="b.wav",created=midnight-1,seconds=2)))
         val review=ReviewDays.forDay(data,day,false,zone)
         assertEquals(2000,review.tasks.size)
-        assertEquals(listOf(1L),review.meetings.map{it.id})
-        assertEquals(listOf(1L),review.recordings.map{it.id})
+        assertTrue(review.meetings.isEmpty())
+        assertTrue(review.recordings.isEmpty())
     }
 }

@@ -36,6 +36,15 @@ internal class SharedStore(private val store: Store) {
     data class Conflict(val kind: String,val localId: Long,val title: String,val local: JSONObject?,val remote: JSONObject)
     private val tables=linkedMapOf("meeting" to "meetings","task" to "tasks","followup" to "follow_ups","history" to "due_changes")
     fun binding()=store.syncDb{db->meta(db,"binding")}
+    fun receiveDirectory(a: JSONArray)=Organization.receiveUsers(store,a)
+    fun inventory()=store.syncDb {db->JSONArray().also {a->db.rawQuery("SELECT kind,remote_id,revision,view FROM sync_objects WHERE revision>0",null).use {c->while(c.moveToNext()) a.put(JSONObject().put("kind",c.getString(0)).put("id",c.getString(1)).put("revision",c.getLong(2)).put("view",c.getString(3)))}}}
+    fun remoteLocalId(remote: String): Pair<String,Long>?=store.syncDb{db->db.rawQuery("SELECT kind,local_id FROM sync_objects WHERE remote_id=? AND deleted=0",arrayOf(remote)).use{if(it.moveToFirst()) it.getString(0) to it.getLong(1) else null}}
+    fun principal()=store.syncDb{meta(it,"principal")}
+    fun principal(value: String)=store.syncDb{setMeta(it,"principal",value)}
+    fun clearScopedData()=store.syncDb {db->transaction(db) {
+        listOf("recordings","backlog","notification_tokens","follow_ups","due_changes","reminders","tasks","meetings","sync_dirty","sync_objects").forEach{db.delete(it,null,null)}
+        db.delete("sync_meta","key IN ('directory','principal')",null)
+    }}
     fun cursor()=store.syncDb{db->meta(db,"cursor").toLongOrNull() ?: 0L}
     fun cursor(value: Long)=store.syncDb{db->setMeta(db,"cursor",value.toString())}
     fun counts()=store.syncDb{db->db.rawQuery("SELECT (SELECT count(*) FROM sync_dirty),(SELECT count(*) FROM sync_objects WHERE conflict IS NOT NULL)",null).use{it.moveToFirst();it.getInt(0) to it.getInt(1)}}
@@ -62,12 +71,12 @@ internal class SharedStore(private val store: Store) {
             fun num(key: String)=c.getLong(c.getColumnIndexOrThrow(key))
             val p=JSONObject()
             when(kind) {
-                "meeting"->{p.put("title",str("title"));p.put("date",num("date"));p.put("notes",str("notes"))}
+                "meeting"->{p.put("title",str("title"));p.put("date",num("date"));p.put("notes",str("notes"));p.put("start",if(c.isNull(c.getColumnIndexOrThrow("start"))) JSONObject.NULL else num("start"));p.put("end",if(c.isNull(c.getColumnIndexOrThrow("end"))) JSONObject.NULL else num("end"));p.put("location",str("location"));p.put("attendees",JSONArray(str("attendees")));p.put("repeat",str("repeat_rule"));p.put("until",if(c.isNull(c.getColumnIndexOrThrow("repeat_until"))) JSONObject.NULL else num("repeat_until"));p.put("series",str("series") ?: JSONObject.NULL)}
                 "task"->{
                     listOf("title","description","owner","priority","status").forEach {p.put(it,str(it))};p.put("due",num("due"))
                     p.put("meeting",if(c.isNull(c.getColumnIndexOrThrow("meeting_id"))) JSONObject.NULL else identity(db,"meeting",num("meeting_id")))
                     val times=db.rawQuery("SELECT at FROM reminders WHERE task_id=? ORDER BY at",arrayOf(id.toString())).use{r->JSONArray().also {a->while(r.moveToNext()) a.put(r.getLong(0))}}
-                    p.put("reminders",times)
+                    p.put("reminders",times);p.put("assignee",str("assignee") ?: JSONObject.NULL);p.put("submitted",num("submitted"));p.put("approved",num("approved"));p.put("approvedBy",str("approved_by") ?: JSONObject.NULL)
                 }
                 "followup"->{p.put("task",identity(db,"task",num("task_id")));p.put("text",str("text"));p.put("created",num("created"))}
                 "history"->{p.put("task",identity(db,"task",num("task_id")));p.put("old",num("old_due"));p.put("new",num("new_due"));p.put("changed",num("changed_at"));p.put("kind",str("kind"));p.put("reason",str("reason"))}
@@ -86,7 +95,10 @@ internal class SharedStore(private val store: Store) {
             if(data==null && state.first==0L) {db.delete("sync_dirty","kind=? AND local_id=?",arrayOf(kind,id.toString()));null}
             else {
                 val deleted=data==null
-                val value=row[5] as String? ?: (data ?: JSONObject(state.second)).toString()
+                val raw=data ?: JSONObject(state.second)
+                if(kind=="meeting" && !raw.has("attendees")) raw.meetingOrganization(Meeting())
+                if(kind=="task" && !raw.has("assignee")) raw.taskOrganization(Resolution())
+                val value=row[5] as String? ?: raw.toString()
                 val op=row[4] as String? ?: UUID.randomUUID().toString()
                 val base=row[6] as Long? ?: state.first
                 db.execSQL("UPDATE sync_dirty SET operation=?,payload=?,base_revision=? WHERE kind=? AND local_id=? AND generation=?",arrayOf<Any>(op,value,base,kind,id,generation))
@@ -98,6 +110,17 @@ internal class SharedStore(private val store: Store) {
     private fun receive(db: SQLiteDatabase,r: JSONObject,ack: Pending?,accepted: Boolean) {
         val kind=r.getString("kind");check(kind in tables);val remoteId=r.getString("id");UUID.fromString(remoteId)
         var id=localId(db,kind,remoteId)
+        if(r.optBoolean("revoked")) {
+            if(id!=null) {
+                apply(db,kind,id,r)
+                db.delete("sync_dirty","kind=? AND local_id=?",arrayOf(kind,id.toString()))
+                db.delete("sync_objects","kind=? AND local_id=?",arrayOf(kind,id.toString()))
+                // Child identities cannot keep any pending content after access to their parent is withdrawn.
+                db.execSQL("DELETE FROM sync_objects WHERE kind='followup' AND local_id NOT IN(SELECT id FROM follow_ups)")
+                db.execSQL("DELETE FROM sync_objects WHERE kind='history' AND local_id NOT IN(SELECT id FROM due_changes)")
+            }
+            return
+        }
         if(id==null && r.getBoolean("deleted")) return
         if(id==null) {
             id=write(db,kind,null,r.getJSONObject("payload")) ?: return
@@ -105,9 +128,10 @@ internal class SharedStore(private val store: Store) {
         }
         val local=id
         val old=db.rawQuery("SELECT revision,payload,deleted FROM sync_objects WHERE kind=? AND local_id=?",arrayOf(kind,local.toString())).use{it.moveToFirst();Triple(it.getLong(0),JSONObject(it.getString(1)),it.getInt(2)==1)}
-        if(r.getLong("revision")<=old.first && r.optString("reason")!="parent_deleted") return
+        val oldView=db.rawQuery("SELECT view FROM sync_objects WHERE kind=? AND local_id=?",arrayOf(kind,local.toString())).use{it.moveToFirst();it.getString(0)}
+        if(r.getLong("revision")<=old.first && (!r.has("view") || r.optString("view")==oldView) && r.optString("reason")!="parent_deleted") return
         val dirty=db.rawQuery("SELECT generation,deleted FROM sync_dirty WHERE kind=? AND local_id=?",arrayOf(kind,local.toString())).use{if(it.moveToFirst()) it.getLong(0) to (it.getInt(1)==1) else null}
-        fun baseline() {db.execSQL("UPDATE sync_objects SET revision=?,payload=?,deleted=?,conflict=NULL WHERE kind=? AND local_id=?",arrayOf(r.getLong("revision"),r.getJSONObject("payload").toString(),if(r.getBoolean("deleted")) 1 else 0,kind,local))}
+        fun baseline() {db.execSQL("UPDATE sync_objects SET revision=?,payload=?,deleted=?,view=?,conflict=NULL WHERE kind=? AND local_id=?",arrayOf(r.getLong("revision"),r.getJSONObject("payload").toString(),if(r.getBoolean("deleted")) 1 else 0,r.optString("view"),kind,local))}
         if(accepted && ack!=null && dirty!=null && dirty.first!=ack.generation) {baseline();return}
         val current=payload(db,kind,local)
         val dependentDirty=kind=="task" && db.rawQuery("SELECT 1 FROM sync_dirty d WHERE (d.kind='followup' AND d.local_id IN(SELECT id FROM follow_ups WHERE task_id=?)) OR (d.kind='history' AND d.local_id IN(SELECT id FROM due_changes WHERE task_id=?)) LIMIT 1",arrayOf(local.toString(),local.toString())).use{it.moveToFirst()}
@@ -140,9 +164,9 @@ internal class SharedStore(private val store: Store) {
         val previousDue=if(kind=="task" && id!=null) db.rawQuery("SELECT due FROM tasks WHERE id=?",arrayOf(id.toString())).use{if(it.moveToFirst()) it.getLong(0) else null} else null
         val v=ContentValues()
         when(kind) {
-            "meeting"->{v.put("title",p.getString("title"));v.put("date",p.getLong("date"));v.put("notes",p.getString("notes"))}
+            "meeting"->{v.put("title",p.getString("title"));v.put("date",p.getLong("date"));v.put("notes",p.getString("notes"));v.meetingOrganization(Meeting().fromOrganization(p))}
             "task"->{
-                listOf("title","description","owner","priority","status").forEach{v.put(it,p.getString(it))};Priority.valueOf(p.getString("priority"));Status.valueOf(p.getString("status"));v.put("due",p.getLong("due"))
+                listOf("title","description","owner","priority","status").forEach{v.put(it,p.getString(it))};Priority.valueOf(p.getString("priority"));Status.valueOf(p.getString("status"));v.put("due",p.getLong("due"));v.taskOrganization(Resolution().fromOrganization(p))
                 val meeting=if(p.isNull("meeting")) null else localId(db,"meeting",p.getString("meeting"))?.takeIf{exists(db,"meeting",it)}
                 v.put("meeting_id",meeting)
             }

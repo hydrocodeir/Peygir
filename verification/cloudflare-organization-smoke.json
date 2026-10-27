@@ -1,0 +1,19 @@
+{
+  "endpoint": "https://peygir-sync-013352.shirazipooya.workers.dev",
+  "version": "3.1.0",
+  "protocol": 2,
+  "authenticatedAccounts": 2,
+  "cloudflareLiveTested": true,
+  "mandatoryMeetingTimesEnforced": true,
+  "accountAssignmentShared": true,
+  "chiefReviewApprovalTested": true,
+  "assistantApprovalRejected": true,
+  "retryIdempotent": true,
+  "pushConfigurationAvailable": true,
+  "syntheticRecordsTombstoned": true,
+  "testSessionsRevoked": true,
+  "deputyIsolationTestedInLocalWorkersRuntime": true,
+  "deputyIsolationTestedOnLiveService": false,
+  "fcmOAuthVerified": true,
+  "realDeviceDeliveryTested": false
+}

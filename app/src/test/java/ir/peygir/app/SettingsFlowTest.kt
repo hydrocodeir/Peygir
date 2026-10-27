@@ -29,16 +29,19 @@ class SettingsFlowTest {
     }
     @After fun cleanup() {store.close()}
     private fun openSettings() {
-        compose.setContent {PeygirApp()}
+        compose.setContent {PeygirApp(initialSection=0)}
         compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("تنظیمات").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithContentDescription("تنظیمات").performClick()
-        compose.waitUntil(15000) {compose.onAllNodesWithText("مرور روزانهٔ مدیریتی").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(15000) {compose.onAllNodesWithTag("settings_notifications").fetchSemanticsNodes().isNotEmpty()}
     }
     @Test fun dynamicPaletteIsSavedAndBackupExportUsesSystemDocumentPicker() {
         openSettings()
-        compose.onNodeWithText("ساعت مرور | ۰۸:۰۰").performScrollTo().assertExists()
+        compose.onNodeWithTag("settings_notifications").performClick()
+        compose.onNodeWithText("ساعت مرور - ۰۸:۰۰").performScrollTo().assertExists()
+        compose.onNodeWithTag("settings_appearance").performScrollTo().performClick()
         compose.onNodeWithTag("dynamic_colors").performScrollTo().performClick().assertIsOn()
         assertTrue(compose.activity.getSharedPreferences("settings",0).getBoolean("dynamic_colors",false))
+        compose.onNodeWithTag("settings_backup").performScrollTo().performClick()
         compose.onNodeWithText("ذخیرهٔ فایل پشتیبان").performScrollTo().performClick()
         val request=shadowOf(compose.activity).nextStartedActivityForResult
         assertEquals(Intent.ACTION_CREATE_DOCUMENT,request.intent.action);assertEquals("application/zip",request.intent.type)
@@ -55,6 +58,7 @@ class SettingsFlowTest {
         store.saveTask(Resolution(title="دادهٔ فعلی",owner="رضایی"),emptyList())
         context.getSharedPreferences("settings",0).edit().putString("theme","light").putBoolean("dynamic_colors",false).commit()
         openSettings()
+        compose.onNodeWithTag("settings_backup").performScrollTo().performClick()
         fun selectBackup() {
             compose.onNodeWithText("بازیابی از فایل پشتیبان").performScrollTo().performClick()
             val request=shadowOf(compose.activity).nextStartedActivityForResult
@@ -66,6 +70,7 @@ class SettingsFlowTest {
         compose.onNodeWithText("انصراف").performClick();assertEquals("دادهٔ فعلی",store.snapshot().tasks.single().title)
         selectBackup();compose.onNodeWithText("بازیابی و جایگزینی").performClick()
         compose.waitUntil(15000) {store.snapshot().tasks.single().title=="از پشتیبان" && compose.onAllNodesWithText("بازیابی و جایگزینی").fetchSemanticsNodes().isEmpty()}
+        compose.onNodeWithTag("settings_appearance").performScrollTo().performClick()
         compose.onNodeWithTag("dynamic_colors").performScrollTo().assertIsOn()
         assertEquals("dark",context.getSharedPreferences("settings",0).getString("theme",null))
     }

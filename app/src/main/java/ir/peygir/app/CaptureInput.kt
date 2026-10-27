@@ -34,6 +34,7 @@ import java.io.File
     var applyRevision by rememberSaveable {mutableIntStateOf(0)}
     var showText by rememberSaveable {mutableStateOf(false)}
     var archive by rememberSaveable {mutableStateOf(false)}
+    var help by rememberSaveable {mutableStateOf(false)}
     var archiveLimit by rememberSaveable {mutableIntStateOf(10)}
     var selected by rememberSaveable {mutableStateOf("")}
     var work by remember {mutableStateOf("")}
@@ -116,18 +117,18 @@ import java.io.File
         }
         if(mode=="voice") {
             Text("بگویید: «عنوان، تهیه گزارش فروش؛ مسئول، آقای احمدی»",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary)
-            Text("حتماً اول «عنوان» و متن کار، بعد «مسئول» و نام شخص را بگویید. سررسید را خودتان از تقویم انتخاب کنید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick={help=!help}){Text("راهنمای گفتار")}
+            if(help) Text("ابتدا عنوان و متن کار، سپس مسئول و نام شخص را بگویید؛ تاریخ را از تقویم انتخاب کنید. پس از ذخیره، فایل خام حذف و متن حفظ می‌شود.",style=MaterialTheme.typography.bodySmall)
             recordings.find{it.id==recordingId}?.let {r->RecordingCard(r,null,locked,{recognize(it)},{prepare(r.transcript,r.id)},{scope.launch {try {withContext(Dispatchers.IO){Store.get(context).deleteRecording(r.id);File(r.path).delete()};refresh()} catch(_:Exception){message("حذف فایل ناموفق بود.")}}})}
             FilledTonalButton(onClick={if(recording) finishCapture() else if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) startCapture() else microphone.launch(Manifest.permission.RECORD_AUDIO)},enabled=!busy && work.isEmpty(),modifier=Modifier.fillMaxWidth()) {
-                Icon(if(recording) Icons.Outlined.StopCircle else Icons.Outlined.MicNone,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text(if(recording) "پایان ضبط و تبدیل | ${elapsed.fa()} ثانیه" else "ضبط مصوبه")
+                Icon(if(recording) Icons.Outlined.StopCircle else Icons.Outlined.MicNone,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp));Text(if(recording) "پایان ضبط و تبدیل - ${elapsed.fa()} ثانیه" else "ضبط مصوبه")
             }
-            Text("پس از ذخیرهٔ مصوبه، فایل خام این صدا حذف می‌شود؛ متن در مصوبه می‌ماند.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if(work.isNotEmpty()) Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {CircularProgressIndicator(Modifier.size(18.dp),strokeWidth=2.dp);Text(work,style=MaterialTheme.typography.bodySmall)}
         if(feedback.isNotBlank()) Surface(color=MaterialTheme.colorScheme.secondaryContainer,shape=MaterialTheme.shapes.small,modifier=Modifier.fillMaxWidth().testTag("input_feedback")) {Text(feedback,Modifier.padding(12.dp),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSecondaryContainer)}
         if(available.isNotEmpty() && (mode!="voice" || preparedRecording!=null)) {
             Row(verticalAlignment=Alignment.CenterVertically) {
-                Text(if(mode=="voice") "عنوان و مسئول آماده‌اند؛ سررسید را انتخاب و ذخیره کنید." else if(available.size==1) "پیشنهاد آماده است؛ اصلاح و ذخیره کنید." else "${available.size.fa()} پیشنهاد؛ هر مورد را بررسی و ذخیره کنید.",Modifier.weight(1f),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)){if(mode!="voice" && available.size>1) CountLabel("پیشنهادها",available.size);Text(if(mode=="voice") "عنوان و مسئول آماده‌اند؛ سررسید را انتخاب و ذخیره کنید." else if(available.size==1) "پیشنهاد آماده است؛ اصلاح و ذخیره کنید." else "هر مورد را بررسی و ذخیره کنید.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}
                 if(available.size>1) TextButton(onClick={val i=available.indexOfFirst{it.key()==selected};available[(i+1)%available.size].let{selected=it.key();onProposal(it)}}){Text("مورد بعدی")}
             }
         }

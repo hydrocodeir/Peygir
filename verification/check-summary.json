@@ -1,11 +1,15 @@
 {
-  "checkedAtTehran": "2026-10-26T00:02:01.980770+03:30",
-  "tests": 129,
+  "checkedAtTehran": "2026-10-27T21:15:12.663747+03:30",
+  "tests": 9,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
-  "lintWarnings": 42,
+  "lintWarnings": 78,
   "lintWarningIds": [
+    "ApplySharedPref",
+    "ApplySharedPref",
+    "ApplySharedPref",
+    "ApplySharedPref",
     "GradleDependency",
     "GradleDependency",
     "GradleDependency",
@@ -15,6 +19,27 @@
     "GradleDependency",
     "GradleDependency",
     "ObsoleteSdkInt",
+    "DisableBaselineAlignment",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UnusedResources",
+    "UseOfNonLambdaOffsetOverload",
+    "SmallSp",
+    "SmallSp",
     "UseKtx",
     "UseKtx",
     "UseKtx",
@@ -47,80 +72,23 @@
     "UseKtx",
     "UseKtx",
     "UseKtx",
-    "UseKtx"
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "RtlSymmetry",
+    "RtlSymmetry"
   ],
   "suites": [
     {
-      "name": "ir.peygir.app.BackupTest",
-      "tests": 12
-    },
-    {
-      "name": "ir.peygir.app.CoreTest",
-      "tests": 23
-    },
-    {
-      "name": "ir.peygir.app.LegacyStorageTest",
-      "tests": 2
-    },
-    {
-      "name": "ir.peygir.app.MistralOcrTest",
-      "tests": 8
-    },
-    {
-      "name": "ir.peygir.app.NotificationActionsTest",
-      "tests": 8
-    },
-    {
-      "name": "ir.peygir.app.ReviewDaysTest",
-      "tests": 3
-    },
-    {
-      "name": "ir.peygir.app.ReviewNotificationTest",
-      "tests": 5
-    },
-    {
-      "name": "ir.peygir.app.SettingsFlowTest",
-      "tests": 2
-    },
-    {
-      "name": "ir.peygir.app.SharedFlowTest",
-      "tests": 3
-    },
-    {
-      "name": "ir.peygir.app.SharedInfrastructureTest",
-      "tests": 3
-    },
-    {
-      "name": "ir.peygir.app.SharedStoreTest",
-      "tests": 11
-    },
-    {
-      "name": "ir.peygir.app.TaskToolsFlowTest",
-      "tests": 5
-    },
-    {
-      "name": "ir.peygir.app.TaskToolsTest",
-      "tests": 7
-    },
-    {
-      "name": "ir.peygir.app.UiFlowTest",
-      "tests": 23
-    },
-    {
-      "name": "ir.peygir.app.VisualTest",
-      "tests": 5
-    },
-    {
-      "name": "ir.peygir.app.VoiceCommandsTest",
-      "tests": 1
-    },
-    {
-      "name": "ir.peygir.app.VoiceInputFlowTest",
-      "tests": 1
-    },
-    {
       "name": "ir.peygir.app.WidgetTest",
-      "tests": 6
+      "tests": 8
     },
     {
       "name": "ir.peygir.app.WidgetVisualTest",

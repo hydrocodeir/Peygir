@@ -1,0 +1,2 @@
+fa5f3fe6095f95c9b54ad52d478fedf071fead7b3ba98ff9e7e085523b1a6923  Peygir-3.3.0-debug.apk
+f7aa1e435f8746a1d40d5dca97c6c104254ab80d4f2ca2217653fb387d8a5287  Peygir-3.3.0-source.zip

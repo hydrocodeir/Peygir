@@ -27,10 +27,11 @@ class TaskToolsFlowTest {
     }
     @After fun close() {store.close()}
     private fun start() {
-        compose.setContent {PeygirApp()}
+        compose.setContent {PeygirApp(initialSection=0)}
         compose.waitUntil(15000) {compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
     }
     private fun open(title: String) {start();compose.onNodeWithText(title,substring=false).performClick()}
+    private fun edit() {compose.onNodeWithContentDescription("گزینه‌های مصوبه").performClick();compose.onNodeWithText("ویرایش",substring=false).performClick()}
     @Test fun firstAndLastNameSuggestionsCanBeSelectedWithoutCreatingAContact() {
         store.saveTask(Resolution(title="گزارش",owner="علی احمدی"),emptyList())
         store.saveTask(Resolution(title="قرارداد",owner="رضا احمدی"),emptyList())
@@ -58,13 +59,15 @@ class TaskToolsFlowTest {
         compose.onNode(hasText("معوق",substring=false) and hasAnyAncestor(hasTestTag("owner_tasks"))).performClick()
         compose.onNodeWithTag("owner_task_$active").assertDoesNotExist();compose.onNodeWithTag("owner_task_$late").assertExists()
         compose.onNodeWithContentDescription("بستن مصوبات مسئول").performClick()
-        compose.onNodeWithText("جزئیات مصوبه").assertExists()
+        compose.onNodeWithTag("task_summary").assertExists()
     }
     @Test fun followUpSavesAndReopensWhileUnsavedEditorFieldsRemainIntact() {
         store.saveTask(Resolution(title="گزارش فروش",owner="علی احمدی"),emptyList())
         open("گزارش فروش")
+        edit()
         compose.onNodeWithText("عنوان مصوبه *").performTextClearance()
         compose.onNodeWithText("عنوان مصوبه *").performTextInput("عنوان ثبت‌نشده")
+        compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
         compose.onNodeWithText("ثبت نتیجهٔ پیگیری").performScrollTo().performClick()
         compose.onNodeWithText("نتیجهٔ کوتاه پیگیری").performTextInput("منتظر تأیید مالی است")
         compose.onNodeWithText("ثبت نتیجه",substring=false).performScrollTo().performClick()
@@ -78,7 +81,7 @@ class TaskToolsFlowTest {
     @Test fun shareButtonOpensChooserWithVisibleTitleOwnerAndDueDateOnly() {
         store.saveTask(Resolution(title="گزارش فروش",owner="علی احمدی",description="شرح خصوصی"),emptyList())
         open("گزارش فروش")
-        compose.onNodeWithText("اشتراک‌گذاری خلاصهٔ مصوبه").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های مصوبه").performClick();compose.onNodeWithText("اشتراک‌گذاری خلاصهٔ مصوبه").performClick()
         val chooser=shadowOf(compose.activity).nextStartedActivity
         assertEquals(Intent.ACTION_CHOOSER,chooser.action)
         @Suppress("DEPRECATION") val target=chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
@@ -88,9 +91,10 @@ class TaskToolsFlowTest {
     @Test fun backgroundNotificationActionRefreshesOpenEditorWithoutDiscardingTypedTitle() {
         val id=store.saveTask(Resolution(title="گزارش فروش",owner="علی احمدی"),emptyList())
         open("گزارش فروش")
+        edit()
         compose.onNodeWithText("عنوان مصوبه *").performTextClearance()
         compose.onNodeWithText("عنوان مصوبه *").performTextInput("عنوان ثبت‌نشده")
-        compose.onNodeWithText("اولویت، وضعیت و توضیحات").performScrollTo().performClick()
+        compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
         store.activateNotification(id,"test-action",emptyList())
         compose.runOnIdle {assertTrue(Reminders.handleAction(compose.activity,Intent().setAction(ReminderActionReceiver.DONE).putExtra("task_id",id).putExtra("token","test-action")))}
         compose.waitUntil(15000) {runCatching {compose.onNodeWithTag("task_status_DONE").assertIsSelected();true}.getOrDefault(false)}

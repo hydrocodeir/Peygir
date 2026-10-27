@@ -37,9 +37,9 @@ object Reminders {
         val late=data.tasks.count {it.due<day && it.status!=Status.DONE}
         return buildList {
             add(Solar.label(LocalDate.ofEpochDay(day)))
-            add("${tasks.size.fa()} مصوبه • ${tasks.count{it.status==Status.DONE}.fa()} انجام‌شده • ${late.fa()} معوق")
+            add("${tasks.size.fa()} مصوبه - ${tasks.count{it.status==Status.DONE}.fa()} انجام‌شده - ${late.fa()} معوق")
             if(tasks.isEmpty()) add("امروز مصوبه‌ای سررسید ندارد.")
-            tasks.take(8).forEach {add("• ${it.title} | ${it.owner} | ${it.status.label}")}
+            tasks.take(8).forEach {add("- ${it.title} - ${it.owner} - ${it.status.label}")}
             if(tasks.size>8) add("و ${(tasks.size-8).fa()} مصوبهٔ دیگر؛ برای مرور کامل لمس کنید.")
         }.joinToString("\n")
     }
@@ -68,7 +68,7 @@ object Reminders {
         val builder=NotificationCompat.Builder(context,channel).setSmallIcon(R.drawable.ic_notification).setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(open).setAutoCancel(true).setPriority(if(reviewDay==null) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT).setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
         if(silent) builder.setSilent(true)
         if(taskId>0 && token!=null) {
-            listOf(ReminderActionReceiver.DONE to "انجام شد",ReminderActionReceiver.SNOOZE to "یک ساعت دیگر یادآوری کن").forEach {(action,label)->
+            listOf(ReminderActionReceiver.DONE to (if(OrgAccess.deputy(context)) "ارسال برای تأیید رئیس" else "انجام شد"),ReminderActionReceiver.SNOOZE to "یک ساعت دیگر یادآوری کن").forEach {(action,label)->
                 val intent=Intent(context,ReminderActionReceiver::class.java).setAction(action)
                     .setData(android.net.Uri.parse("peygir://task-action/$taskId/$token/${action.substringAfterLast('.')}"))
                     .putExtra("task_id",taskId).putExtra("token",token)
@@ -90,7 +90,7 @@ object Reminders {
             if(t==null || t.status==Status.DONE) store.delivered(rs.map { it.id })
             else {
                 val token=java.util.UUID.randomUUID().toString()
-                if(notification(context,t.id.toInt(),"زمان پیگیری | ${t.title}","مسئول: ${t.owner}\nسررسید: ${Solar.label(LocalDate.ofEpochDay(t.due))}\nوضعیت: ${t.status.label}",t.id,token=token)) {
+                if(notification(context,t.id.toInt(),"زمان پیگیری - ${t.title}","مسئول: ${t.owner}\nسررسید: ${Solar.label(LocalDate.ofEpochDay(t.due))}\nوضعیت: ${t.status.label}",t.id,token=token)) {
                     if(!store.activateNotification(t.id,token,rs.map{it.id})) context.getSystemService(NotificationManager::class.java).cancel(t.id.toInt())
                 }
             }
@@ -101,7 +101,7 @@ object Reminders {
             .forEach {active->
                 data.tasks.find{it.id.toInt()==active.id && it.status!=Status.DONE}?.let {task->
                     val token=java.util.UUID.randomUUID().toString()
-                    if(notification(context,task.id.toInt(),"زمان پیگیری | ${task.title}","مسئول: ${task.owner}\nسررسید: ${Solar.label(LocalDate.ofEpochDay(task.due))}\nوضعیت: ${task.status.label}",task.id,token=token,silent=true)) {
+                    if(notification(context,task.id.toInt(),"زمان پیگیری - ${task.title}","مسئول: ${task.owner}\nسررسید: ${Solar.label(LocalDate.ofEpochDay(task.due))}\nوضعیت: ${task.status.label}",task.id,token=token,silent=true)) {
                         if(!store.activateNotification(task.id,token,emptyList())) context.getSystemService(NotificationManager::class.java).cancel(task.id.toInt())
                     }
                 }
@@ -110,7 +110,7 @@ object Reminders {
         val due=dueDaily(ZonedDateTime.now(),dailyTimes(context))
         if(dailyEnabled(context) && due!=null && prefs.getLong("last_review",0)<due) {
             val today=LocalDate.now().toEpochDay()
-            if(notification(context,REVIEW_ID,"مرور مصوبات امروز | پیگیر",reviewBody(data,today),reviewDay=today)) prefs.edit().putLong("last_review",due).apply()
+            if(notification(context,REVIEW_ID,"مرور مصوبات امروز - پیگیر",reviewBody(data,today),reviewDay=today)) prefs.edit().putLong("last_review",due).apply()
         }
         data.tasks.filter { it.status==Status.DONE }.forEach { context.getSystemService(NotificationManager::class.java).cancel(it.id.toInt()) }
         schedule(context)

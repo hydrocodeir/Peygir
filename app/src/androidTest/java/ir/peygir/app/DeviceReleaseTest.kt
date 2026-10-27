@@ -60,7 +60,7 @@ class DeviceReleaseTest {
         store.writableDatabase.execSQL("DROP TABLE follow_ups");store.writableDatabase.execSQL("DROP TABLE notification_tokens");store.writableDatabase.execSQL("DROP TABLE backlog")
         store.writableDatabase.version=2;store.close()
         Store(context,name).use {upgraded->
-            assertEquals(before,upgraded.snapshot());assertEquals(5,upgraded.readableDatabase.version)
+            assertEquals(before,upgraded.snapshot());assertEquals(6,upgraded.readableDatabase.version)
             upgraded.addFollowUp(task,"نتیجهٔ پیگیری پس از ارتقا")
             assertTrue(upgraded.snapshot().followUps.single().created>0)
         }

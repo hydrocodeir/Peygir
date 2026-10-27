@@ -30,7 +30,7 @@ class SharedFlowTest {
         compose.runOnIdle{task.value=initial.copy(owner="رضایی",due=initial.due+2,status=Status.ACTIVE)}
         compose.onNodeWithText("عنوان مصوبه *").assertTextContains("ویرایش من")
         compose.onNodeWithText("مسئول انجام *").assertTextContains("رضایی")
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.ofEpochDay(initial.due+2))}").assertExists()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.ofEpochDay(initial.due+2))}").assertExists()
         compose.onNodeWithTag("incoming_editor_changes").assertDoesNotExist()
     }
     @Test fun conflictingOpenEditorChangesRequireAChoiceBeforeSaving() {

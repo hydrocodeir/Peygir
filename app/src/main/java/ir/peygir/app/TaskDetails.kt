@@ -20,7 +20,7 @@ import java.util.Locale
 
 private fun followUpTime(at: Long): String {
     val date=Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault())
-    return "${Solar.label(date.toLocalDate())} • ${date.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm",Locale.ROOT)).fa()}"
+    return "${Solar.label(date.toLocalDate())} - ${date.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm",Locale.ROOT)).fa()}"
 }
 
 @Composable fun FollowUpPanel(notes: List<FollowUp>, busy: Boolean, save: (String,()->Unit)->Unit) {
@@ -45,7 +45,7 @@ private fun followUpTime(at: Long): String {
             }
         }
         if(notes.size>1) {
-            TextButton(onClick={expanded=!expanded},contentPadding=PaddingValues(0.dp)) {Text(if(expanded) "بستن سوابق پیگیری" else "سوابق پیگیری (${notes.size.fa()})")}
+            TextButton(onClick={expanded=!expanded},contentPadding=PaddingValues(0.dp)) {CountLabel(if(expanded) "بستن سوابق پیگیری" else "سوابق پیگیری",notes.size,color=LocalContentColor.current)}
             if(expanded) {
                 notes.drop(1).take(visible).forEach {note->
                     HorizontalDivider();Text(note.text,style=MaterialTheme.typography.bodyMedium)
@@ -67,11 +67,11 @@ private fun followUpTime(at: Long): String {
         Surface(Modifier.fillMaxSize().testTag("owner_tasks")) {Column(Modifier.safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                 IconButton(onClick=dismiss) {Icon(Icons.Outlined.Close,"بستن مصوبات مسئول")}
-                Column {Text(owner,style=MaterialTheme.typography.titleLarge);Text("${open.size.fa()} مصوبهٔ باز • ${late.fa()} معوق",style=MaterialTheme.typography.labelMedium)}
+                Text(owner,style=MaterialTheme.typography.titleLarge)
             }
             Row(Modifier.padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                FilterChip(!onlyLate,{onlyLate=false},label={Text("همهٔ باز")})
-                FilterChip(onlyLate,{onlyLate=true},label={Text("معوق")})
+                FilterChip(!onlyLate,{onlyLate=false},label={CountLabel("همهٔ باز",open.size,color=LocalContentColor.current)})
+                FilterChip(onlyLate,{onlyLate=true},label={CountLabel("معوق",late,color=LocalContentColor.current)})
             }
             HorizontalDivider()
             LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -80,7 +80,7 @@ private fun followUpTime(at: Long): String {
                     OutlinedCard(Modifier.fillMaxWidth().testTag("owner_task_${task.id}")) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                         Text(task.title,style=MaterialTheme.typography.titleSmall)
                         Text("سررسید: ${Solar.label(LocalDate.ofEpochDay(task.due))}",style=MaterialTheme.typography.bodySmall,color=if(task.due<today) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${task.status.label} • اولویت ${task.priority.label}",style=MaterialTheme.typography.labelSmall)
+                        TaskState(task)
                     }}
                 }
             }

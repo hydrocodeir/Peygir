@@ -1,0 +1,2 @@
+721d4b2c8ec8ab0b875146a3289512afb9c6238dfdc237b5715e33ce8dcffdee  Peygir-3.1.2-debug.apk
+a1540701dbaf4dfe269ccaa8aeef0a525a47ed36cf8f606c0ca4642aaf92b637  Peygir-3.1.2-source.zip

@@ -23,10 +23,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-internal class SharedSession(val endpoint: String,val token: String,val workspace: String,val workspaceName: String,val name: String,val role: String) {
+internal class SharedSession(val endpoint: String,val token: String,val workspace: String,val workspaceName: String,val name: String,val role: String,val userId: String="") {
     override fun toString()="SharedSession(name=$name, role=$role, token=[hidden])"
-    fun json()=JSONObject().put("endpoint",endpoint).put("token",token).put("workspace",workspace).put("workspaceName",workspaceName).put("name",name).put("role",role)
-    companion object {fun from(p: JSONObject)=SharedSession(p.getString("endpoint"),p.getString("token"),p.getString("workspace"),p.getString("workspaceName"),p.getString("name"),p.getString("role"))}
+    fun json()=JSONObject().put("endpoint",endpoint).put("token",token).put("workspace",workspace).put("workspaceName",workspaceName).put("name",name).put("role",role).put("userId",userId)
+    companion object {fun from(p: JSONObject)=SharedSession(p.getString("endpoint"),p.getString("token"),p.getString("workspace"),p.getString("workspaceName"),p.getString("name"),p.getString("role"),p.optString("userId"))}
 }
 internal class SharedCredentials(context: Context,private val key: ()->SecretKey = ::sharedKey) {
     private val prefs=context.applicationContext.getSharedPreferences("shared_private",0)
@@ -43,7 +43,7 @@ internal class SharedCredentials(context: Context,private val key: ()->SecretKey
         val cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key());cipher.updateAAD("peygir-shared-v1".toByteArray())
         val stored=Base64.encodeToString(cipher.iv,Base64.NO_WRAP)+":"+Base64.encodeToString(cipher.doFinal(session.json().toString().toByteArray(Charsets.UTF_8)),Base64.NO_WRAP)
         val edit=prefs.edit().putString("session",stored)
-        if(!prefs.contains("alerts")) edit.putBoolean("alerts",session.role=="manager")
+        if(!prefs.contains("alerts")) edit.putBoolean("alerts",session.role!="assistant")
         check(edit.commit()) {"ذخیرهٔ ورود ناموفق بود."}
     }
     fun clear() {check(prefs.edit().remove("session").commit())}
@@ -79,11 +79,12 @@ internal class SharedHttp(private val endpoint: String,private val token: String
     }
 }
 internal object SyncEngine {
-    fun exchange(shared: SharedStore,transport: SharedTransport): Int {
+    fun exchange(shared: SharedStore,transport: SharedTransport,responseReceived: (JSONObject)->Unit = {}): Int {
         var count=0
         repeat(50) {
             if(Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException("Sync interrupted")
-            val pending=shared.prepare();val response=transport.post("/v1/sync",JSONObject().put("cursor",shared.cursor()).put("operations",JSONArray(pending.map{it.operation})))
+            val pending=shared.prepare();val response=transport.post("/v2/sync",JSONObject().put("protocol",2).put("inventory",shared.inventory()).put("cursor",shared.cursor()).put("operations",JSONArray(pending.map{it.operation})))
+            responseReceived(response)
             val results=response.getJSONArray("results")
             check(results.length()==pending.size) {"پاسخ همگام‌سازی ناقص است."}
             for(i in 0 until results.length()) {
@@ -91,9 +92,10 @@ internal object SyncEngine {
                 check(!result.isNull("record")) {"ارتباط یک مورد با فضای مشترک از دست رفته است؛ پشتیبانی را بررسی کنید."}
                 shared.receive(result.getJSONObject("record"),item,result.getBoolean("ok"));count++
             }
+            response.optJSONArray("users")?.let {shared.receiveDirectory(it)}
             val changes=response.getJSONArray("changes")
             for(i in 0 until changes.length()) {shared.receive(changes.getJSONObject(i));count++}
-            val cursor=response.getLong("cursor");check(cursor>=shared.cursor());shared.cursor(cursor)
+            val cursor=response.getLong("cursor");if(response.optInt("protocol")==2) shared.cursor(0) else {check(cursor>=shared.cursor());shared.cursor(cursor)}
             if(!response.getBoolean("hasMore") && shared.prepare(1).isEmpty()) return count
         }
         return count
@@ -105,18 +107,25 @@ internal object SharedSync {
     private val worker=Executors.newSingleThreadExecutor()
     private val running=AtomicBoolean(false)
     fun login(endpoint: String,username: String,password: String): SharedSession {
-        val host=validSharedEndpoint(endpoint);val r=SharedHttp(host).post("/v1/login",JSONObject().put("username",username.trim()).put("password",password))
-        return SharedSession(host,r.getString("token"),r.getString("workspace"),r.getString("workspaceName"),r.getString("name"),r.getString("role"))
+        val host=validSharedEndpoint(endpoint);val r=SharedHttp(host).post("/v2/login",JSONObject().put("username",username.trim()).put("password",password))
+        return SharedSession(host,r.getString("token"),r.getString("workspace"),r.getString("workspaceName"),r.getString("name"),r.getString("role"),r.getString("userId"))
     }
     @Synchronized fun connect(context: Context,session: SharedSession) {
         val shared=SharedStore(Store.get(context));val old=shared.binding()
+        val principal=shared.principal()
+        check(principal.isEmpty() || principal==session.userId) {"ابتدا از حساب قبلی خارج شوید تا اطلاعات آن از این گوشی پاک شود."}
+        if(session.role=="deputy" && principal.isEmpty()) check(Store.get(context).snapshot().let{it.tasks.isEmpty() && it.meetings.isEmpty()}) {"ورود معاون باید روی دفتر خالی انجام شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید."}
         shared.bind(session.endpoint,session.workspace)
         try {SharedCredentials(context).save(session)} catch(e:Exception) {if(old.isEmpty()) shared.detach();throw e}
-        SharedJobs.schedule(context);revision.value++
+        shared.principal(session.userId);OrgAccess.set(context,session);PushRegistration.configure(context);SharedJobs.schedule(context);revision.value++
     }
     @Synchronized fun disconnect(context: Context,detach: Boolean=false) {
         val credentials=SharedCredentials(context);val session=runCatching{credentials.read()}.getOrNull()
-        credentials.clear();SharedJobs.cancel(context)
+        if(session?.userId?.isNotBlank()==true) {
+            SharedStore(Store.get(context)).clearScopedData();Organization.members.value=emptyList()
+            context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
+        }
+        credentials.clear();OrgAccess.set(context,null);SharedJobs.cancel(context)
         if(detach) SharedStore(Store.get(context)).detach()
         if(session!=null) worker.execute{runCatching{SharedHttp(session.endpoint,session.token).post("/v1/logout",JSONObject())}}
         revision.value++
@@ -130,16 +139,27 @@ internal object SharedSync {
         val credentials=SharedCredentials(context);if(!credentials.connected()) return true
         val prefs=context.getSharedPreferences("shared_status",0);working.value=true
         return try {
-            val session=credentials.read() ?: return true
+            var session=credentials.read() ?: return true
             val store=Store.get(context);val shared=SharedStore(store)
             val before=store.snapshot().tasks.associateBy{it.id}
             check(shared.binding()=="${session.endpoint}|${session.workspace}") {"فضای مشترک با اطلاعات این گوشی همخوان نیست."}
-            SyncEngine.exchange(shared,SharedHttp(session.endpoint,session.token))
+            OrgAccess.set(context,session)
+            SyncEngine.exchange(shared,SharedHttp(session.endpoint,session.token)) {response->
+                if(response.optString("userId").isNotBlank() && (session.userId!=response.getString("userId") || session.role!=response.getString("role"))) {
+                    session=SharedSession(session.endpoint,session.token,session.workspace,session.workspaceName,session.name,response.getString("role"),response.getString("userId"));credentials.save(session);OrgAccess.set(context,session)
+                }
+                if(session.userId.isNotBlank()) shared.principal(session.userId)
+            }
+            Organization.members.value=Organization.users(store)
+            PushRegistration.register(context,session)
             val after=store.snapshot().tasks.associateBy{it.id}
             before.forEach{(id,old)->val current=after[id];if(current==null || current.due!=old.due || current.status==Status.DONE) context.getSystemService(android.app.NotificationManager::class.java).cancel(id.toInt())}
             prefs.edit().putLong("last",System.currentTimeMillis()).remove("error").remove("auth_expired").apply()
             store.externalChanges.value++;Reminders.process(context);ReviewWidget.updateAll(context);true
         } catch(e:Exception) {
+            if(e is SharedHttpError && e.code==401 && OrgAccess.id(context).isNotBlank()) {
+                SharedStore(Store.get(context)).clearScopedData();Organization.members.value=emptyList();context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
+            }
             val message=if(e is SharedHttpError) e.message else e.message?.takeIf{it.any{c->c in 'آ'..'ی'}} ?: "اتصال برقرار نشد؛ تغییرات روی گوشی محفوظ‌اند و دوباره ارسال می‌شوند."
             prefs.edit().putString("error",message).putBoolean("auth_expired",e is SharedHttpError && e.code==401).apply();false
         } finally {working.value=false;revision.value++}
@@ -152,7 +172,13 @@ internal object SharedJobs {
         val service=ComponentName(context,SharedJobService::class.java)
         context.getSystemService(JobScheduler::class.java).schedule(JobInfo.Builder(PERIODIC,service).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPeriodic(15*60*1000L).setPersisted(true).setBackoffCriteria(30000,JobInfo.BACKOFF_POLICY_EXPONENTIAL).build())
     }
-    fun cancel(context: Context) {context.getSystemService(JobScheduler::class.java).cancel(PERIODIC)}
+    fun immediate(context: Context) {
+        if(!SharedCredentials(context).connected()) return
+        val b=JobInfo.Builder(7002,ComponentName(context,SharedJobService::class.java)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+        if(android.os.Build.VERSION.SDK_INT>=31) b.setExpedited(true) else b.setMinimumLatency(0)
+        context.getSystemService(JobScheduler::class.java).schedule(b.build())
+    }
+    fun cancel(context: Context) {context.getSystemService(JobScheduler::class.java).cancel(PERIODIC);context.getSystemService(JobScheduler::class.java).cancel(7002)}
 }
 class SharedJobService: JobService() {
     private val worker=Executors.newSingleThreadExecutor()

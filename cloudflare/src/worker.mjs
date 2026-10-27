@@ -1,8 +1,9 @@
+import {organizationRoute, flushPush} from './organization.mjs';
 const encoder = new TextEncoder();
 export const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const kinds = new Set(['meeting', 'task', 'followup', 'history']);
-class ApiError extends Error { constructor(status, message) { super(message); this.status = status; } }
-function requireValue(ok, message = 'درخواست معتبر نیست.') { if (!ok) throw new ApiError(400, message); }
+export class ApiError extends Error { constructor(status, message) { super(message); this.status = status; } }
+export function requireValue(ok, message = 'درخواست معتبر نیست.') { if (!ok) throw new ApiError(400, message); }
 export function hex(bytes) { return [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join(''); }
 export async function sha(value) { return hex(await crypto.subtle.digest('SHA-256', encoder.encode(value))); }
 export async function passwordHash(password, salt, iterations = 100000) {
@@ -10,16 +11,16 @@ export async function passwordHash(password, salt, iterations = 100000) {
   return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: encoder.encode(salt), iterations }, key, 256));
 }
 function constantEqual(a, b) { let diff = a.length ^ b.length; for (let i = 0; i < Math.max(a.length,b.length); i++) diff |= (a.charCodeAt(i)||0) ^ (b.charCodeAt(i)||0); return diff === 0; }
-function json(value, status = 200) { return Response.json(value, {status, headers: {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}}); }
-async function body(request) {
-  requireValue((Number(request.headers.get('content-length')) || 0) <= 1024 * 1024);
-  const bytes = await request.arrayBuffer(); requireValue(bytes.byteLength <= 1024 * 1024);
+export function json(value, status = 200) { return Response.json(value, {status, headers: {'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}}); }
+export async function body(request,maxBytes=1024*1024) {
+  requireValue((Number(request.headers.get('content-length')) || 0) <= maxBytes);
+  const bytes = await request.arrayBuffer(); requireValue(bytes.byteLength <= maxBytes);
   try { const value = JSON.parse(new TextDecoder().decode(bytes)); requireValue(value && typeof value === 'object' && !Array.isArray(value)); return value; }
   catch (e) { if (e instanceof ApiError) throw e; throw new ApiError(400, 'ساختار درخواست معتبر نیست.'); }
 }
-function record(row) { return row ? {id:row.id,kind:row.kind,revision:row.revision,payload:JSON.parse(row.payload),deleted:!!row.deleted,actor:row.actor,changed:row.changed} : null; }
-function text(value, max, nonempty = false) { return typeof value === 'string' && value.length <= max && (!nonempty || value.trim().length > 0); }
-function integer(value, min = 0, max = Number.MAX_SAFE_INTEGER) { return Number.isSafeInteger(value) && value >= min && value <= max; }
+export function record(row) { return row ? {id:row.id,kind:row.kind,revision:row.revision,payload:JSON.parse(row.payload),deleted:!!row.deleted,actor:row.actor,changed:row.changed} : null; }
+export function text(value, max, nonempty = false) { return typeof value === 'string' && value.length <= max && (!nonempty || value.trim().length > 0); }
+export function integer(value, min = 0, max = Number.MAX_SAFE_INTEGER) { return Number.isSafeInteger(value) && value >= min && value <= max; }
 export function validateOperation(op) {
   requireValue(op && ID.test(op.id) && ID.test(op.recordId) && kinds.has(op.kind) && integer(op.baseRevision) && typeof op.deleted === 'boolean');
   const p = op.payload; requireValue(p && typeof p === 'object' && !Array.isArray(p));
@@ -39,14 +40,14 @@ export function validateOperation(op) {
   }
   requireValue(Object.keys(p).length === fields.length && fields.every(k => Object.hasOwn(p,k)));
 }
-async function authenticate(request, env) {
+export async function authenticate(request, env) {
   const token = request.headers.get('authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   if (!token) throw new ApiError(401,'ابتدا وارد حساب شوید.');
-  const user = await env.DB.prepare('SELECT u.id,u.workspace,u.name,u.role,w.name AS workspace_name FROM sessions s JOIN users u ON u.id=s.user_id JOIN workspaces w ON w.id=u.workspace WHERE s.token_hash=? AND s.expires>? AND u.active=1').bind(await sha(token), Date.now()).first();
+  const user = await env.DB.prepare('SELECT u.id,u.workspace,u.name,COALESCE(u.access_role,u.role) AS role,w.name AS workspace_name FROM sessions s JOIN users u ON u.id=s.user_id JOIN workspaces w ON w.id=u.workspace WHERE s.token_hash=? AND s.expires>? AND u.active=1').bind(await sha(token), Date.now()).first();
   if (!user) throw new ApiError(401,'نشست ورود پایان یافته است؛ دوباره وارد شوید.');
   return {...user, tokenHash:await sha(token)};
 }
-async function login(request, env) {
+export async function login(request, env) {
   const b = await body(request); requireValue(text(b.username,100,true) && text(b.password,256,true));
   const username = b.username.trim().toLowerCase();
   const key = await sha('login|' + (request.headers.get('cf-connecting-ip') || 'local'));
@@ -54,7 +55,7 @@ async function login(request, env) {
   await env.DB.prepare('INSERT INTO login_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN expires<? THEN 1 ELSE count+1 END,expires=CASE WHEN expires<? THEN excluded.expires ELSE expires END').bind(key,now+900000,now,now).run();
   const limit = await env.DB.prepare('SELECT count FROM login_limits WHERE key=?').bind(key).first();
   if (limit.count > 10) throw new ApiError(429,'تلاش‌های ورود زیاد است؛ پانزده دقیقه بعد امتحان کنید.');
-  const user = await env.DB.prepare('SELECT u.*,w.name AS workspace_name FROM users u JOIN workspaces w ON w.id=u.workspace WHERE u.username=? AND u.active=1').bind(username).first();
+  const user = await env.DB.prepare('SELECT u.*,COALESCE(u.access_role,u.role) AS effective_role,w.name AS workspace_name FROM users u JOIN workspaces w ON w.id=u.workspace WHERE u.username=? AND u.active=1').bind(username).first();
   // Keep the expensive path for unknown accounts too; credentials are provisioned privately, never by this API.
   const computed = await passwordHash(b.password,user?.salt || 'unknown-account-salt',user?.iterations || 100000);
   if (!user || !constantEqual(computed,user.password_hash)) throw new ApiError(401,'نام کاربری یا رمز صحیح نیست.');
@@ -65,9 +66,9 @@ async function login(request, env) {
     env.DB.prepare('DELETE FROM login_limits WHERE expires<? OR key=?').bind(now,key),
   ];
   await env.DB.batch(statements);
-  return json({token,workspace:user.workspace,workspaceName:user.workspace_name,name:user.name,role:user.role,userId:user.id});
+  return json({token,workspace:user.workspace,workspaceName:user.workspace_name,name:user.name,role:user.effective_role,userId:user.id});
 }
-async function getRecord(env, workspace, id) { return record(await env.DB.prepare('SELECT * FROM records WHERE workspace=? AND id=?').bind(workspace,id).first()); }
+export async function getRecord(env, workspace, id) { return record(await env.DB.prepare('SELECT * FROM records WHERE workspace=? AND id=?').bind(workspace,id).first()); }
 async function mutate(env, user, op) {
   validateOperation(op);
   const fingerprint = await sha(JSON.stringify(op));
@@ -106,14 +107,20 @@ async function sync(request,env,user) {
   return json({results,changes:rows.results.map(r=>({...record(r),seq:r.seq})),cursor:rows.results.at(-1)?.seq ?? b.cursor,hasMore:rows.results.length===200});
 }
 export default {
-  async fetch(request,env) {
+  async scheduled(event,env,ctx) {ctx.waitUntil(flushPush(env));},
+  async fetch(request,env,ctx) {
     try {
       const url=new URL(request.url);
-      if (url.pathname==='/health' && request.method==='GET') return json({service:'peygir-sync',protocol:1});
+      if(url.pathname.startsWith('/v2/')) return await organizationRoute(request,env,ctx);
+      if (url.pathname==='/health' && request.method==='GET') return json({service:'peygir-sync',protocol:1,organizationProtocol:2});
       if (url.pathname==='/v1/login' && request.method==='POST') return await login(request,env);
       const user=await authenticate(request,env);
-      if (url.pathname==='/v1/logout' && request.method==='POST') {await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(user.tokenHash).run();return json({ok:true});}
-      if (url.pathname==='/v1/sync' && request.method==='POST') return await sync(request,env,user);
+      if (url.pathname==='/v1/logout' && request.method==='POST') {await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(user.tokenHash),env.DB.prepare('DELETE FROM push_devices WHERE session_hash=?').bind(user.tokenHash)]);return json({ok:true});}
+      if (url.pathname==='/v1/sync' && request.method==='POST') {
+        const org=await env.DB.prepare('SELECT enabled FROM organization_settings WHERE workspace=?').bind(user.workspace).first();
+        if(org?.enabled || user.role==='deputy') throw new ApiError(426,'برای استفاده از فضای سازمانی، پیگیر را به نسخهٔ ۳ به‌روز کنید.');
+        return await sync(request,env,user);
+      }
       return json({error:'مسیر پیدا نشد.'},404);
     } catch (e) { return json({error:e instanceof ApiError?e.message:'ارتباط با فضای مشترک ناموفق بود؛ دوباره امتحان کنید.'},e instanceof ApiError?e.status:500); }
   }

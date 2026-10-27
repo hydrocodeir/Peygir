@@ -75,7 +75,7 @@ class DeviceSmokeTest {
         compose.onNodeWithText("عنوان مصوبه *").performTextReplacement(PREFIX+"ثبت از فرم")
         compose.onNodeWithText("مسئول انجام *").performTextReplacement("آقای آزمایشی")
         androidx.test.espresso.Espresso.closeSoftKeyboard()
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.now().plusDays(1))}").performScrollTo().performClick()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.now().plusDays(1))}").performScrollTo().performClick()
         compose.waitUntil(10000) {compose.onAllNodesWithContentDescription("ماه قبل").fetchSemanticsNodes().isNotEmpty()}
         val p=Solar.parts(LocalDate.now().plusDays(1))
         val prev=Solar.parts(Solar.previousMonth(LocalDate.now().plusDays(1)))

@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -29,8 +30,8 @@ object ReviewDays {
         val taskIds=if(byReminders) data.reminders.filter { Instant.ofEpochMilli(it.at).atZone(zone).toLocalDate().toEpochDay()==day }.map {it.taskId}.toSet() else emptySet()
         return DayReview(
             data.tasks.filter {if(byReminders) it.id in taskIds else it.due==day}.sortedWith(compareBy<Resolution>{it.status==Status.DONE}.thenByDescending{it.priority.ordinal}.thenBy{it.id}),
-            data.meetings.filter{it.date==day},
-            data.recordings.filter{Instant.ofEpochMilli(it.created).atZone(zone).toLocalDate().toEpochDay()==day}
+            emptyList(),
+            emptyList()
         )
     }
 }
@@ -46,11 +47,12 @@ object ReviewDays {
     fun go(value: Long) {scope.launch {pager.animateScrollToPage((value.coerceIn(min,max)-min).toInt())}}
     LaunchedEffect(day) {select(day)}
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal=8.dp).testTag("section_swipe_3"),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick={go(day-1)},enabled=day>min) {Icon(Icons.AutoMirrored.Outlined.ArrowBack,"روز قبل")}
             TextButton(onClick={picker=true},modifier=Modifier.weight(1f)) {Text(Solar.label(LocalDate.ofEpochDay(day)),fontWeight=FontWeight.Bold);Spacer(Modifier.width(4.dp));Icon(Icons.Outlined.ExpandMore,null,Modifier.size(18.dp))}
             IconButton(onClick={go(day+1)},enabled=day<max) {Icon(Icons.AutoMirrored.Outlined.ArrowForward,"روز بعد")}
             TextButton(onClick={go(today)},enabled=day!=today) {Text("امروز")}
+            if(!OrgAccess.deputy(LocalContext.current)) IconButton(onClick={add(day)}){Icon(Icons.Outlined.Add,"ثبت مصوبه برای این روز")}
         }
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
             val start=LocalDate.ofEpochDay(day).minusDays(((LocalDate.ofEpochDay(day).dayOfWeek.value+1)%7).toLong())
@@ -74,27 +76,21 @@ object ReviewDays {
             val at=min+index
             val review=remember(data,at,reminders) {ReviewDays.forDay(data,at,reminders)}
             LazyColumn(Modifier.fillMaxSize().testTag("review_day_$at"),contentPadding=PaddingValues(16.dp,12.dp,16.dp,24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                item {Text("${review.tasks.size.fa()} مصوبه • ${review.meetings.size.fa()} جلسه • ${review.recordings.size.fa()} یادداشت صوتی",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                item {CountLabel("مصوبات",review.tasks.size,style=MaterialTheme.typography.labelSmall)}
                 if(at==today) {
                     val count=data.tasks.count{it.status!=Status.DONE && it.due<today}
-                    if(count>0) item {TextButton(onClick=overdue,contentPadding=PaddingValues(horizontal=0.dp)) {Icon(Icons.Outlined.History,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text("${count.fa()} مصوبهٔ معوق از روزهای قبل",color=MaterialTheme.colorScheme.error)}}
+                    if(count>0) item {TextButton(onClick=overdue,contentPadding=PaddingValues(horizontal=0.dp)) {Icon(Icons.Outlined.History,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp));CountLabel("مصوبات معوق روزهای قبل",count,color=MaterialTheme.colorScheme.error)}}
                 }
                 items(review.tasks,key={"task_${it.id}"}) {t->
                     Column {
                         TaskCard(t,data.meetings.find{it.id==t.meetingId}?.title,today,{edit(t)}){status(t.id,it)}
                         if(reminders) {
                             val times=data.reminders.filter{it.taskId==t.id && Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()==at}
-                            Text(times.joinToString(" • "){Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).toLocalTime().toString().fa()+if(it.delivered) " ✓" else ""},Modifier.padding(start=16.dp,top=2.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
+                            Text(times.joinToString(" - "){Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).toLocalTime().toString().fa()+if(it.delivered) " ✓" else ""},Modifier.padding(start=16.dp,top=2.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
-                items(review.meetings,key={"meeting_${it.id}"}) {m->
-                    Surface(onClick={openMeeting(m.id)},shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surfaceContainerLow) {Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {Icon(Icons.Outlined.Groups,null,Modifier.size(20.dp));Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(m.title,style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=TextOverflow.Ellipsis);Text("جلسه • ${data.tasks.count{it.meetingId==m.id}.fa()} مصوبه",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-                }
-                items(review.recordings,key={"recording_${it.id}"}) {r->
-                    Surface(onClick={openRecording(r)},shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surfaceContainerLow) {Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Outlined.MicNone,null,Modifier.size(20.dp));Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(r.transcript.ifBlank{"یادداشت صوتی"},style=MaterialTheme.typography.titleSmall,maxLines=1,overflow=TextOverflow.Ellipsis);Text("${Instant.ofEpochMilli(r.created).atZone(ZoneId.systemDefault()).toLocalTime().withSecond(0).withNano(0).toString().fa()} • ${r.seconds.fa()} ثانیه",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
-                }
-                if(review.tasks.isEmpty() && review.meetings.isEmpty() && review.recordings.isEmpty()) item {Column(Modifier.fillMaxWidth().padding(vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally) {Text(if(reminders) "یادآوری‌ای برای این روز ندارید." else "این صفحه هنوز خالی است.",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);TextButton(onClick={add(at)}){Text("ثبت مصوبه برای این روز")}}}
+                if(review.tasks.isEmpty() && review.meetings.isEmpty() && review.recordings.isEmpty()) item {Column(Modifier.fillMaxWidth().padding(vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally) {Text(if(reminders) "یادآوری‌ای برای این روز ندارید." else "این صفحه هنوز خالی است.",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant);if(!OrgAccess.deputy(LocalContext.current)) TextButton(onClick={add(at)}){Text("ثبت مصوبه برای این روز")}}}
             }
         }
     }

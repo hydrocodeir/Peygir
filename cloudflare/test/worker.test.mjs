@@ -2,15 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
+import {build} from 'esbuild';
 import {passwordHash, validateOperation} from '../src/worker.mjs';
 
 const uuid=()=>crypto.randomUUID();
 async function fixture(fn) {
-  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,scriptPath:'src/worker.mjs',compatibilityDate:'2026-10-25',d1Databases:['DB']}));
+  const bundle=await build({entryPoints:['src/worker.mjs'],bundle:true,write:false,format:'esm'});
+  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-10-25',d1Databases:['DB']}));
   try {
     const db=await mf.getD1Database('DB');
     const schema=(await readFile('migrations/0001_shared.sql','utf8')).replace(/CREATE TRIGGER[\s\S]*?END;/g,s=>s.replace(/\r?\n/g,' '));
     await db.exec(schema);
+    await db.exec(await readFile('migrations/0002_organization.sql','utf8'));
     const workspace=uuid(),other=uuid();
     for(const id of [workspace,other]) await db.prepare('INSERT INTO workspaces VALUES(?,?)').bind(id,'Test workspace').run();
     for(const [username,role,ws] of [['assistant','assistant',workspace],['manager','manager',workspace],['other','assistant',other]]) {

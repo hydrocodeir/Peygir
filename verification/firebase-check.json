@@ -1,0 +1,7 @@
+{
+  "implementation": "Web Crypto JWT + FCM HTTP v1",
+  "oauthAuthorized": true,
+  "fcmApiAccessible": true,
+  "invalidTestDeviceRejected": true,
+  "realDeviceDeliveryTested": false
+}

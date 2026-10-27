@@ -2,10 +2,10 @@ package ir.peygir.app
 
 import java.time.LocalDate
 
-enum class Status(val label: String) { WAITING("در انتظار"), ACTIVE("در حال انجام"), DONE("انجام‌شده") }
+enum class Status(val label: String) { WAITING("در انتظار"), ACTIVE("در حال انجام"), REVIEW("منتظر تأیید رئیس"), DONE("انجام‌شده") }
 enum class Priority(val label: String) { LOW("کم"), NORMAL("عادی"), HIGH("مهم"), URGENT("فوری") }
-data class Meeting(val id: Long = 0, val title: String = "", val date: Long = LocalDate.now().toEpochDay(), val notes: String = "")
-data class Resolution(val id: Long = 0, val meetingId: Long? = null, val title: String = "", val description: String = "", val owner: String = "", val due: Long = LocalDate.now().plusDays(1).toEpochDay(), val priority: Priority = Priority.NORMAL, val status: Status = Status.WAITING, val delayCount: Int = 0)
+data class Meeting(val id: Long = 0, val title: String = "", val date: Long = LocalDate.now().toEpochDay(), val notes: String = "", val start: Int? = 540, val end: Int? = 600, val location: String = "", val attendees: List<String> = emptyList(), val repeat: String = "NONE", val until: Long? = null, val series: String? = null)
+data class Resolution(val id: Long = 0, val meetingId: Long? = null, val title: String = "", val description: String = "", val owner: String = "", val due: Long = LocalDate.now().plusDays(1).toEpochDay(), val priority: Priority = Priority.NORMAL, val status: Status = Status.WAITING, val delayCount: Int = 0, val assignee: String? = null, val submitted: Long = 0, val approved: Long = 0, val approvedBy: String? = null)
 enum class DueChangeKind(val label: String) { EXTEND("تمدید مهلت"), POSTPONE("به تعویق انداختن"), EDIT("تغییر سررسید") }
 data class DueChange(val id: Long, val taskId: Long, val oldDue: Long, val newDue: Long, val changedAt: Long, val kind: DueChangeKind, val reason: String)
 data class Reminder(val id: Long, val taskId: Long, val at: Long, val delivered: Boolean)

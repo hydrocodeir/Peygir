@@ -28,53 +28,65 @@ class UiFlowTest {
         store=Store.get(context)
     }
     private fun start() {
-        compose.setContent {PeygirApp()}
+        compose.setContent {PeygirApp(initialSection=0)}
         try {compose.waitUntil(15000) {compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}}
         catch(e: Exception) {println(compose.onRoot(useUnmergedTree=true).printToString());throw e}
     }
     @Test fun startsPersianRtlWithEmptyDashboardAndNavigation() {
         start()
         assertEquals(LayoutDirection.Rtl,compose.onNodeWithText("برای پیگیری").fetchSemanticsNode().layoutInfo.layoutDirection)
-        compose.onNodeWithText("جلسات",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("دفتر جلسات").assertIsDisplayed()
+        compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithTag("meeting_calendar").assertIsDisplayed()
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("daily_pager").assertIsDisplayed()
         compose.onNodeWithText("مخزن",useUnmergedTree=true).assertDoesNotExist()
     }
     @Test fun mainSectionsSwipeInRtlAndDailyPagesStayIndependent() {
-        start()
-        compose.onNodeWithTag("sections_pager").performTouchInput {swipeRight()}
+        start();compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        val today=LocalDate.now().toEpochDay()
+        compose.onNodeWithTag("meeting_mode_WEEK").performClick()
+        compose.onNodeWithTag("meeting_days_pager").performTouchInput {swipeRight()}
+        compose.onNodeWithTag("section_2").assertIsDisplayed()
+        compose.onNodeWithTag("meeting_day_page_${today+7}").assertIsDisplayed()
+        compose.onNodeWithTag("section_swipe_2").performTouchInput {swipeRight()}
+        compose.onNodeWithTag("section_0").assertIsDisplayed()
+        compose.onNodeWithTag("section_swipe_0").performTouchInput {swipeRight()}
         compose.onNodeWithTag("section_1").assertIsDisplayed()
         compose.onNodeWithTag("section_swipe_1").performTouchInput {swipeRight()}
-        compose.onNodeWithTag("section_2").assertIsDisplayed()
-        compose.onNodeWithTag("section_swipe_2").performTouchInput {swipeRight()}
         compose.onNodeWithTag("section_3").assertIsDisplayed()
-        val today=LocalDate.now().toEpochDay()
         compose.onNodeWithTag("daily_pager").performTouchInput {swipeRight()}
         compose.onNodeWithTag("review_day_${today+1}").assertIsDisplayed()
         compose.onNodeWithTag("section_swipe_3").performTouchInput {swipeRight()}
         compose.onNodeWithTag("section_3").assertIsDisplayed()
-        compose.onNodeWithTag("section_3").assertIsDisplayed()
         compose.onNodeWithTag("section_swipe_3").performTouchInput {swipeLeft()}
-        compose.onNodeWithTag("section_2").assertIsDisplayed()
+        compose.onNodeWithTag("section_1").assertIsDisplayed()
+        compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithTag("meeting_week_day_${today+7}").assertIsSelected()
+        compose.onNodeWithTag("meeting_mode_DAY").performClick()
+        compose.onNodeWithTag("meeting_days_pager").performTouchInput {swipeLeft()}
+        compose.onNodeWithTag("meeting_day_page_${today+6}").assertIsDisplayed()
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("review_day_${today+1}").assertIsDisplayed()
     }
     @Test fun searchSurvivesSectionAndSettingsNavigationAndCanBeCleared() {
         store.saveTask(Resolution(title="قرارداد خرید",owner="احمدی"),emptyList())
         store.saveTask(Resolution(title="گزارش فروش",owner="رضایی"),emptyList())
-        start();compose.onNodeWithText("مصوبات",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("جست‌وجوی مصوبه، مسئول یا جلسه").performTextInput("احمدی")
-        compose.onNodeWithText("قرارداد خرید").assertIsDisplayed()
-        compose.onNodeWithText("گزارش فروش").assertDoesNotExist()
+        start();compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithContentDescription("جست‌وجوی مصوبات").performClick()
+        compose.onNodeWithTag("task_search_field").performTextInput("احمدی")
+        compose.onNode(hasText("قرارداد خرید") and hasAnyAncestor(hasTestTag("task_search_modal"))).assertIsDisplayed()
+        compose.onNode(hasText("گزارش فروش") and hasAnyAncestor(hasTestTag("task_search_modal"))).assertDoesNotExist()
+        compose.onNodeWithContentDescription("بستن جست‌وجوی مصوبات").performClick()
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
         compose.onNodeWithContentDescription("تنظیمات").performClick()
         compose.onNodeWithContentDescription("بازگشت").performClick()
-        compose.onNodeWithText("مصوبات",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("احمدی",substring=false).assertExists()
-        compose.onNodeWithText("گزارش فروش").assertDoesNotExist()
+        compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithContentDescription("جست‌وجوی مصوبات").performClick()
+        compose.onNodeWithTag("task_search_field").assertTextContains("احمدی")
+        compose.onNode(hasText("گزارش فروش") and hasAnyAncestor(hasTestTag("task_search_modal"))).assertDoesNotExist()
         compose.onNodeWithContentDescription("پاک‌کردن جست‌وجو").performClick()
-        compose.onNodeWithText("گزارش فروش").assertIsDisplayed()
+        compose.onNodeWithTag("task_search_field").performTextInput("رضایی")
+        compose.onNode(hasText("گزارش فروش") and hasAnyAncestor(hasTestTag("task_search_modal"))).assertIsDisplayed()
     }
     @Test fun solarMonthArrowsCrossNowruzWithoutChangingSelection() {
         val initial=Solar.toDate(1405,1,15)!!
@@ -102,7 +114,7 @@ class UiFlowTest {
         compose.onNodeWithText("ثبت مصوبه",useUnmergedTree=true).performClick()
         compose.onNodeWithText("عنوان مصوبه *").performTextInput("تهیه گزارش ماهانه")
         compose.onNodeWithText("مسئول انجام *").performTextInput("آقای احمدی")
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.now().plusDays(1))}").performClick()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.now().plusDays(1))}").performClick()
         compose.onNodeWithText("تاریخ؛ مانند ۱۴۰۵/۰۸/۱۵").performTextClearance()
         compose.onNodeWithText("تاریخ؛ مانند ۱۴۰۵/۰۸/۱۵").performTextInput("۱۴۰۵/۰۸/۱۵")
         compose.onNodeWithText("انتخاب",substring=false).performClick()
@@ -111,40 +123,45 @@ class UiFlowTest {
         compose.waitUntil(15000) {compose.onAllNodesWithText("مصوبهٔ تازه").fetchSemanticsNodes().isEmpty()}
         assertEquals("آقای احمدی",store.snapshot().tasks.single().owner)
         assertEquals(Solar.toDate(1405,8,15)!!.toEpochDay(),store.snapshot().tasks.single().due)
+        compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
         compose.waitUntil(15000) {compose.onAllNodesWithText("تهیه گزارش ماهانه").fetchSemanticsNodes().isNotEmpty()}
         compose.waitUntil(15000) {compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).fetchSemanticsNodes().isEmpty()}
         compose.mainClock.advanceTimeBy(6000)
-        compose.onNodeWithText("مصوبات",useUnmergedTree=true).performClick()
+        compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
         compose.onNodeWithContentDescription("وضعیت و گزینه‌های تهیه گزارش ماهانه").performClick()
         compose.onNode(hasText("در حال انجام") and hasAnyAncestor(isPopup())).performSemanticsAction(SemanticsActions.OnClick) {it()}
         compose.waitUntil(15000) {store.snapshot().tasks.single().status==Status.ACTIVE}
     }
     @Test fun createsMeetingAndPersistsNotes() {
         start()
-        compose.onNodeWithText("جلسات",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("جلسهٔ تازه",useUnmergedTree=true).performClick()
+        compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithContentDescription("جلسهٔ تازه").performClick()
         compose.onNodeWithText("عنوان جلسه *").performTextInput("شورای راهبری")
-        compose.onNodeWithText("یادداشت جلسه").performTextInput("بررسی برنامهٔ فصل آینده")
+        compose.onNodeWithTag("meeting_start_time").performScrollTo().performClick()
+        compose.runOnIdle {val dialog=org.robolectric.shadows.ShadowDialog.getLatestDialog() as android.app.TimePickerDialog;dialog.updateTime(9,0);dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()}
+        compose.onNodeWithTag("meeting_more_details").performScrollTo().performClick()
+        compose.onNodeWithText("یادداشت جلسه").performScrollTo().performTextInput("بررسی برنامهٔ فصل آینده")
         compose.onNodeWithText("ذخیره",substring=false).performClick()
         compose.waitUntil(15000) {store.snapshot().meetings.isNotEmpty()}
         assertEquals("بررسی برنامهٔ فصل آینده",store.snapshot().meetings.single().notes)
         compose.waitUntil(15000) {compose.onAllNodesWithText("شورای راهبری").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("شورای راهبری").performClick()
-        compose.onNodeWithText("ویرایش جلسه").assertIsDisplayed()
+        compose.onNodeWithContentDescription("گزینه‌های جلسه").performClick();compose.onNodeWithText("ویرایش جلسه").assertIsDisplayed()
     }
     @Test fun deletesMeetingFromListOnlyAfterConfirmationAndKeepsLinkedTask() {
         val meeting=store.saveMeeting(Meeting(title="جلسهٔ حذف از فهرست"))
         store.saveTask(Resolution(title="مصوبهٔ محفوظ",owner="احمدی",meetingId=meeting),listOf(System.currentTimeMillis()+3600000))
         val before=store.snapshot()
-        start();compose.onNodeWithText("جلسات",useUnmergedTree=true).performClick()
-        compose.onNodeWithContentDescription("حذف جلسهٔ جلسهٔ حذف از فهرست").performClick()
+        start();compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithTag("meeting_mode_MONTH").performClick()
+        compose.onNodeWithContentDescription("گزینه‌های جلسهٔ جلسهٔ حذف از فهرست").performClick();compose.onNodeWithText("حذف جلسهٔ جلسهٔ حذف از فهرست").performClick()
         compose.onNodeWithText("حذف جلسه؟").assertIsDisplayed()
         assertEquals(1,store.snapshot().meetings.size)
         compose.onNodeWithText("انصراف",substring=false).performClick()
         assertEquals(before,store.snapshot())
-        compose.onNodeWithContentDescription("حذف جلسهٔ جلسهٔ حذف از فهرست").performClick()
+        compose.onNodeWithContentDescription("گزینه‌های جلسهٔ جلسهٔ حذف از فهرست").performClick();compose.onNodeWithText("حذف جلسهٔ جلسهٔ حذف از فهرست").performClick()
         compose.onNodeWithText("حذف",substring=false).performClick()
-        compose.waitUntil(15000) {store.snapshot().meetings.isEmpty() && compose.onAllNodesWithText("اولین جلسه را بسازید").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(15000) {store.snapshot().meetings.isEmpty() && compose.onAllNodesWithText("جلسه‌ای در این بازه نیست").fetchSemanticsNodes().isNotEmpty()}
         val after=store.snapshot()
         assertEquals(before.tasks.single().copy(meetingId=null),after.tasks.single())
         assertEquals(before.reminders,after.reminders)
@@ -152,20 +169,20 @@ class UiFlowTest {
     @Test fun deletesFromDetailsAndEditorThenReturnsToMeetingList() {
         store.saveMeeting(Meeting(title="حذف از جزئیات"))
         store.saveMeeting(Meeting(title="حذف از ویرایش"))
-        start();compose.onNodeWithText("جلسات",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("حذف از جزئیات",substring=false).performClick()
-        compose.onNodeWithText("حذف جلسه",substring=false).performClick()
+        start();compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
+        compose.onNodeWithText("حذف از جزئیات",substring=false).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های جلسه").performClick();compose.onNodeWithText("حذف جلسه",substring=false).performClick()
         compose.onNodeWithText("حذف",substring=false).performClick()
-        compose.waitUntil(15000) {store.snapshot().meetings.size==1 && compose.onAllNodesWithText("دفتر جلسات").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("حذف از ویرایش",substring=false).performClick()
-        compose.onNodeWithText("ویرایش جلسه",substring=false).performClick()
+        compose.waitUntil(15000) {store.snapshot().meetings.size==1 && compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithText("حذف از ویرایش",substring=false).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های جلسه").performClick();compose.onNodeWithText("ویرایش جلسه",substring=false).performClick()
         compose.onNodeWithText("عنوان جلسه *").performTextReplacement("ویرایش ثبت‌نشده")
-        compose.onNode(hasText("حذف جلسه",substring=false) and hasAnyAncestor(isDialog())).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های فرم").performClick();compose.onNodeWithText("حذف جلسه",substring=false).performClick()
         compose.onNodeWithText("انصراف",substring=false).performClick()
         compose.onNodeWithText("ویرایش ثبت‌نشده",substring=false).assertExists()
-        compose.onNode(hasText("حذف جلسه",substring=false) and hasAnyAncestor(isDialog())).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های فرم").performClick();compose.onNodeWithText("حذف جلسه",substring=false).performClick()
         compose.onNodeWithText("حذف",substring=false).performClick()
-        compose.waitUntil(15000) {store.snapshot().meetings.isEmpty() && compose.onAllNodesWithText("دفتر جلسات").fetchSemanticsNodes().isNotEmpty()}
+        compose.waitUntil(15000) {store.snapshot().meetings.isEmpty() && compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("عنوان جلسه *").assertDoesNotExist()
     }
     private fun enterProposalText(text: String) {
@@ -214,7 +231,7 @@ class UiFlowTest {
         compose.onNodeWithTag("input_voice").performClick()
         compose.onNodeWithText("ضبط مصوبه").assertIsDisplayed()
         compose.onNodeWithText("ورود چند مصوبه از متن").assertDoesNotExist()
-        compose.onNodeWithText("حتماً اول «عنوان»",substring=true).assertIsDisplayed()
+        compose.onNodeWithText("راهنمای گفتار").performClick();compose.onNodeWithText("ابتدا عنوان",substring=true).assertExists()
         compose.onNodeWithText("عنوان مصوبه *").assertExists()
         compose.onNodeWithTag("input_photo").assertDoesNotExist()
         compose.onNodeWithText("گرفتن عکس").assertDoesNotExist()
@@ -223,14 +240,14 @@ class UiFlowTest {
         compose.onNodeWithText("مسئول انجام *").assertExists()
         compose.onNodeWithTag("input_write").performClick()
         compose.onNodeWithText("اولویت",substring=false).assertDoesNotExist()
-        compose.onNodeWithText("اولویت، وضعیت و توضیحات").performScrollTo().performClick()
+        compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
         compose.onNodeWithText("فوری",substring=false).assertExists()
     }
     @Test fun batchMovesToNextProposalOnlyAfterExplicitSave() {
         val text="گزارش فروش؛ مسئول: احمدی؛ مهلت: ۱۴۰۵/۰۸/۱۵\nارسال قرارداد؛ مسئول: رضایی؛ مهلت: ۱۴۰۵/۰۸/۱۶"
         start();compose.onNodeWithText("ثبت مصوبه").performClick();enterProposalText(text)
         compose.waitUntil(15000) {compose.onAllNodesWithText("گزارش فروش").fetchSemanticsNodes().isNotEmpty()}
-        assertTrue(store.snapshot().tasks.isEmpty())
+        assertTrue("No task should be persisted before explicit save: ${store.snapshot().tasks}",store.snapshot().tasks.isEmpty())
         compose.onNodeWithText("ذخیره",substring=false).performClick()
         compose.waitUntil(15000) {store.snapshot().tasks.size==1 && compose.onAllNodesWithText("ارسال قرارداد").fetchSemanticsNodes().isNotEmpty()}
         compose.waitUntil(15000) {compose.onAllNodes(hasText("ذخیره") and isEnabled()).fetchSemanticsNodes().isNotEmpty()}
@@ -246,11 +263,11 @@ class UiFlowTest {
         compose.onNodeWithContentDescription("روز بعد").performClick()
         compose.onNodeWithTag("review_day_$tomorrow").assertIsDisplayed()
         compose.onNodeWithText("کار فردا").assertIsDisplayed()
-        compose.onNodeWithText("مصوبات",useUnmergedTree=true).performClick()
+        compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
         compose.onNodeWithTag("review_day_$tomorrow").assertIsDisplayed()
-        compose.onNodeWithText("ثبت مصوبه").performClick()
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.ofEpochDay(tomorrow))}").assertExists()
+        compose.onNodeWithContentDescription("ثبت مصوبه برای این روز").performClick()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.ofEpochDay(tomorrow))}").assertExists()
     }
     @Test fun dailyReviewSupportsHorizontalPaging() {
         start();compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
@@ -260,10 +277,14 @@ class UiFlowTest {
         compose.onNodeWithText("امروز",substring=false).performClick()
         compose.onNodeWithTag("review_day_$today").assertIsDisplayed()
     }
-    @Test fun openingAudioFromReviewOffersPlaybackWithoutStartingRecognition() {
+    @Test fun reviewExcludesAudioAndTheEditorArchiveOffersPlaybackWithoutStartingRecognition() {
         store.saveRecording(Recording(path="/private/review.wav",created=System.currentTimeMillis(),seconds=12))
         start();compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("یادداشت صوتی",substring=false).performClick()
+        compose.onNodeWithText("یادداشت صوتی",substring=false).assertDoesNotExist()
+        compose.onNodeWithText("پیگیری",useUnmergedTree=true).performClick()
+        compose.onNodeWithText("ثبت مصوبه",substring=false).performClick()
+        compose.onNodeWithTag("input_voice").performClick()
+        compose.onNodeWithText("صداهای ذخیره‌شده").performScrollTo().performClick()
         compose.onNodeWithContentDescription("پخش صدا").assertExists()
         compose.onNodeWithText("تبدیل به متن",substring=false).assertExists()
         compose.onNodeWithText("در حال تبدیل صدا به متن…").assertDoesNotExist()
@@ -272,7 +293,7 @@ class UiFlowTest {
     @Test fun reschedulesTaskAndShowsItsHistory() {
         store.saveTask(Resolution(title="مصوبهٔ معوق",owner="احمدی",due=LocalDate.now().minusDays(2).toEpochDay()),emptyList())
         start();compose.onNodeWithText("مصوبهٔ معوق",substring=false).performClick()
-        compose.onNodeWithText("تمدید مهلت",substring=false).performScrollTo().performClick()
+        compose.onNodeWithContentDescription("گزینه‌های مصوبه").performClick();compose.onNodeWithText("تمدید مهلت",substring=false).performClick()
         compose.onNodeWithText("دلیل (اختیاری)").performTextInput("نیاز به فرصت بیشتر")
         compose.onNodeWithText("سه روز",substring=false).performClick()
         compose.onNodeWithText("ثبت تغییر موعد").performClick()
@@ -280,7 +301,7 @@ class UiFlowTest {
         compose.waitUntil(15000) {compose.onAllNodesWithText("جزئیات مصوبه").fetchSemanticsNodes().isEmpty()}
         assertEquals(1,store.snapshot().tasks.single().delayCount)
         compose.onNodeWithText("مصوبهٔ معوق",substring=false).performClick()
-        compose.onNodeWithText("تاریخچهٔ موعد (۱)").performScrollTo().performClick()
+        compose.onNodeWithTag("task_summary_more").performScrollTo().performClick()
         compose.onNodeWithText("دلیل: نیاز به فرصت بیشتر").performScrollTo().assertIsDisplayed()
     }
     @Test fun overdueAndCompletedFiltersSelectCorrectTasks() {
@@ -291,7 +312,8 @@ class UiFlowTest {
         compose.onNodeWithText("معوق",substring=false).performClick()
         compose.onNodeWithText("کار عقب‌افتاده").assertIsDisplayed()
         compose.onNodeWithText("کار تمام‌شده").assertDoesNotExist()
-        compose.onNodeWithText("انجام‌شده",substring=false).performClick()
+        compose.onNodeWithTag("task_filter_button").performClick()
+        compose.onNodeWithTag("task_filter_done").performClick()
         compose.onNodeWithText("کار تمام‌شده").assertIsDisplayed()
         compose.onNodeWithText("کار عقب‌افتاده").assertDoesNotExist()
     }
@@ -300,7 +322,7 @@ class UiFlowTest {
         val request=androidx.compose.runtime.mutableStateOf<WidgetLaunch?>(WidgetLaunch(WidgetLaunch.NEW_TASK,day))
         compose.setContent {PeygirApp(widgetLaunch=request.value,consume={request.value=null})}
         compose.waitUntil(15000) {compose.onAllNodesWithText("مصوبهٔ تازه").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.ofEpochDay(day))}").assertExists()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.ofEpochDay(day))}").assertExists()
         compose.onNodeWithText("عنوان مصوبه *").performTextInput("از ویجت")
         compose.onNodeWithText("مسئول انجام *").performTextInput("احمدی")
         compose.onNodeWithText("ذخیره",substring=false).performClick()
@@ -314,6 +336,8 @@ class UiFlowTest {
         compose.setContent {PeygirApp(widgetLaunch=request.value,consume={request.value=null})}
         compose.waitUntil(15000) {compose.onAllNodesWithText("عنوان جلسه *").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("عنوان جلسه *").performTextInput("جلسه از ویجت")
+        compose.onNodeWithTag("meeting_start_time").performScrollTo().performClick()
+        compose.runOnIdle {val dialog=org.robolectric.shadows.ShadowDialog.getLatestDialog() as android.app.TimePickerDialog;dialog.updateTime(9,0);dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()}
         compose.onNodeWithText("ذخیره",substring=false).performClick()
         compose.waitUntil(15000) {store.snapshot().meetings.size==1}
         assertEquals(day,store.snapshot().meetings.single().date)
@@ -331,14 +355,17 @@ class UiFlowTest {
         val audio=java.io.File(java.io.File(context.filesDir,"recordings").apply{mkdirs()},"voice-ui.wav").apply{writeBytes(ByteArray(100))}
         val transcript="عنوان تهیه گزارش فروش مسئول آقای احمدی مهلت ۱۴۰۵/۰۸/۱۵"
         store.saveRecording(Recording(path=audio.absolutePath,created=System.currentTimeMillis(),seconds=2,transcript=transcript))
-        start();compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
-        compose.onNodeWithText(transcript,substring=false).performScrollTo().performClick()
-        compose.onNodeWithText("اولویت، وضعیت و توضیحات").performScrollTo().performClick()
+        val request=androidx.compose.runtime.mutableStateOf<WidgetLaunch?>(WidgetLaunch(WidgetLaunch.NEW_TASK,LocalDate.now().toEpochDay()))
+        compose.setContent {PeygirApp(widgetLaunch=request.value,consume={request.value=null})}
+        compose.waitUntil(15000){compose.onAllNodesWithText("عنوان مصوبه *").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithTag("input_voice").performClick()
+        compose.onNodeWithText("صداهای ذخیره‌شده").performScrollTo().performClick()
+        compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
         compose.onNodeWithText("مهم",substring=false).performScrollTo().performClick()
         compose.onNodeWithText("افزودن متن",substring=false).performScrollTo().performClick()
         compose.waitUntil(15000) {compose.onAllNodesWithText("تهیه گزارش فروش",substring=false).fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("ورود چند مصوبه از متن").assertDoesNotExist()
-        compose.onNodeWithText("سررسید | ${Solar.label(LocalDate.now())}").assertExists()
+        compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.now())}").assertExists()
         compose.onNodeWithText("ذخیره",substring=false).performClick()
         compose.waitUntil(15000) {store.snapshot().tasks.size==1}
         assertEquals("آقای احمدی",store.snapshot().tasks.single().owner)

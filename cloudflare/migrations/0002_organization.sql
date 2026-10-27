@@ -1,0 +1,10 @@
+ALTER TABLE users ADD COLUMN access_role TEXT CHECK(access_role IN ('assistant','manager','deputy'));
+ALTER TABLE operations ADD COLUMN user_id TEXT;
+CREATE TABLE organization_settings(workspace TEXT PRIMARY KEY REFERENCES workspaces(id), enabled INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE account_audit(id TEXT PRIMARY KEY, workspace TEXT NOT NULL, actor TEXT NOT NULL, target TEXT NOT NULL, action TEXT NOT NULL, created INTEGER NOT NULL);
+CREATE TABLE push_devices(token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), session_hash TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, updated INTEGER NOT NULL);
+CREATE INDEX push_devices_user ON push_devices(user_id);
+CREATE TABLE push_outbox(id TEXT PRIMARY KEY, workspace TEXT NOT NULL, user_id TEXT NOT NULL, record_id TEXT NOT NULL, kind TEXT NOT NULL, created INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_attempt INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX push_outbox_due ON push_outbox(next_attempt,created);
+CREATE INDEX records_kind ON records(workspace,kind,deleted);
+CREATE INDEX records_assignee ON records(workspace,json_extract(payload,'$.assignee')) WHERE kind='task';

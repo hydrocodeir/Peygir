@@ -35,15 +35,23 @@ class WidgetVisualTest {
         render(dark,tasks,360,440,"widget-dark")
         render(light,tasks,300,300,"widget-compact")
         render(light,emptyList(),360,320,"widget-empty")
+        val meetings=listOf(Meeting(id=3,title="بررسی بودجه و نقدینگی",date=today+1,start=780,end=840,location="دفتر مدیریت"),Meeting(id=1,title="شورای معاونین",date=today+1,start=540,end=600,location="سالن جلسات"),Meeting(id=2,title="مرور برنامهٔ فروش",date=today+1,start=660,end=720),Meeting(id=4,title="جلسهٔ برنامه‌ریزی پروژه",date=today+2,start=480,end=540))
+        render(light,emptyList(),360,560,"widget-meetings-light",meetings)
+        render(dark,emptyList(),360,560,"widget-meetings-dark",meetings)
+        render(light,emptyList(),300,300,"widget-meetings-compact",meetings)
+        render(light,emptyList(),360,320,"widget-meetings-empty",emptyList())
+        val large=base.createConfigurationContext(Configuration(base.resources.configuration).apply{uiMode=Configuration.UI_MODE_NIGHT_YES;fontScale=1.5f})
+        render(large,emptyList(),300,420,"widget-meetings-large-font",meetings)
     }
-    private fun render(context: Context, tasks: List<Resolution>, width: Int, height: Int, name: String) {
-        val root=ReviewWidget.build(context,1,Snapshot(tasks=tasks)).apply(context,FrameLayout(context))
+    private fun render(context: Context, tasks: List<Resolution>, width: Int, height: Int, name: String,meetings: List<Meeting>?=null) {
+        val root=(if(meetings!=null) MeetingWidget.build(context,1,Snapshot(meetings=meetings)) else ReviewWidget.build(context,1,Snapshot(tasks=tasks))).apply(context,FrameLayout(context))
         // A launcher normally binds this adapter. Supply the same real row RemoteViews for rendering.
-        if(tasks.isNotEmpty()) root.findViewById<ListView>(R.id.widget_list).adapter=object: BaseAdapter() {
-            override fun getCount()=tasks.size
-            override fun getItem(position: Int)=tasks[position]
-            override fun getItemId(position: Int)=tasks[position].id
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup)=ReviewWidget.row(context,tasks[position]).apply(context,parent)
+        val agenda=WidgetAgenda.rows(Snapshot(tasks=tasks,meetings=meetings.orEmpty()),meetings!=null,LocalDate.now().toEpochDay())
+        root.findViewById<ListView>(R.id.widget_list).adapter=object: BaseAdapter() {
+            override fun getCount()=agenda.size
+            override fun getItem(position: Int)=agenda[position]
+            override fun getItemId(position: Int)=agenda[position].stableId
+            override fun getView(position: Int,convertView: View?,parent: ViewGroup)=ReviewWidget.agendaRow(context,agenda[position],meetings!=null).apply(context,parent)
         }
         root.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY))
         root.layout(0,0,width,height)
