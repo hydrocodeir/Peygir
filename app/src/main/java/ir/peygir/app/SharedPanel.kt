@@ -45,6 +45,7 @@ import java.time.ZoneId
             if(binding.isNotEmpty()) TextButton(onClick={detach=true},enabled=!working){Text("جدا کردن اتصال قبلی از این گوشی")}
         } else {
             Text("${session!!.workspaceName} - ${session!!.name} (${when(session!!.role){"manager"->"رئیس";"deputy"->"معاون";else->"دستیار"}})",style=MaterialTheme.typography.bodyMedium)
+            if(session!!.company.isNotBlank()) Text("کد شرکت: ${session!!.company}",style=MaterialTheme.typography.bodySmall)
             if(!syncing && counts.first>0) CountLabel("تغییرات در انتظار ارسال",counts.first,color=MaterialTheme.colorScheme.primary)
             else Text(if(syncing) "در حال همگام‌سازی…" else "تغییر ارسال‌نشده‌ای ندارید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)
             if(last>0) {val at=Instant.ofEpochMilli(last).atZone(ZoneId.systemDefault());Text("آخرین همگام‌سازی: ${Solar.label(at.toLocalDate())} - ${at.toLocalTime().withSecond(0).withNano(0).toString().fa()}",style=MaterialTheme.typography.labelSmall)}
@@ -82,7 +83,10 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
 }
 @Composable internal fun SharedLoginDialog(dismiss: ()->Unit,connected: (SharedSession)->Unit,onboarding: Boolean=false) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
-    var endpoint by remember {mutableStateOf(BuildConfig.SYNC_URL)};var username by remember{mutableStateOf(if(onboarding) "" else "assistant")};var password by remember{mutableStateOf("")}
+    val previous=remember{runCatching{SharedCredentials(context).read()}.getOrNull()}
+    var endpoint by remember {mutableStateOf(previous?.endpoint ?: BuildConfig.SYNC_URL)};var company by remember{mutableStateOf(previous?.company.orEmpty())};var username by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
+    val legacy=previous!=null && previous.company.isEmpty() && endpoint.trimEnd('/')==previous.endpoint
+    val validCompany=company.trim().lowercase(java.util.Locale.ROOT).matches(Regex("[a-z0-9][a-z0-9-]{2,31}"))
     var working by remember {mutableStateOf(false)};var error by remember {mutableStateOf("")};var pending by remember {mutableStateOf<SharedSession?>(null)}
     var existing by remember {mutableIntStateOf(0)}
     fun connect(s: SharedSession) {scope.launch {working=true;try {withContext(Dispatchers.IO){SharedSync.connect(context,s)};password="";connected(s)} catch(e:Exception){error=e.message ?: "اتصال ناموفق بود."} finally {working=false}}}
@@ -91,7 +95,7 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
         if(ready!=null) connect(ready) else scope.launch {
             working=true;error=""
             try {
-                val s=withContext(Dispatchers.IO){SharedSync.login(endpoint,username,password)}
+                val s=withContext(Dispatchers.IO){SharedSync.login(endpoint,username,password,company)}
                 val count=withContext(Dispatchers.IO){val store=Store.get(context);val bound=SharedStore(store).binding();if(bound.isEmpty()) store.snapshot().let{it.tasks.size+it.meetings.size} else 0}
                 if(count>0) {existing=count;pending=s} else {withContext(Dispatchers.IO){SharedSync.connect(context,s)};password="";connected(s)}
             } catch(e:Exception){error=e.message?.takeIf{it.any{c->c in 'آ'..'ی'}} ?: "ورود ناموفق بود؛ نشانی و اینترنت را بررسی کنید."}
@@ -99,17 +103,17 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
         }
     }
     FullEditor(if(pending==null) "ورود به فضای مشترک" else "اشتراک اطلاعات این گوشی",working,dismiss,submit,
-        canSave=pending!=null || (endpoint.isNotBlank() && username.isNotBlank() && password.isNotBlank()),feedback=error,saveLabel=if(pending==null) "ورود" else "اتصال",dismissible=!onboarding) {
+        canSave=pending!=null || (endpoint.isNotBlank() && (validCompany || legacy && company.isBlank()) && username.isNotBlank() && password.isNotBlank()),feedback=error,saveLabel=if(pending==null) "ورود" else "اتصال",dismissible=!onboarding) {
         if(pending==null) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 OutlinedTextField(endpoint,{endpoint=it},label={Text("نشانی سرویس")},singleLine=true,modifier=Modifier.fillMaxWidth(),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Uri))
+                OutlinedTextField(company,{company=it},label={Text("کد شرکت")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("login_company"),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Ascii))
             }
-            if(!onboarding) Row {FilterChip(username=="assistant",{username="assistant"},label={Text("دستیار")});Spacer(Modifier.width(8.dp));FilterChip(username=="manager",{username="manager"},label={Text("مدیر")})}
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 OutlinedTextField(username,{username=it},label={Text("نام کاربری")},singleLine=true,modifier=Modifier.fillMaxWidth(),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Ascii))
                 OutlinedTextField(password,{password=it},label={Text("رمز ورود")},singleLine=true,modifier=Modifier.fillMaxWidth(),textStyle=LocalTextStyle.current.copy(textDirection=TextDirection.Ltr),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password),visualTransformation=PasswordVisualTransformation())
             }
-            Text("حساب‌ها را راه‌انداز سرویس در اختیار شما می‌گذارد. رمز فقط برای ورود استفاده می‌شود و در گوشی ذخیره نمی‌شود.",style=MaterialTheme.typography.bodySmall)
+            Text("نشانی، کد شرکت و حساب ورود را از مدیر شرکت بگیرید. رمز فقط برای ورود استفاده می‌شود و در گوشی ذخیره نمی‌شود.",style=MaterialTheme.typography.bodySmall)
         } else {CountLabel("جلسات و مصوبات این گوشی",existing);Text("اطلاعات فعلی این گوشی به فضای مشترک «${pending!!.workspaceName}» افزوده می‌شود و برای رئیس و دستیار قابل مشاهده خواهد بود. اطلاعات قبلی جایگزین نمی‌شود. ادامه می‌دهید؟")}
         if(working) LinearProgressIndicator(Modifier.fillMaxWidth())
     }

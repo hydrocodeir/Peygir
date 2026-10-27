@@ -25,6 +25,22 @@ class SharedStoreTest {
         val workspace=UUID.randomUUID().toString();sa.bind("https://sync.example.test",workspace);sb.bind("https://sync.example.test",workspace)
     }
     @After fun close() {a.close();b.close()}
+    @Test fun oneServerAndWorkspaceCannotBeReboundToAnotherCompanyWithoutExplicitDetachment() {
+        val context=RuntimeEnvironment.getApplication();context.deleteDatabase("company-binding.db")
+        val store=Store(context,"company-binding.db")
+        try {
+            val shared=SharedStore(store);store.saveTask(Resolution(title="متعلق به شرکت اول",owner="احمدی"),emptyList())
+            shared.bind("https://peygir.test","same-workspace","company-a")
+            assertEquals(sharedBinding("https://peygir.test","same-workspace","company-a"),shared.binding())
+            assertThrows(IllegalStateException::class.java){shared.bind("https://peygir.test","same-workspace","company-b")}
+            assertEquals("متعلق به شرکت اول",store.snapshot().tasks.single().title)
+            shared.clearScopedData(detachBinding=true)
+            assertTrue(shared.binding().isEmpty());assertTrue(store.snapshot().tasks.isEmpty())
+            shared.bind("https://peygir.test","same-workspace","company-b")
+            assertEquals(sharedBinding("https://peygir.test","same-workspace","company-b"),shared.binding())
+            assertEquals("https://peygir.test|legacy",sharedBinding("https://peygir.test","legacy"))
+        }finally{store.close()}
+    }
     private fun send(s: SharedStore)=SyncEngine.exchange(s,cloud)
     private fun task(owner: String="احمدی")=a.saveTask(Resolution(title="گزارش فروش",owner=owner,due=LocalDate.now().plusDays(3).toEpochDay()),listOf(System.currentTimeMillis()+3600000))
     @Test fun twoDatabasesExchangeMeetingTasksStatusFollowupAndDueHistoryWithDifferentLocalIds() {

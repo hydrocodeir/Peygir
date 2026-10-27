@@ -1,0 +1,3 @@
+7a453110f0eed56834c10ef9eb5212f33139a6ec1ce6f493a0323dc8672ecbff  Peygir-4.0.0-debug.apk
+e31aefa5501bbd2895e0197d54be78cb4e46a80dff2ac146dad25c81c23b8e0b  Peygir-4.0.0-source.zip
+cc15b400e7e1f16ef6595f4fb48b5ad1920efb7e80b88bbf725a7b3d92cb49f5  Peygir-4.0.0-vps.zip

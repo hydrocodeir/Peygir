@@ -15,8 +15,9 @@ data class CompanyUser(val id: String,val name: String,val role: String,val acti
 internal object OrgAccess {
     fun role(context: Context)=context.getSharedPreferences("organization_access",0).getString("role","local") ?: "local"
     fun id(context: Context)=context.getSharedPreferences("organization_access",0).getString("id","").orEmpty()
+    fun company(context: Context)=context.getSharedPreferences("organization_access",0).getString("company","").orEmpty()
     fun deputy(context: Context)=role(context)=="deputy"
-    fun set(context: Context,session: SharedSession?) {context.getSharedPreferences("organization_access",0).edit().clear().apply {if(session!=null) putString("role",session.role).putString("id",session.userId)}.commit()}
+    fun set(context: Context,session: SharedSession?) {context.getSharedPreferences("organization_access",0).edit().clear().apply {if(session!=null) putString("role",session.role).putString("id",session.userId).putString("company",session.company)}.commit()}
     fun targetStatus(context: Context,task: Resolution,status: Status): Status = if(status==Status.DONE && task.assignee!=null && (role(context)!="manager" || task.status!=Status.REVIEW)) Status.REVIEW else status
     fun statuses(context: Context,task: Resolution)=if(deputy(context)) {if(task.status==Status.DONE) emptyList() else listOf(Status.WAITING,Status.ACTIVE,Status.REVIEW)} else Status.entries.filter{it!=Status.DONE || task.assignee==null || (role(context)=="manager" && task.status==Status.REVIEW)}
 }
@@ -38,7 +39,7 @@ internal object Organization {
     fun receiveUsers(store: Store,a: JSONArray) {store.syncDb{it.execSQL("INSERT OR REPLACE INTO sync_meta(key,value) VALUES('directory',?)",arrayOf(a.toString()))};members.value=parseUsers(a)}
     fun account(context: Context,payload: JSONObject): JSONObject {
         val s=SharedCredentials(context).read() ?: error("ابتدا وارد حساب شوید.")
-        val response=SharedHttp(s.endpoint,s.token).post("/v2/users",payload)
+        val response=SharedHttp(s.endpoint,s.token,s.company).post("/v2/users",payload)
         receiveUsers(Store.get(context),response.getJSONArray("users"));SharedSync.revision.value++;return response
     }
 }

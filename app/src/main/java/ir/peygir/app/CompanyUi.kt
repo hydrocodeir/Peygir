@@ -40,6 +40,9 @@ import java.util.UUID
     if(!SharedCredentials(c).connected() || OrgAccess.role(c) !in listOf("manager","assistant")) return
     val users by Organization.members.collectAsState()
     val scope=rememberCoroutineScope();val clipboard=LocalClipboardManager.current
+    val company=OrgAccess.company(c)
+    val canCreateAssistant=company.isNotEmpty() && OrgAccess.role(c)=="manager"
+    fun canManage(u: CompanyUser)=company.isEmpty() || OrgAccess.role(c)=="manager" || u.role=="deputy"
     var open by remember {mutableStateOf(false)};var create by remember {mutableStateOf(false)}
     var working by remember {mutableStateOf(false)};var error by remember {mutableStateOf("")}
     var confirm by remember {mutableStateOf<Pair<CompanyUser,String>?>(null)}
@@ -50,20 +53,22 @@ import java.util.UUID
         Text("معاون فقط مصوبات خودش و جلساتی را که دعوت شده می‌بیند.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick={open=true;call(JSONObject().put("action","list"))}){Text("مدیریت حساب‌ها")}
     }}
-    if(open) FullEditor("حساب‌های شرکت",working,{open=false},{create=true},saveLabel="معاون جدید",feedback=error) {
+    if(open) FullEditor("حساب‌های شرکت",working,{open=false},{create=true},saveLabel=if(canCreateAssistant) "حساب جدید" else "معاون جدید",feedback=error) {
         users.forEach {u->OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp)) {
             Text(u.name,style=MaterialTheme.typography.titleMedium)
             Text("${when(u.role){"manager"->"رئیس";"assistant"->"دستیار";else->"معاون"}} - ${if(u.active) "فعال" else "غیرفعال"} - ${u.username}",style=MaterialTheme.typography.bodySmall)
-            Row {TextButton(onClick={confirm=u to "reset"},enabled=!working){Text("بازیابی رمز")};if(u.role=="deputy") TextButton(onClick={confirm=u to "update"},enabled=!working){Text(if(u.active) "غیرفعال کردن" else "فعال کردن")}}
+            if(canManage(u)) Row {TextButton(onClick={confirm=u to "reset"},enabled=!working){Text("بازیابی رمز")};if(u.role=="deputy" || canCreateAssistant && u.role=="assistant") TextButton(onClick={confirm=u to "update"},enabled=!working){Text(if(u.active) "غیرفعال کردن" else "فعال کردن")}}
         }}}
     }
     if(create) {
         var name by remember {mutableStateOf("")};var username by remember {mutableStateOf("")}
+        var role by remember {mutableStateOf("deputy")}
         val password=remember {UUID.randomUUID().toString().replace("-","")};val id=remember {UUID.randomUUID().toString()}
-        FullEditor("حساب معاون",working,{create=false},{call(JSONObject().put("action","create").put("id",id).put("name",name).put("username",username.trim().lowercase()).put("role","deputy").put("password",password)) {credentials="نام: $name\nنام کاربری: ${username.trim().lowercase()}\nرمز ورود: $password";create=false}},canSave=name.isNotBlank() && username.length>=3,feedback=error,saveLabel="ساخت حساب") {
+        FullEditor(if(canCreateAssistant) "حساب جدید" else "حساب معاون",working,{create=false},{call(JSONObject().put("action","create").put("id",id).put("name",name).put("username",username.trim().lowercase()).put("role",role).put("password",password)) {credentials="${if(company.isNotEmpty()) "کد شرکت: $company\n" else ""}نام: $name\nنام کاربری: ${username.trim().lowercase()}\nرمز ورود: $password";create=false}},canSave=name.isNotBlank() && username.length>=3,feedback=error,saveLabel="ساخت حساب") {
             OutlinedTextField(name,{name=it},label={Text("نام و نام خانوادگی / معاونت")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(username,{username=it},label={Text("نام کاربری انگلیسی")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Ascii),modifier=Modifier.fillMaxWidth())
-            Text("رمز قوی خودکار ساخته می‌شود و پس از ثبت نمایش داده خواهد شد. این حساب فقط به مصوبات تخصیص‌یافته و دعوت‌های خودش دسترسی دارد.")
+            if(canCreateAssistant) Row {listOf("deputy" to "معاون","assistant" to "دستیار").forEach{(key,label)->FilterChip(role==key,{role=key},label={Text(label)})}}
+            Text(if(role=="assistant") "دستیار می‌تواند جلسات و مصوبات شرکت را ثبت و پیگیری کند؛ تأیید نهایی با رئیس است." else "رمز قوی خودکار ساخته می‌شود و پس از ثبت نمایش داده خواهد شد. این حساب فقط به مصوبات تخصیص‌یافته و دعوت‌های خودش دسترسی دارد.")
         }
     }
     confirm?.let {(u,action)->AlertDialog(onDismissRequest={if(!working) confirm=null},title={Text(if(action=="reset") "رمز تازه برای ${u.name}؟" else if(u.active) "غیرفعال کردن ${u.name}؟" else "فعال کردن ${u.name}؟")},text={Column {Text(if(action=="reset") "نشست‌های قبلی باطل می‌شوند؛ رمز تازه را در اختیار همین فرد بگذارید." else "مصوبات و سوابق حفظ می‌شوند. حساب غیرفعال نمی‌تواند به سرویس وارد شود.");if(error.isNotBlank()) Text(error,color=MaterialTheme.colorScheme.error)}},confirmButton={TextButton(onClick={

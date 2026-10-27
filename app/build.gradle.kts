@@ -10,8 +10,8 @@ android {
         applicationId = "ir.peygir.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 27
-        versionName = "3.4.2"
+        versionCode = 28
+        versionName = "4.0.0"
         buildConfigField("String","SYNC_URL","\"${providers.gradleProperty("peygir.syncUrl").orElse("").get()}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

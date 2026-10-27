@@ -41,15 +41,15 @@ internal class SharedStore(private val store: Store) {
     fun remoteLocalId(remote: String): Pair<String,Long>?=store.syncDb{db->db.rawQuery("SELECT kind,local_id FROM sync_objects WHERE remote_id=? AND deleted=0",arrayOf(remote)).use{if(it.moveToFirst()) it.getString(0) to it.getLong(1) else null}}
     fun principal()=store.syncDb{meta(it,"principal")}
     fun principal(value: String)=store.syncDb{setMeta(it,"principal",value)}
-    fun clearScopedData()=store.syncDb {db->transaction(db) {
+    fun clearScopedData(detachBinding: Boolean=false)=store.syncDb {db->transaction(db) {
         listOf("recordings","backlog","notification_tokens","follow_ups","due_changes","reminders","tasks","meetings","sync_dirty","sync_objects").forEach{db.delete(it,null,null)}
-        db.delete("sync_meta","key IN ('directory','principal')",null)
+        if(detachBinding) db.delete("sync_meta",null,null) else db.delete("sync_meta","key IN ('directory','principal')",null)
     }}
     fun cursor()=store.syncDb{db->meta(db,"cursor").toLongOrNull() ?: 0L}
     fun cursor(value: Long)=store.syncDb{db->setMeta(db,"cursor",value.toString())}
     fun counts()=store.syncDb{db->db.rawQuery("SELECT (SELECT count(*) FROM sync_dirty),(SELECT count(*) FROM sync_objects WHERE conflict IS NOT NULL)",null).use{it.moveToFirst();it.getInt(0) to it.getInt(1)}}
-    fun bind(endpoint: String,workspace: String) = store.syncDb {db->
-        val value="$endpoint|$workspace";val old=meta(db,"binding")
+    fun bind(endpoint: String,workspace: String,company: String="") = store.syncDb {db->
+        val value=sharedBinding(endpoint,workspace,company);val old=meta(db,"binding")
         check(old.isEmpty() || old==value) {"اطلاعات این گوشی به فضای مشترک دیگری متصل است. ابتدا اتصال قبلی را جدا کنید."}
         if(old.isEmpty()) transaction(db) {
             setMeta(db,"binding",value);setMeta(db,"cursor","0")

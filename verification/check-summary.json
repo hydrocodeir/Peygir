@@ -1,6 +1,6 @@
 {
-  "checkedAtTehran": "2026-10-27T21:15:12.663747+03:30",
-  "tests": 9,
+  "checkedAtTehran": "2026-10-27T23:30:37.099081+03:30",
+  "tests": 203,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
@@ -86,6 +86,126 @@
     "RtlSymmetry"
   ],
   "suites": [
+    {
+      "name": "ir.peygir.app.BackupTest",
+      "tests": 12
+    },
+    {
+      "name": "ir.peygir.app.CalendarCreationTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.CoreTest",
+      "tests": 23
+    },
+    {
+      "name": "ir.peygir.app.ExperienceFlowTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.FirstRunTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.LegacyStorageTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.MeetingCopyFlowTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.MeetingFormTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.MeetingTimelineTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.MeetingToolsTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.MistralOcrTest",
+      "tests": 8
+    },
+    {
+      "name": "ir.peygir.app.NotificationActionsTest",
+      "tests": 8
+    },
+    {
+      "name": "ir.peygir.app.OrganizationTest",
+      "tests": 11
+    },
+    {
+      "name": "ir.peygir.app.OrganizationUiTest",
+      "tests": 8
+    },
+    {
+      "name": "ir.peygir.app.PresentationTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.PushServiceTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.ReviewDaysTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.ReviewNotificationTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.SettingsFlowTest",
+      "tests": 2
+    },
+    {
+      "name": "ir.peygir.app.SharedFlowTest",
+      "tests": 3
+    },
+    {
+      "name": "ir.peygir.app.SharedInfrastructureTest",
+      "tests": 4
+    },
+    {
+      "name": "ir.peygir.app.SharedStoreTest",
+      "tests": 12
+    },
+    {
+      "name": "ir.peygir.app.SimpleExperienceFlowTest",
+      "tests": 4
+    },
+    {
+      "name": "ir.peygir.app.SimpleExperienceTest",
+      "tests": 7
+    },
+    {
+      "name": "ir.peygir.app.TaskToolsFlowTest",
+      "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.TaskToolsTest",
+      "tests": 7
+    },
+    {
+      "name": "ir.peygir.app.UiFlowTest",
+      "tests": 23
+    },
+    {
+      "name": "ir.peygir.app.VisualTest",
+      "tests": 13
+    },
+    {
+      "name": "ir.peygir.app.VoiceCommandsTest",
+      "tests": 1
+    },
+    {
+      "name": "ir.peygir.app.VoiceInputFlowTest",
+      "tests": 1
+    },
     {
       "name": "ir.peygir.app.WidgetTest",
       "tests": 8

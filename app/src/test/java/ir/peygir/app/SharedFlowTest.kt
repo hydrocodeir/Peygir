@@ -49,6 +49,8 @@ class SharedFlowTest {
         compose.setContent{PeygirTheme("light"){SharedPanel{}}}
         compose.onNodeWithText("ورود به فضای مشترک").performClick()
         compose.onNodeWithText("نشانی سرویس").performTextReplacement("http://insecure.test")
+        compose.onNodeWithTag("login_company").performTextInput("company-a")
+        compose.onNodeWithText("نام کاربری").performTextInput("manager")
         compose.onNodeWithText("رمز ورود").performTextInput("test-password")
         compose.onNodeWithText("ورود",substring=false).performClick()
         compose.waitUntil(10000){compose.onAllNodesWithText("نشانی سرویس باید HTTPS و بدون مسیر اضافی باشد.").fetchSemanticsNodes().isNotEmpty()}

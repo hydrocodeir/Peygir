@@ -26,14 +26,26 @@ class FirstRunTest {
         listOf("first_run","shared_private","organization_access").forEach{c.getSharedPreferences(it,0).edit().clear().commit()}
     }
     @After fun close() {Store.get(c).close()}
-    @Test fun freshInstallReachesMandatoryLoginAndShowsOnlyTheThreeCredentialsFields() {
+    @Test fun freshInstallReachesMandatoryLoginWithCompanyAndCredentials() {
         compose.setContent{PeygirEntry {Text("APP CONTENT")}}
         compose.waitUntil(15000){compose.onAllNodesWithText("نام کاربری").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("نشانی سرویس").assertExists();compose.onNodeWithText("رمز ورود").assertExists()
+        compose.onNodeWithTag("login_company").assertExists()
         compose.onNodeWithText("ورود",substring=false).assertIsNotEnabled()
         compose.onNodeWithText("APP CONTENT").assertDoesNotExist()
         compose.onNodeWithContentDescription("بستن").assertDoesNotExist()
         assertFalse(c.getSharedPreferences("first_run",0).getBoolean("complete",false))
+    }
+    @Test fun vpsLoginRequiresAValidCompanyCodeBeforeSubmission() {
+        compose.setContent{PeygirTheme("light"){SharedLoginDialog({},{},onboarding=true)}}
+        compose.onNodeWithText("نشانی سرویس").performTextInput("https://peygir.test")
+        compose.onNodeWithText("نام کاربری").performTextInput("manager")
+        compose.onNodeWithText("رمز ورود").performTextInput("example-password-123")
+        compose.onNodeWithText("ورود",substring=false).assertIsNotEnabled()
+        compose.onNodeWithTag("login_company").performTextInput("../other-company")
+        compose.onNodeWithText("ورود",substring=false).assertIsNotEnabled()
+        compose.onNodeWithTag("login_company").performTextReplacement("company-a")
+        compose.onNodeWithText("ورود",substring=false).assertIsEnabled()
     }
     @Test fun upgradeWithExistingDataSkipsSetupAndKeepsRecords() {
         val store=Store.get(c);store.saveMeeting(Meeting(title="جلسهٔ قبلی"))

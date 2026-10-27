@@ -174,9 +174,9 @@ class MainActivity : ComponentActivity() {
             else SharedSync.request(context)
         }
     }
-    var lastPrincipal by remember {mutableStateOf(OrgAccess.id(context))}
+    var lastPrincipal by remember {mutableStateOf(OrgAccess.company(context)+"|"+OrgAccess.id(context))}
     LaunchedEffect(accountRevision,data.tasks,data.meetings) {
-        val principal=OrgAccess.id(context)
+        val principal=OrgAccess.company(context)+"|"+OrgAccess.id(context)
         if(principal!=lastPrincipal) {if(editTask!=null) discardEditor();editMeeting=null;newMeetingTemplate=null;newMeetingStart=null;selectedMeeting=0;lastPrincipal=principal}
         if(deputy && editTask!=null) {val id=decodeTask(editTask!!).id;if(id>0 && data.tasks.none{it.id==id}) discardEditor()}
         if(selectedMeeting>0 && data.meetings.none{it.id==selectedMeeting}) selectedMeeting=0

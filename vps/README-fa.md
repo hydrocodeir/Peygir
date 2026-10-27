@@ -1,0 +1,164 @@
+# پیگیر ۴ — سرور شخصی و شرکت‌های مستقل
+
+این بسته روی Ubuntu با Docker اجرا می‌شود. یک API مشترک، برای هر شرکت یک فایل SQLite مستقل دارد؛ حساب مدیر سامانه و فهرست شرکت‌ها در پایگاه جدا هستند. کد شرکت در تمام درخواست‌های اندروید ارسال می‌شود. نام کاربری تکراری در شرکت‌های مختلف مجاز است. توکن شرکت اول در شرکت دوم معتبر نیست؛ دسترسی معاون‌ها همچنان فقط به مصوبات خودشان و جلسات دعوت‌شده محدود است.
+
+مدیر سامانه از پنل وب شرکت و رئیس اولیه را می‌سازد؛ رئیس از داخل اندروید دستیار و معاون اضافه می‌کند. دستیار در نسخهٔ VPS فقط حساب معاون‌ها را مدیریت می‌کند. تأیید نهایی مصوبهٔ واگذارشده با رئیس است. پنل سامانه فهرست شرکت‌ها، تعلیق/فعال‌سازی و بازیابی رمز رئیس اولیه را دارد؛ محتوای جلسات شرکت‌ها را نمایش نمی‌دهد.
+
+## پیش‌نیاز
+
+- Ubuntu 64-bit، Docker Engine و افزونهٔ Docker Compose v2: [راهنمای رسمی نصب](https://docs.docker.com/engine/install/ubuntu/).
+- دامنه‌ای مانند `sync.example.com` با رکورد A/AAAA صحیح به VPS؛ پورت‌های ۸۰ و ۴۴۳ باز باشند. فقط سرویس Caddy روی این پورت‌ها منتشر می‌شود؛ API و SQLite پورت عمومی ندارند.
+- فضای دیسک برای داده و پشتیبان. نام دامنه را در فرمان‌های نمونه با دامنهٔ خودتان عوض کنید.
+
+فرمان‌ها Bash و از ریشهٔ بسته هستند؛ جایی که پوشه‌های `vps` و `cloudflare` قرار دارند. نیاز به نصب Node یا npm روی Ubuntu نیست.
+
+## راه‌اندازی نخست
+
+```bash
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/workspace" -w /workspace \
+  node:24.21.0-bookworm-slim \
+  node vps/scripts/init.mjs --domain sync.example.com
+
+docker compose --env-file .device-private/vps/compose.env \
+  -f vps/compose.yaml up -d --build
+```
+
+اسکریپت، رمز تصادفی مدیر سامانه و فایل‌های تنظیمات را در `.device-private/vps` می‌سازد و رمز را در خروجی ترمینال چاپ نمی‌کند. اطلاعات ورود در `owner-login.txt` همان پوشه است؛ آن را فقط روی سیستم خودتان بخوانید. اجرای دوباره، تنظیمات موجود را بازنویسی نمی‌کند. این پوشه وارد Git، کانتینر یا بستهٔ سورس تحویلی نمی‌شود.
+
+پوشهٔ خصوصی مجوز ۷۰۰ دارد. فایل‌های JSON داخل آن ۶۴۴ هستند تا Compose آن‌ها را به‌صورت secret برای کاربر غیرریشهٔ API قابل خواندن کند؛ پوشهٔ خصوصی را عمومی یا قابل دسترسی برای کاربران دیگر نکنید. [مستندات secrets در Compose](https://docs.docker.com/compose/how-tos/use-secrets/).
+
+پس از آماده‌شدن دامنه، نشانی `https://sync.example.com/admin/` را باز کنید. Caddy گواهی HTTPS را صادر و تمدید می‌کند؛ دادهٔ گواهی در volume جدا باقی می‌ماند. [شرایط HTTPS خودکار](https://caddyserver.com/docs/automatic-https#overview).
+
+## راه‌اندازی هر شرکت
+
+۱. با حساب مدیر سامانه وارد پنل شوید و «شرکت جدید» را بزنید.
+
+۲. نام شرکت، کد انگلیسی یکتا و نام رئیس را وارد کنید. کد بین ۳ تا ۳۲ نویسه، شامل حروف کوچک انگلیسی، عدد و خط تیره است و پس از ثبت تغییر نمی‌کند. نام کاربری پیش‌فرض رئیس `manager` است؛ زیر «جزئیات بیشتر» قابل تعیین است. رمز قوی خودکار ساخته می‌شود یا می‌توانید رمز حداقل ۱۲ نویسه‌ای تعیین کنید.
+
+۳. پنجرهٔ نتیجه، نشانی سرویس، کد شرکت، نام کاربری و رمز را فقط همان بار نشان می‌دهد؛ دکمهٔ کپی یا ذخیرهٔ فایل دارد. اطلاعات را خودتان به مدیر همان شرکت بدهید.
+
+۴. APK نسخهٔ ۴ را روی گوشی نصب کنید. پس از مجوزها، چهار فیلد ورود را پر کنید: نشانی HTTPS سرویس، کد شرکت، نام کاربری و رمز.
+
+۵. رئیس از تنظیمات ← حساب و همگام‌سازی ← حساب‌های شرکت ← حساب جدید، دستیار و معاون‌ها را می‌سازد. هر حساب فقط در همان شرکت معتبر است. تعلیق شرکت، ورود و همگام‌سازی آن شرکت را قطع و نشست‌ها را باطل می‌کند؛ اطلاعات حفظ می‌شوند. فعال‌سازی دوباره به ورود تازه نیاز دارد.
+
+## اعلان فوری با Firebase
+
+حساب‌ها، مجوزها و اطلاعات مشترک روی VPS هستند. Firebase فقط برای رساندن اعلان عمومیِ تغییر به گوشی استفاده می‌شود؛ پیام آن شامل شناسه‌ها، نوع رویداد و کد شرکت است و عنوان یا شرح جلسه/مصوبه را ندارد. دریافت اطلاعات اصلی از API شخصی است. یادآوری موعدهای دریافت‌شده و مرور صبح روی گوشی اجرا می‌شوند.
+
+فایل‌های `{}` اولیه اجازه می‌دهند سرویس بدون FCM هم راه بیفتد؛ همگام‌سازی هنگام بازبودن اپ و بررسی دوره‌ای برقرار است، ولی اعلان فوری تا تنظیم FCM فعال نمی‌شود.
+
+- JSON حساب سرویس Firebase را در `.device-private/vps/fcm-service-account.json` بگذارید.
+- تنظیم عمومی اپ را در `.device-private/vps/fcm-public.json` قرار دهید:
+
+```json
+{
+  "projectId": "your-firebase-project",
+  "applicationId": "1:123456789:android:YOUR_FIREBASE_APP_ID",
+  "senderId": "123456789",
+  "apiKey": "YOUR_FIREBASE_ANDROID_API_KEY"
+}
+```
+
+`applicationId` شناسهٔ اپ در Firebase است؛ شناسهٔ بستهٔ اندرویدی `ir.peygir.app` نیست. شناسهٔ پروژهٔ دو فایل باید یکی باشد. فایل عمومی از `google-services.json` پروژهٔ خودتان قابل استخراج است؛ کلید خصوصی حساب سرویس فقط در سرور می‌ماند.
+
+```bash
+chmod 700 .device-private/vps
+chmod 644 .device-private/vps/*.json
+docker compose --env-file .device-private/vps/compose.env \
+  -f vps/compose.yaml up -d --force-recreate api
+```
+
+سپس در اپ همگام‌سازی کنید و بخش «اعلان فوری» را بررسی کنید. صف اعلان در پایگاه همان شرکت نگهداری می‌شود و سرویس هر دقیقه ارسال‌های ناموفق را بازبینی می‌کند. اجازهٔ اعلان، اتصال گوشی و محدودیت‌های اندروید همچنان مؤثرند.
+
+## پشتیبان‌گیری سرور
+
+پشتیبان درون اپ مربوط به همان گوشی است. ابزار زیر همهٔ شرکت‌های سرور و فهرست مدیریتی را با SQLite Backup API پشتیبان می‌گیرد؛ از کپی ناقص فایل‌های WAL استفاده نمی‌کند. API برای مدت کوتاه متوقف می‌شود تا تصویر تمام شرکت‌ها هماهنگ باشد؛ قفل SQLite مانع اجرای اشتباهی ابزار روی API فعال است.
+
+```bash
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml stop api
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml \
+  run --rm --no-deps api node vps/scripts/backup.mjs
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml start api
+```
+
+نام پوشهٔ ساخته‌شده زیر `/backups` چاپ می‌شود. آن را با فرمان زیر خارج از VPS هم نگهداری کنید؛ `BACKUP_NAME` را با همان نام عوض کنید:
+
+```bash
+umask 077
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml \
+  run --rm --no-deps api tar -C /backups -czf - BACKUP_NAME > peygir-server-backup.tgz
+```
+
+پوشهٔ خصوصی تنظیمات و کلیدهای FCM را نیز جداگانه و امن نگهداری کنید؛ در پشتیبان پایگاه‌ها قرار نمی‌گیرند. volume پشتیبان روی همان VPS به‌تنهایی جای نسخهٔ خارج از سرور را نمی‌گیرد.
+
+## بازیابی روی volume تازه
+
+بازیابی روی اطلاعات موجود بازنویسی نمی‌کند. ابتدا سرویس را پایین بیاورید؛ از `down -v` استفاده نکنید:
+
+```bash
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml down
+```
+
+در فایل خصوصی `compose.env` فقط `PEYGIR_DATA_VOLUME` را به نام تازه‌ای مثل `peygir_data_restored_01` تغییر دهید. نام volume پشتیبان را حفظ کنید. سپس:
+
+```bash
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml \
+  run --rm --no-deps api node vps/scripts/restore.mjs --from /backups/BACKUP_NAME --confirm
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml up -d
+```
+
+ابزار ابتدا اثر انگشت، ساختار SQLite، کلیدهای خارجی و کامل‌بودن مجموعهٔ شرکت‌ها را بررسی می‌کند. پس از بازیابی، مدیر سامانه و کاربران شرکت‌ها باید دوباره وارد شوند؛ نشست‌های قبلی و ثبت دستگاه‌ها باطل می‌شوند تا گوشی‌ها اطلاعات بازیابی‌شده را از نو دریافت کنند و اعلان‌های قدیمی تکرار نشوند. اگر خطای دیسک بازیابی را نیمه‌کاره کرد، از volume تازهٔ دیگری استفاده کنید؛ volume قبلی تا تصمیم شما باقی می‌ماند.
+
+## انتقال شرکت فعلی از Cloudflare
+
+این مرحله بعد از استقرار VPS انجام می‌شود؛ این بسته خودش به Cloudflare واقعی وصل یا چیزی را حذف نمی‌کند.
+
+۱. همهٔ گوشی‌ها را با سرویس قبلی همگام کنید تا تغییر ارسال‌نشده نماند و از اطلاعات گوشی‌ها پشتیبان بگیرید. هنگام انتقال، ثبت/ویرایش روی سرویس قدیمی را متوقف کنید.
+
+۲. با دسترسی مالک Cloudflare، خروجی کامل SQL بگیرید و فایل را خصوصی نگه دارید:
+
+```bash
+# این فرمان در سورس پروژهٔ فعلی و با حساب Cloudflare مالک اجرا می‌شود.
+cd cloudflare
+npx wrangler d1 export DB --remote --output ../.device-private/company-export.sql
+```
+
+۳. فایل SQL را خودتان به VPS منتقل کنید. پیش از انتقال از سرور VPS هم پشتیبان بگیرید، سپس API را متوقف کنید. فایل را با کانتینر یک‌باره در volume پشتیبان کپی کنید:
+
+```bash
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml stop api
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml \
+  run --rm --no-deps -v "$PWD/.device-private/company-export.sql:/import/company.sql:ro" \
+  api node vps/scripts/import-d1.mjs --sql /import/company.sql --code company-code --name "نام شرکت"
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml start api
+```
+
+شرکت را قبل از import در پنل نسازید؛ ابزار خودش آن را اضافه می‌کند. ورود قبلی مدیر سامانه باید یک‌بار انجام شده باشد تا پایگاه مدیریتی آماده باشد. import فقط خروجی تک‌شرکتی با ساختار سازمانی فعلی را می‌پذیرد، شناسه‌ها، رمزها، جلسات و مصوبات را حفظ می‌کند و نشست‌ها/ثبت دستگاه‌های قدیمی را پاک می‌کند. شرکت موجود بازنویسی نمی‌شود. فایل SQL صرفاً از مسیر آفلاین مدیر سرور پذیرفته می‌شود و API بارگذاری SQL ندارد.
+
+۴. APK نسخهٔ ۴ را روی نسخهٔ قبلی نصب کنید. پس از اطمینان از انتقال کامل، در گوشی از حساب قبلی خارج شوید و با نشانی جدید، کد شرکت و همان نام کاربری/رمز وارد شوید. خروج از حساب، نسخهٔ محلی شرکت را پاک و ورود تازه آن را از VPS دریافت می‌کند؛ تغییرهای ارسال‌نشده را قبل از خروج حتماً ارسال کنید. برنامه را حذف نکنید.
+
+تا پایان بررسی روی چند گوشی، سرویس قدیمی را نگه دارید؛ ثبت هم‌زمان روی دو سرور انجام ندهید. [راهنمای رسمی خروجی D1](https://developers.cloudflare.com/d1/best-practices/import-export-data/).
+
+## نگهداری و بازیابی حساب مالک
+
+```bash
+# وضعیت
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml ps
+# لاگ بدون چاپ رمزها
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml logs --tail 100 api
+# به‌روزرسانی بعد از گرفتن پشتیبان
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml pull web
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml up -d --build
+```
+
+برای رمز تازهٔ مدیر سامانه، API را متوقف و ابزار زیر را اجرا کنید؛ رمز در فایل خصوصی volume پشتیبان نوشته می‌شود و در لاگ چاپ نمی‌شود:
+
+```bash
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml stop api
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml \
+  run --rm --no-deps api node vps/scripts/reset-owner.mjs
+docker compose --env-file .device-private/vps/compose.env -f vps/compose.yaml start api
+```
+
+برای توسعهٔ محلی Node 24.21+ کافی است؛ وابستگی npm زمان اجرا نداریم. `node --test vps/test/*.test.mjs` آزمون‌های جداسازی، دسترسی، نشست مدیریت، تداخل عملیات، import و پشتیبان را اجرا می‌کند. استقرار دامنهٔ عمومی و تحویل FCM روی گوشی واقعی باید هنگام راه‌اندازی VPS شما بررسی شوند.

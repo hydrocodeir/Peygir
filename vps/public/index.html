@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>پیگیر - مدیریت شرکت‌ها</title><link rel="stylesheet" href="/admin/style.css"><script src="/admin/app.js" defer></script></head>
+<body>
+<header><div><strong>پیگیر</strong><span>مدیریت شرکت‌ها</span></div><button id="logout" class="quiet" hidden>خروج</button></header>
+<main>
+<p id="error" class="error" role="alert" hidden></p>
+<section id="login" class="panel narrow"><h1>ورود مدیر سامانه</h1><p class="muted">حساب مدیریت سرور را وارد کنید.</p>
+<form id="login-form"><label>نام کاربری<input name="username" autocomplete="username" dir="ltr" required maxlength="64"></label><label>رمز عبور<input name="password" type="password" autocomplete="current-password" dir="ltr" required maxlength="256"></label><button type="submit">ورود</button></form></section>
+<section id="dashboard" hidden>
+<div class="toolbar"><h1>شرکت‌ها <span id="count" class="badge"></span></h1><button id="new-company">شرکت جدید +</button></div>
+<p id="push-status" class="muted"></p>
+<label class="search">جست‌وجوی شرکت<input id="search" type="search" placeholder="نام یا کد شرکت"></label>
+<div id="companies" class="companies"></div><p id="empty" class="muted" hidden>هنوز شرکتی ثبت نشده است.</p>
+</section>
+<dialog id="create-dialog"><form id="create-form"><div class="dialog-head"><h2>شرکت جدید</h2><button type="button" class="quiet close" aria-label="بستن">×</button></div>
+<label>نام شرکت<input name="name" required maxlength="200"></label><label>کد شرکت<input name="code" required dir="ltr" minlength="3" maxlength="32" pattern="[a-z0-9][a-z0-9-]{2,31}" placeholder="example-company" autocomplete="off"></label><small>کد انگلیسی، عدد یا خط تیره؛ کاربران با این کد وارد می‌شوند.</small>
+<label>نام مدیر شرکت<input name="managerName" required maxlength="200"></label>
+<details><summary>جزئیات بیشتر</summary><label>نام کاربری مدیر<input name="managerUsername" value="manager" dir="ltr" pattern="[a-z0-9][a-z0-9_.-]{2,63}" maxlength="64" required></label><label>رمز مدیر (خالی بگذارید تا ساخته شود)<input name="managerPassword" type="password" autocomplete="new-password" dir="ltr" minlength="12" maxlength="256"></label></details>
+<p id="create-error" class="error" role="alert" hidden></p><button type="submit">ساخت شرکت</button></form></dialog>
+<dialog id="credentials-dialog"><div class="dialog-head"><h2>اطلاعات ورود مدیر شرکت</h2><button type="button" class="quiet close" aria-label="بستن">×</button></div><p class="muted">رمز فقط همین‌بار نمایش داده می‌شود. آن را در اختیار مدیر همین شرکت بگذارید.</p><pre id="credentials" dir="rtl"></pre><div class="actions"><button id="copy-credentials">کپی اطلاعات</button><button id="download-credentials" class="secondary">ذخیرهٔ فایل</button></div><p id="copy-status" role="status"></p></dialog>
+<dialog id="confirm-dialog"><h2 id="confirm-title"></h2><p id="confirm-text"></p><p id="confirm-error" class="error" role="alert" hidden></p><div class="actions"><button id="confirm-action">تأیید</button><button class="quiet close">انصراف</button></div></dialog>
+</main><footer>هر شرکت پایگاه داده و حساب‌های مستقل دارد.</footer>
+</body></html>

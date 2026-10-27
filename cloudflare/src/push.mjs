@@ -15,6 +15,7 @@ async function accessToken(env) {
   const data=await response.json();cached={email:account.client_email,token:data.access_token,expires:Date.now()+data.expires_in*1000};return {token:cached.token,project:account.project_id};
 }
 export async function sendPush(env,device,data) {
+  if(env.COMPANY_CODE) data={...data,company:env.COMPANY_CODE};
   const auth=await accessToken(env);
   const response=await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(auth.project)}/messages:send`,{method:'POST',headers:{Authorization:'Bearer '+auth.token,'Content-Type':'application/json'},body:JSON.stringify({message:{token:device,data,android:{priority:'HIGH',ttl:'3600s'}}}),signal:AbortSignal.timeout(15000)});
   if(response.ok) return 'ok';

@@ -15,6 +15,19 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk=[28],application=Application::class)
 class PushServiceTest {
+    @Test fun companyScopedPushRejectsOtherAndMissingCompaniesEvenWhenUserIdsMatch() {
+        val c=RuntimeEnvironment.getApplication()
+        fun select(company: String){OrgAccess.set(c,SharedSession("https://test.invalid","","","","معاون","deputy","same-user",company))}
+        select("company-a");c.getSharedPreferences("shared_private",0).edit().putString("session","test-only").putBoolean("alerts",true).commit()
+        c.getSharedPreferences("push_private",0).edit().clear().commit()
+        val controller=Robolectric.buildService(PeygirMessagingService::class.java).create();val service=controller.get();val manager=c.getSystemService(NotificationManager::class.java);manager.cancelAll()
+        fun message(company: String?)=RemoteMessage.Builder("sender").setData(buildMap{put("userId","same-user");put("eventId","same-event");put("recordId","record-1");put("kind","task");if(company!=null)put("company",company)}).build()
+        try {
+            service.onMessageReceived(message("company-b"));service.onMessageReceived(message(null));assertTrue(shadowOf(manager).allNotifications.isEmpty())
+            service.onMessageReceived(message("company-a"));assertEquals(1,shadowOf(manager).allNotifications.size)
+            manager.cancelAll();select("company-b");service.onMessageReceived(message("company-b"));assertEquals(1,shadowOf(manager).allNotifications.size)
+        }finally{controller.destroy();c.getSharedPreferences("shared_private",0).edit().clear().commit();OrgAccess.set(c,null);manager.cancelAll()}
+    }
     @Test fun genericPushIsAccountScopedAndDuplicateEventsDoNotReappearAfterDismissal() {
         val c=RuntimeEnvironment.getApplication()
         OrgAccess.set(c,SharedSession("https://test.invalid","","","","معاون","deputy","current-user"))

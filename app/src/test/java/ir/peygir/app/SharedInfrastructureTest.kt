@@ -21,6 +21,22 @@ class SharedInfrastructureTest {
     private val context get()=RuntimeEnvironment.getApplication()
     @Before fun setup(){context.getSharedPreferences("shared_private",0).edit().clear().commit()}
     @After fun cleanup(){context.getSharedPreferences("shared_private",0).edit().clear().commit()}
+    @Test fun companyRoutingHeaderIsValidatedAndIsNotAddedToLegacyRequests() {
+        val scoped=MockConnection(200,"{\"ok\":true}")
+        SharedHttp("https://unit.test","token",companyCode(" COMPANY-A ")){scoped}.post("/v2/config",JSONObject())
+        assertEquals("company-a",scoped.getRequestProperty("X-Peygir-Company"));assertTrue(scoped.closed)
+        val legacy=MockConnection(200,"{\"ok\":true}")
+        SharedHttp("https://unit.test","token"){legacy}.post("/v2/config",JSONObject())
+        assertNull(legacy.getRequestProperty("X-Peygir-Company"))
+        assertThrows(IllegalArgumentException::class.java){companyCode("../another")}
+        val session=SharedSession("https://unit.test","token","id","شرکت","مدیر","manager","user", "company-a")
+        assertEquals("company-a",SharedSession.from(session.json()).company)
+        assertEquals("",SharedSession.from(session.json().also{it.remove("company")}).company)
+        verifyLoginCompany("",JSONObject())
+        verifyLoginCompany("company-a",JSONObject().put("company","company-a"))
+        assertThrows(IllegalStateException::class.java){verifyLoginCompany("company-a",JSONObject())}
+        assertThrows(IllegalStateException::class.java){verifyLoginCompany("company-a",JSONObject().put("company","company-b"))}
+    }
     @Test fun httpsTransportSendsBearerAndJsonWithoutFollowingRedirects() {
         val connection=MockConnection(200,"{\"ok\":true}")
         val response=SharedHttp("https://unit.test","test-token"){connection}.post("/v1/sync",JSONObject().put("cursor",4))

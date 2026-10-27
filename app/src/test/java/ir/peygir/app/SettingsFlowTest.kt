@@ -70,6 +70,8 @@ class SettingsFlowTest {
         compose.onNodeWithText("انصراف").performClick();assertEquals("دادهٔ فعلی",store.snapshot().tasks.single().title)
         selectBackup();compose.onNodeWithText("بازیابی و جایگزینی").performClick()
         compose.waitUntil(15000) {store.snapshot().tasks.single().title=="از پشتیبان" && compose.onAllNodesWithText("بازیابی و جایگزینی").fetchSemanticsNodes().isEmpty()}
+        // The database changes before the root settings callback replaces its composition.
+        compose.waitUntil(15000) {compose.onAllNodesWithText("پشتیبان بازیابی شد.").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("settings_appearance").performScrollTo().performClick()
         compose.onNodeWithTag("dynamic_colors").performScrollTo().assertIsOn()
         assertEquals("dark",context.getSharedPreferences("settings",0).getString("theme",null))

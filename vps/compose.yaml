@@ -1,0 +1,51 @@
+name: peygir
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: vps/Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      PUBLIC_ORIGIN: https://${PEYGIR_DOMAIN:?Set PEYGIR_DOMAIN in the private compose.env file}
+      DATA_DIR: /data
+      TRUST_PROXY: "1"
+      ADMIN_BOOTSTRAP_FILE: /run/secrets/admin_bootstrap
+      FCM_SERVICE_ACCOUNT_FILE: /run/secrets/fcm_service
+      FCM_PUBLIC_JSON_FILE: /run/secrets/fcm_public
+    secrets: [admin_bootstrap, fcm_service, fcm_public]
+    volumes: [data:/data, backups:/backups]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 90s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PEYGIR_DOMAIN: ${PEYGIR_DOMAIN:?Set PEYGIR_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro", "caddy_data:/data", "caddy_config:/config"]
+    depends_on:
+      api: {condition: service_healthy}
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  data:
+    name: ${PEYGIR_DATA_VOLUME:-peygir_data}
+  backups:
+    name: ${PEYGIR_BACKUP_VOLUME:-peygir_backups}
+  caddy_data:
+  caddy_config:
+secrets:
+  admin_bootstrap:
+    file: ../.device-private/vps/admin-bootstrap.json
+  fcm_service:
+    file: ../.device-private/vps/fcm-service-account.json
+  fcm_public:
+    file: ../.device-private/vps/fcm-public.json

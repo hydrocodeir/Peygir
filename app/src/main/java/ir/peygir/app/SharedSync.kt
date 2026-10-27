@@ -23,11 +23,14 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-internal class SharedSession(val endpoint: String,val token: String,val workspace: String,val workspaceName: String,val name: String,val role: String,val userId: String="") {
+internal class SharedSession(val endpoint: String,val token: String,val workspace: String,val workspaceName: String,val name: String,val role: String,val userId: String="",val company: String="") {
     override fun toString()="SharedSession(name=$name, role=$role, token=[hidden])"
-    fun json()=JSONObject().put("endpoint",endpoint).put("token",token).put("workspace",workspace).put("workspaceName",workspaceName).put("name",name).put("role",role).put("userId",userId)
-    companion object {fun from(p: JSONObject)=SharedSession(p.getString("endpoint"),p.getString("token"),p.getString("workspace"),p.getString("workspaceName"),p.getString("name"),p.getString("role"),p.optString("userId"))}
+    fun json()=JSONObject().put("endpoint",endpoint).put("token",token).put("workspace",workspace).put("workspaceName",workspaceName).put("name",name).put("role",role).put("userId",userId).put("company",company)
+    companion object {fun from(p: JSONObject)=SharedSession(p.getString("endpoint"),p.getString("token"),p.getString("workspace"),p.getString("workspaceName"),p.getString("name"),p.getString("role"),p.optString("userId"),p.optString("company"))}
 }
+internal fun companyCode(value: String)=value.trim().lowercase(java.util.Locale.ROOT).also {require(it.isEmpty() || it.matches(Regex("[a-z0-9][a-z0-9-]{2,31}"))) {"کد شرکت باید ۳ تا ۳۲ نویسهٔ انگلیسی، عدد یا خط تیره باشد."}}
+internal fun verifyLoginCompany(company: String,response: JSONObject) {check(response.optString("company")==company) {"پاسخ ورود مربوط به شرکت انتخاب‌شده نیست؛ نشانی سرویس و کد شرکت را بررسی کنید."}}
+internal fun sharedBinding(endpoint: String,workspace: String,company: String="")=if(company.isEmpty()) "$endpoint|$workspace" else "$endpoint|company:$company|$workspace"
 internal class SharedCredentials(context: Context,private val key: ()->SecretKey = ::sharedKey) {
     private val prefs=context.applicationContext.getSharedPreferences("shared_private",0)
     fun connected()=prefs.contains("session")
@@ -62,12 +65,13 @@ internal fun validSharedEndpoint(value: String): String {
     return u.toString().trimEnd('/')
 }
 internal fun interface SharedTransport {fun post(path: String,body: JSONObject): JSONObject}
-internal class SharedHttp(private val endpoint: String,private val token: String="",private val open: (URL)->HttpURLConnection = {it.openConnection() as HttpURLConnection}): SharedTransport {
+internal class SharedHttp(private val endpoint: String,private val token: String="",private val company: String="",private val open: (URL)->HttpURLConnection = {it.openConnection() as HttpURLConnection}): SharedTransport {
     override fun post(path: String,body: JSONObject): JSONObject {
         val connection=open(URL(validSharedEndpoint(endpoint)+path))
         try {
             connection.requestMethod="POST";connection.connectTimeout=15000;connection.readTimeout=20000;connection.instanceFollowRedirects=false;connection.doOutput=true
             connection.setRequestProperty("Content-Type","application/json; charset=utf-8");connection.setRequestProperty("Accept","application/json")
+            if(company.isNotEmpty()) connection.setRequestProperty("X-Peygir-Company",companyCode(company))
             if(token.isNotBlank()) connection.setRequestProperty("Authorization","Bearer $token")
             val bytes=body.toString().toByteArray(Charsets.UTF_8);connection.setFixedLengthStreamingMode(bytes.size);connection.outputStream.use{it.write(bytes)}
             val code=connection.responseCode;val input=if(code in 200..299) connection.inputStream else connection.errorStream
@@ -106,28 +110,29 @@ internal object SharedSync {
     val working=MutableStateFlow(false)
     private val worker=Executors.newSingleThreadExecutor()
     private val running=AtomicBoolean(false)
-    fun login(endpoint: String,username: String,password: String): SharedSession {
-        val host=validSharedEndpoint(endpoint);val r=SharedHttp(host).post("/v2/login",JSONObject().put("username",username.trim()).put("password",password))
-        return SharedSession(host,r.getString("token"),r.getString("workspace"),r.getString("workspaceName"),r.getString("name"),r.getString("role"),r.getString("userId"))
+    fun login(endpoint: String,username: String,password: String,company: String=""): SharedSession {
+        val host=validSharedEndpoint(endpoint);val code=companyCode(company);val r=SharedHttp(host,company=code).post("/v2/login",JSONObject().put("username",username.trim()).put("password",password))
+        verifyLoginCompany(code,r)
+        return SharedSession(host,r.getString("token"),r.getString("workspace"),r.getString("workspaceName"),r.getString("name"),r.getString("role"),r.getString("userId"),code)
     }
     @Synchronized fun connect(context: Context,session: SharedSession) {
         val shared=SharedStore(Store.get(context));val old=shared.binding()
         val principal=shared.principal()
         check(principal.isEmpty() || principal==session.userId) {"ابتدا از حساب قبلی خارج شوید تا اطلاعات آن از این گوشی پاک شود."}
         if(session.role=="deputy" && principal.isEmpty()) check(Store.get(context).snapshot().let{it.tasks.isEmpty() && it.meetings.isEmpty()}) {"ورود معاون باید روی دفتر خالی انجام شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید."}
-        shared.bind(session.endpoint,session.workspace)
+        shared.bind(session.endpoint,session.workspace,session.company)
         try {SharedCredentials(context).save(session)} catch(e:Exception) {if(old.isEmpty()) shared.detach();throw e}
         shared.principal(session.userId);OrgAccess.set(context,session);PushRegistration.configure(context);SharedJobs.schedule(context);revision.value++
     }
     @Synchronized fun disconnect(context: Context,detach: Boolean=false) {
         val credentials=SharedCredentials(context);val session=runCatching{credentials.read()}.getOrNull()
         if(session?.userId?.isNotBlank()==true) {
-            SharedStore(Store.get(context)).clearScopedData();Organization.members.value=emptyList()
+            SharedStore(Store.get(context)).clearScopedData(detachBinding=true);Organization.members.value=emptyList()
             context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
         }
         credentials.clear();OrgAccess.set(context,null);SharedJobs.cancel(context)
         if(detach) SharedStore(Store.get(context)).detach()
-        if(session!=null) worker.execute{runCatching{SharedHttp(session.endpoint,session.token).post("/v1/logout",JSONObject())}}
+        if(session!=null) worker.execute{runCatching{SharedHttp(session.endpoint,session.token,session.company).post("/v1/logout",JSONObject())}}
         revision.value++
     }
     fun request(context: Context) {
@@ -142,11 +147,11 @@ internal object SharedSync {
             var session=credentials.read() ?: return true
             val store=Store.get(context);val shared=SharedStore(store)
             val before=store.snapshot().tasks.associateBy{it.id}
-            check(shared.binding()=="${session.endpoint}|${session.workspace}") {"فضای مشترک با اطلاعات این گوشی همخوان نیست."}
+            check(shared.binding()==sharedBinding(session.endpoint,session.workspace,session.company)) {"فضای مشترک با اطلاعات این گوشی همخوان نیست."}
             OrgAccess.set(context,session)
-            SyncEngine.exchange(shared,SharedHttp(session.endpoint,session.token)) {response->
+            SyncEngine.exchange(shared,SharedHttp(session.endpoint,session.token,session.company)) {response->
                 if(response.optString("userId").isNotBlank() && (session.userId!=response.getString("userId") || session.role!=response.getString("role"))) {
-                    session=SharedSession(session.endpoint,session.token,session.workspace,session.workspaceName,session.name,response.getString("role"),response.getString("userId"));credentials.save(session);OrgAccess.set(context,session)
+                    session=SharedSession(session.endpoint,session.token,session.workspace,session.workspaceName,session.name,response.getString("role"),response.getString("userId"),session.company);credentials.save(session);OrgAccess.set(context,session)
                 }
                 if(session.userId.isNotBlank()) shared.principal(session.userId)
             }

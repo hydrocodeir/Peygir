@@ -164,14 +164,16 @@ async function accounts(request,env,user) {
   const previous=await env.DB.prepare('SELECT * FROM users WHERE workspace=? AND id=?').bind(user.workspace,b.id).first();
   const statements=[];let password;
   if(b.action==='create') {
-    requireValue(!previous && text(b.name,200,true) && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(b.username) && b.role==='deputy','نام، نام کاربری یکتا و نقش معاون را مشخص کنید.');
+    const allowedRole=b.role==='deputy' || (env.ALLOW_ASSISTANT_ACCOUNTS && user.role==='manager' && b.role==='assistant');
+    requireValue(!previous && text(b.name,200,true) && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(b.username) && allowedRole,'نام، نام کاربری یکتا و نقش مجاز را مشخص کنید.');
     requireValue(text(b.password,256,true) && b.password.length>=12,'رمز باید حداقل ۱۲ نویسه باشد.');
     const salt=hex(crypto.getRandomValues(new Uint8Array(16)));password=b.password;
     const existing=await env.DB.prepare('SELECT 1 FROM users WHERE username=?').bind(b.username).first();requireValue(!existing,'این نام کاربری قبلاً استفاده شده است.');
-    statements.push(env.DB.prepare("INSERT INTO users(id,workspace,username,name,role,access_role,salt,password_hash,iterations) VALUES(?,?,?,?,'assistant','deputy',?,?,100000)").bind(b.id,user.workspace,b.username,b.name.trim(),salt,await passwordHash(password,salt)));
+    statements.push(env.DB.prepare("INSERT INTO users(id,workspace,username,name,role,access_role,salt,password_hash,iterations) VALUES(?,?,?,?,'assistant',?,?,?,100000)").bind(b.id,user.workspace,b.username,b.name.trim(),b.role,salt,await passwordHash(password,salt)));
     statements.push(env.DB.prepare('INSERT INTO organization_settings(workspace,enabled) VALUES(?,1) ON CONFLICT(workspace) DO UPDATE SET enabled=1').bind(user.workspace));
   } else {
     requireValue(previous,'حساب پیدا نشد.');
+    if(env.ALLOW_ASSISTANT_ACCOUNTS && user.role==='assistant' && (previous.access_role || previous.role)!=='deputy') throw new ApiError(403,'دستیار فقط حساب معاون‌ها را مدیریت می‌کند.');
     if(b.action==='update') {
       requireValue(text(b.name,200,true) && typeof b.active==='boolean');
       requireValue(previous.id!==user.id || b.active,'نمی‌توانید حساب خودتان را غیرفعال کنید.');
