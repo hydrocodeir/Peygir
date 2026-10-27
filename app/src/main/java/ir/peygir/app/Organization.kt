@@ -39,7 +39,9 @@ internal object Organization {
     fun receiveUsers(store: Store,a: JSONArray) {store.syncDb{it.execSQL("INSERT OR REPLACE INTO sync_meta(key,value) VALUES('directory',?)",arrayOf(a.toString()))};members.value=parseUsers(a)}
     fun account(context: Context,payload: JSONObject): JSONObject {
         val s=SharedCredentials(context).read() ?: error("ابتدا وارد حساب شوید.")
+        if(payload.optString("id")==s.userId && payload.optString("action") in listOf("update","reset")) check(SharedStore(Store.get(context)).counts().first==0) {"پیش از تغییر حساب خودتان، تغییرات ارسال‌نشده را همگام کنید."}
         val response=SharedHttp(s.endpoint,s.token,s.company).post("/v2/users",payload)
+        if(response.optBoolean("reauthenticate")) {SharedSync.disconnect(context);return response}
         receiveUsers(Store.get(context),response.getJSONArray("users"));SharedSync.revision.value++;return response
     }
 }

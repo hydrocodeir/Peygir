@@ -80,9 +80,9 @@ export class Registry {
   }
   async resetManager(id) {
     const c=this.byId(id);requireValue(c,'شرکت پیدا نشد.');const password=secret(),salt=secret(),hash=await passwordHash(password,salt);const lease=this.lease(c);
-    try {const u=lease.db.prepare('SELECT username FROM users WHERE id=?').get(c.manager_id);requireValue(u,'مدیر اولیه پیدا نشد.');await lease.d1.batch([
-      lease.d1.prepare('UPDATE users SET salt=?,password_hash=?,active=1 WHERE id=?').bind(salt,hash,c.manager_id),lease.d1.prepare('DELETE FROM sessions WHERE user_id=?').bind(c.manager_id),lease.d1.prepare('DELETE FROM push_devices WHERE user_id=?').bind(c.manager_id)
-    ]);this.audit(id,'reset-manager');return {company:c.code,username:u.username,password};}finally{lease.release();}
+    try {const u=lease.db.prepare("SELECT id,username FROM users WHERE active=1 AND COALESCE(access_role,role)='manager' ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,id LIMIT 1").get(c.manager_id);requireValue(u,'مدیر فعال پیدا نشد.');await lease.d1.batch([
+      lease.d1.prepare('UPDATE users SET salt=?,password_hash=?,active=1 WHERE id=?').bind(salt,hash,u.id),lease.d1.prepare('DELETE FROM sessions WHERE user_id=?').bind(u.id),lease.d1.prepare('DELETE FROM push_devices WHERE user_id=?').bind(u.id)
+    ]);this.db.prepare('UPDATE companies SET manager_id=? WHERE id=?').run(u.id,id);this.audit(id,'reset-manager');return {company:c.code,username:u.username,password};}finally{lease.release();}
   }
   close() {for(const e of this.pool.values()) e.db.close();this.pool.clear();this.db.close();}
 }

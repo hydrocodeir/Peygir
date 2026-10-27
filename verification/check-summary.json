@@ -1,6 +1,6 @@
 {
-  "checkedAtTehran": "2026-10-27T23:30:37.099081+03:30",
-  "tests": 203,
+  "checkedAtTehran": "2026-10-28T00:05:32.133876+03:30",
+  "tests": 209,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
@@ -86,6 +86,10 @@
     "RtlSymmetry"
   ],
   "suites": [
+    {
+      "name": "ir.peygir.app.AccountManagementUiTest",
+      "tests": 6
+    },
     {
       "name": "ir.peygir.app.BackupTest",
       "tests": 12

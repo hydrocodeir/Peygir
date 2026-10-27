@@ -151,7 +151,6 @@ object MeetingTimeline {
                 modifier=Modifier.offset(x=column*placement.lane,y=hourHeight*(start/60f)).width(column).height(height).padding(1.dp).testTag("meeting_card_${m.id}").semantics{contentDescription="${m.title}، ${Solar.label(LocalDate.ofEpochDay(day))}، ${m.clockLabel()}"}) {
                 Column(Modifier.padding(if(weekly) 3.dp else 8.dp)) {
                     Text(m.title,fontSize=if(weekly) 11.sp else 15.sp,lineHeight=if(weekly) 16.sp else 22.sp,fontWeight=FontWeight.Medium,maxLines=if(weekly) 6 else 3,overflow=TextOverflow.Ellipsis)
-                    if(height>50.dp && (!weekly || column>42.dp)) Text(m.clockLabel(),fontSize=if(weekly) 9.sp else 12.sp,lineHeight=16.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     if(!weekly && height>100.dp && m.location.isNotBlank()) Text(m.location,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                 }
             }

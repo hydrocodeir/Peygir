@@ -52,7 +52,7 @@ test('deputy scope and chief-only final approval work against the VPS SQLite ada
 test('chief can create assistants while assistants cannot promote or reset the chief',async t=>{
   const {app}=await setup(t);await company(app,'company-a');const chief=await login(app,'company-a');await user(app,'company-a',chief.token,'assistant','helper');const helper=await login(app,'company-a','helper','account-password-123456');
   const p={action:'create',id:randomUUID(),username:'another-helper',name:'Assistant',role:'assistant',password:'account-password-123456'};
-  assert.equal((await request(app,'/v2/users',{company:'company-a',token:helper.token,body:p})).status,400);
+  assert.equal((await request(app,'/v2/users',{company:'company-a',token:helper.token,body:p})).status,403);
   assert.equal((await request(app,'/v2/users',{company:'company-a',token:helper.token,body:{action:'reset',id:chief.userId,password:'new-account-password-123'}})).status,403);
   await user(app,'company-a',helper.token,'deputy','second-deputy');assert.equal((await sync(app,'company-a',chief.token)).status,200);
 });
@@ -116,4 +116,45 @@ test('offline D1 import preserves IDs and passwords, revokes sessions and reject
 });
 test('D1 SQL import cannot attach the registry',async t=>{
   const {dir,close}=await setup(t);await close();const file=join(dir,'attach.sql');writeFileSync(file,"ATTACH DATABASE 'registry.sqlite' AS stolen;");assert.throws(()=>importD1(dir,{sqlFile:file,code:'bad-import',name:'Bad'}),/authorized/);
+});
+
+test('named people can be managers or assistants and edits preserve account identity and assignments',async t=>{
+  const {app}=await setup(t);await company(app,'company-a');const chief=await login(app,'company-a');
+  const id=await user(app,'company-a',chief.token,'manager','second-manager');const second=await login(app,'company-a','second-manager','account-password-123456');assert.equal(second.role,'manager');
+  await sync(app,'company-a',chief.token,[operation('task',task('ASSIGNED BEFORE RENAME',id))]);
+  const r=await request(app,'/v2/users',{company:'company-a',token:chief.token,body:{action:'update',id,name:'Named Person',username:'renamed-person',role:'assistant',active:true}});assert.equal(r.status,200,r.text);
+  assert.equal((await sync(app,'company-a',second.token)).status,401);
+  assert.equal((await request(app,'/v2/login',{company:'company-a',body:{username:'second-manager',password:'account-password-123456'}})).status,401);
+  const fresh=await login(app,'company-a','renamed-person','account-password-123456');assert.equal(fresh.userId,id);assert.equal(fresh.role,'assistant');assert.equal(fresh.name,'Named Person');assert.ok((await sync(app,'company-a',fresh.token)).text.includes('ASSIGNED BEFORE RENAME'));
+});
+test('hard deletion removes credentials, sessions and push access but preserves business records and prevents UUID reuse',async t=>{
+  const {app}=await setup(t);const c=await company(app,'company-a'),chief=await login(app,'company-a');const id=await user(app,'company-a',chief.token);const old=await login(app,'company-a','user','account-password-123456');
+  await request(app,'/v2/device',{company:'company-a',token:old.token,body:{token:'synthetic-device',enabled:true}});
+  await sync(app,'company-a',chief.token,[operation('task',task('KEEP HISTORY',id))]);
+  const r=await request(app,'/v2/users',{company:'company-a',token:chief.token,body:{action:'delete',id}});assert.equal(r.status,200,r.text);assert.ok(!r.data.users.some(u=>u.id===id));
+  for(const path of ['/v2/sync','/v2/users','/v2/config','/v2/device'])assert.equal((await request(app,path,{company:'company-a',token:old.token,body:{}})).status,401);
+  assert.equal((await request(app,'/v2/login',{company:'company-a',body:{username:'user',password:'account-password-123456'}})).status,401);
+  const lease=app.registry.lease(c.company);try{assert.equal(lease.db.prepare('SELECT count(*) n FROM users WHERE id=?').get(id).n,0);assert.equal(lease.db.prepare('SELECT count(*) n FROM sessions WHERE user_id=?').get(id).n,0);assert.equal(lease.db.prepare('SELECT count(*) n FROM push_devices WHERE user_id=?').get(id).n,0);assert.equal(lease.db.prepare('SELECT count(*) n FROM push_outbox WHERE user_id=?').get(id).n,0);}finally{lease.release();}
+  assert.ok((await sync(app,'company-a',chief.token)).text.includes('KEEP HISTORY'));
+  const reused=await request(app,'/v2/users',{company:'company-a',token:chief.token,body:{action:'create',id,name:'Impersonation',username:'user',role:'deputy',password:'account-password-123456'}});assert.equal(reused.status,409);
+  const newId=await user(app,'company-a',chief.token,'deputy','user');assert.notEqual(newId,id);const fresh=await login(app,'company-a','user','account-password-123456');assert.ok(!(await sync(app,'company-a',fresh.token)).text.includes('KEEP HISTORY'));
+});
+test('self deletion and removing or demoting the last manager are rejected, including concurrent changes',async t=>{
+  const {app}=await setup(t);await company(app,'company-a');const a=await login(app,'company-a');
+  assert.equal((await request(app,'/v2/users',{company:'company-a',token:a.token,body:{action:'delete',id:a.userId}})).status,400);
+  const change={action:'update',id:a.userId,name:'Manager',username:'manager',role:'deputy',active:true};assert.equal((await request(app,'/v2/users',{company:'company-a',token:a.token,body:change})).status,409);
+  const id=await user(app,'company-a',a.token,'manager','other-manager'),b=await login(app,'company-a','other-manager','account-password-123456');
+  const results=await Promise.all([request(app,'/v2/users',{company:'company-a',token:a.token,body:{action:'delete',id}}),request(app,'/v2/users',{company:'company-a',token:b.token,body:{action:'delete',id:a.userId}})]);assert.equal(results.filter(r=>r.status===200).length,1);
+  const active=app.registry.lease(app.registry.find('company-a'));try{assert.equal(active.db.prepare("SELECT count(*) n FROM users WHERE active=1 AND COALESCE(access_role,role)='manager'").get().n,1);}finally{active.release();}
+});
+test('duplicate usernames, stale edits and cross-company deletes do not alter any account',async t=>{
+  const {app}=await setup(t);await company(app,'company-a');await company(app,'company-b');const a=await login(app,'company-a'),b=await login(app,'company-b'),id=await user(app,'company-a',a.token);
+  const update={action:'update',id,name:'Edited',username:'manager',role:'deputy',active:true};assert.equal((await request(app,'/v2/users',{company:'company-a',token:a.token,body:update})).status,409);
+  assert.equal((await request(app,'/v2/users',{company:'company-a',token:a.token,body:{...update,username:'user',expected:{name:'stale',username:'user',role:'deputy',active:true}}})).status,409);
+  assert.equal((await request(app,'/v2/users',{company:'company-a',token:a.token,body:{action:'delete',id:b.userId}})).status,400);await login(app,'company-b');
+});
+test('platform recovery selects another active manager after the original manager is deleted',async t=>{
+  const {app}=await setup(t);const c=await company(app,'company-a'),a=await login(app,'company-a');await user(app,'company-a',a.token,'manager','replacement-manager');const b=await login(app,'company-a','replacement-manager','account-password-123456');
+  assert.equal((await request(app,'/v2/users',{company:'company-a',token:b.token,body:{action:'delete',id:a.userId}})).status,200);
+  const owner=await admin(app),reset=await request(app,`/admin/api/companies/${c.company.id}/reset-manager`,{...owner,body:{}});assert.equal(reset.status,200);assert.equal(reset.data.credentials.username,'replacement-manager');await login(app,'company-a',reset.data.credentials.username,reset.data.credentials.password);
 });

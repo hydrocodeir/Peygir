@@ -44,7 +44,7 @@ import java.time.ZoneId
             FilledTonalButton(onClick={login=true},enabled=!working,modifier=Modifier.fillMaxWidth()){Text("ورود به فضای مشترک")}
             if(binding.isNotEmpty()) TextButton(onClick={detach=true},enabled=!working){Text("جدا کردن اتصال قبلی از این گوشی")}
         } else {
-            Text("${session!!.workspaceName} - ${session!!.name} (${when(session!!.role){"manager"->"رئیس";"deputy"->"معاون";else->"دستیار"}})",style=MaterialTheme.typography.bodyMedium)
+            Text("${session!!.workspaceName} - ${session!!.name} (${when(session!!.role){"manager"->"مدیر";"deputy"->"کاربر";else->"دستیار"}})",style=MaterialTheme.typography.bodyMedium)
             if(session!!.company.isNotBlank()) Text("کد شرکت: ${session!!.company}",style=MaterialTheme.typography.bodySmall)
             if(!syncing && counts.first>0) CountLabel("تغییرات در انتظار ارسال",counts.first,color=MaterialTheme.colorScheme.primary)
             else Text(if(syncing) "در حال همگام‌سازی…" else "تغییر ارسال‌نشده‌ای ندارید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.primary)

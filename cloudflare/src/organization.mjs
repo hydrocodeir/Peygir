@@ -154,9 +154,62 @@ async function sync(request,env,user,ctx) {
   // Return only generic revocations for IDs the caller already knows. Never historical private payloads.
   for(const [id,i] of inventory) if(!allowed.has(id)) changes.unshift(revoked({recordId:id,kind:i.kind,baseRevision:i.revision}));
   ctx?.waitUntil(flushPush(env));
-  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),userId:user.id,role:user.role,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),userId:user.id,role:user.role,name:user.name,workspaceName:user.workspace_name,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+}
+/** Account mutations use one transactional authorization decision, including the last-manager check. */
+async function manageAccounts(request,env,user) {
+  if(!admin(user)) throw new ApiError(403,'مدیریت حساب‌ها فقط برای مدیر و دستیار است.');
+  const b=await body(request);
+  if(b.action==='list') return json({users:await people(env,user)});
+  requireValue(['create','update','reset','delete'].includes(b.action) && ID.test(b.id));
+  const previous=await env.DB.prepare('SELECT * FROM users WHERE workspace=? AND id=?').bind(user.workspace,b.id).first();
+  const oldRole=previous && (previous.access_role || previous.role);
+  if(b.action!=='create') {
+    requireValue(previous,'حساب پیدا نشد.');
+    if(user.role==='assistant' && oldRole!=='deputy') throw new ApiError(403,'دستیار فقط حساب کاربران را مدیریت می‌کند.');
+    if(b.expected && (b.expected.name!==previous.name || b.expected.username!==previous.username || b.expected.role!==oldRole || b.expected.active!==!!previous.active)) throw new ApiError(409,'اطلاعات حساب تغییر کرده است؛ فهرست را تازه کنید.');
+  }
+  let name,loginName,role,active,salt,hash;
+  if(b.action==='create' || b.action==='update') {
+    name=b.name;loginName=b.username===undefined && previous?previous.username:b.username;role=b.role===undefined && previous?oldRole:b.role;
+    requireValue(text(name,200,true) && typeof loginName==='string' && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(loginName) && ['manager','assistant','deputy'].includes(role),'نام، نام کاربری انگلیسی معتبر و نقش را مشخص کنید.');
+    if(user.role!=='manager' && role!=='deputy') throw new ApiError(403,'تعیین نقش مدیر یا دستیار فقط با مدیر است.');
+    active=b.action==='create'?true:b.active;requireValue(typeof active==='boolean');
+    if(b.action==='update' && b.id===user.id && !active) throw new ApiError(400,'نمی‌توانید حساب خودتان را غیرفعال کنید.');
+    if(b.action==='create') requireValue(!previous,'این شناسهٔ حساب قبلاً استفاده شده است.');
+  }
+  if(b.action==='delete' && b.id===user.id) throw new ApiError(400,'برای حذف حساب خودتان، از مدیر دیگری بخواهید این کار را انجام دهد.');
+  if(b.action==='create' || b.action==='reset') {
+    requireValue(text(b.password,256,true) && b.password.length>=12,'رمز باید حداقل ۱۲ نویسه باشد.');salt=hex(crypto.getRandomValues(new Uint8Array(16)));hash=await passwordHash(b.password,salt);
+  }
+  const audit=crypto.randomUUID(),now=Date.now();
+  let guard=`EXISTS(SELECT 1 FROM users a JOIN sessions s ON s.user_id=a.id WHERE a.workspace=? AND a.id=? AND a.active=1 AND COALESCE(a.access_role,a.role)=? AND s.token_hash=? AND s.expires>?)`;
+  const args=[user.workspace,user.id,user.role,user.tokenHash,now];
+  if(b.action==='create') {
+    guard+=' AND NOT EXISTS(SELECT 1 FROM users WHERE id=? OR username=?) AND NOT EXISTS(SELECT 1 FROM account_audit WHERE workspace=? AND target=? AND action=\'delete\')';args.push(b.id,loginName,user.workspace,b.id);
+  } else {
+    guard+=' AND EXISTS(SELECT 1 FROM users WHERE workspace=? AND id=? AND name=? AND username=? AND active=? AND COALESCE(access_role,role)=? AND salt=? AND password_hash=?)';args.push(user.workspace,b.id,previous.name,previous.username,previous.active,oldRole,previous.salt,previous.password_hash);
+    if(b.action==='update') {guard+=' AND NOT EXISTS(SELECT 1 FROM users WHERE username=? AND id<>?)';args.push(loginName,b.id);}
+    if(previous.active && oldRole==='manager' && (b.action==='delete' || b.action==='update' && (!active || role!=='manager'))) {
+      guard+=' AND EXISTS(SELECT 1 FROM users WHERE workspace=? AND id<>? AND active=1 AND COALESCE(access_role,role)=\'manager\')';args.push(user.workspace,b.id);
+    }
+  }
+  const decided='EXISTS(SELECT 1 FROM account_audit WHERE id=?)';
+  const statements=[env.DB.prepare(`INSERT INTO account_audit SELECT ?,?,?,?,?,? WHERE ${guard}`).bind(audit,user.workspace,user.id,b.id,b.action,now,...args)];
+  if(b.action==='create') statements.push(env.DB.prepare(`INSERT INTO users(id,workspace,username,name,role,access_role,salt,password_hash,iterations) SELECT ?,?,?,?,?,?,?,?,100000 WHERE ${decided}`).bind(b.id,user.workspace,loginName,name.trim(),role==='manager'?'manager':'assistant',role,salt,hash,audit));
+  if(b.action==='update') statements.push(env.DB.prepare(`UPDATE users SET name=?,username=?,role=?,access_role=?,active=? WHERE workspace=? AND id=? AND ${decided}`).bind(name.trim(),loginName,role==='manager'?'manager':'assistant',role,active?1:0,user.workspace,b.id,audit));
+  if(b.action==='reset') statements.push(env.DB.prepare(`UPDATE users SET salt=?,password_hash=?,iterations=100000 WHERE workspace=? AND id=? AND ${decided}`).bind(salt,hash,user.workspace,b.id,audit));
+  const revoke=['delete','reset'].includes(b.action) || b.action==='update' && (loginName!==previous.username || role!==oldRole || !active);
+  if(revoke) {
+    statements.push(env.DB.prepare(`DELETE FROM push_devices WHERE user_id=? AND ${decided}`).bind(b.id,audit),env.DB.prepare(`DELETE FROM sessions WHERE user_id=? AND ${decided}`).bind(b.id,audit),env.DB.prepare(`DELETE FROM push_outbox WHERE user_id=? AND ${decided}`).bind(b.id,audit));
+  }
+  if(b.action==='delete') statements.push(env.DB.prepare(`DELETE FROM users WHERE workspace=? AND id=? AND ${decided}`).bind(user.workspace,b.id,audit));
+  const result=await env.DB.batch(statements);
+  if(!result[0].meta?.changes) throw new ApiError(409,'حساب تغییر کرده، نام کاربری تکراری است یا آخرین مدیر فعال قابل حذف و تغییر نقش نیست؛ فهرست را تازه کنید.');
+  return json({ok:true,reauthenticate:revoke && b.id===user.id,users:await people(env,user)});
 }
 async function accounts(request,env,user) {
+  if(env.ACCOUNT_MANAGEMENT_V2) return manageAccounts(request,env,user);
   if(!admin(user)) throw new ApiError(403,'مدیریت حساب‌ها فقط برای رئیس و دستیار است.');
   const b=await body(request);
   if(b.action==='list') return json({users:await people(env,user)});

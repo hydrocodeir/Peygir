@@ -13,7 +13,7 @@ export async function makeBackup(dataDir,backupRoot) {
     registry=new DatabaseSync(join(dataDir,'registry.sqlite'),{readOnly:true});const companies=registry.prepare('SELECT id FROM companies ORDER BY id').all();
     const files=[];await backup(registry,join(dest,'registry.sqlite'));files.push('registry.sqlite');
     for(const {id} of companies){if(!uuid(id))throw new Error('Invalid company identity');const name='tenants/'+id+'.sqlite';const db=new DatabaseSync(join(dataDir,name),{readOnly:true});try{await backup(db,join(dest,name));}finally{db.close();}files.push(name);}
-    writeFileSync(join(dest,'manifest.json'),JSON.stringify({format:1,version:'4.0.0',created:Date.now(),files:files.map(name=>({name,sha256:hash(join(dest,name))}))},null,2)+'\n',{mode:0o600,flag:'wx'});return dest;
+    writeFileSync(join(dest,'manifest.json'),JSON.stringify({format:1,version:'4.1.0',created:Date.now(),files:files.map(name=>({name,sha256:hash(join(dest,name))}))},null,2)+'\n',{mode:0o600,flag:'wx'});return dest;
   }finally{registry?.close();unlock();}
 }
 export function restoreBackup(dataDir,source) {

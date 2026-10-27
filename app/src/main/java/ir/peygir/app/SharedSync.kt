@@ -150,8 +150,8 @@ internal object SharedSync {
             check(shared.binding()==sharedBinding(session.endpoint,session.workspace,session.company)) {"فضای مشترک با اطلاعات این گوشی همخوان نیست."}
             OrgAccess.set(context,session)
             SyncEngine.exchange(shared,SharedHttp(session.endpoint,session.token,session.company)) {response->
-                if(response.optString("userId").isNotBlank() && (session.userId!=response.getString("userId") || session.role!=response.getString("role"))) {
-                    session=SharedSession(session.endpoint,session.token,session.workspace,session.workspaceName,session.name,response.getString("role"),response.getString("userId"),session.company);credentials.save(session);OrgAccess.set(context,session)
+                if(response.optString("userId").isNotBlank() && (session.userId!=response.getString("userId") || session.role!=response.getString("role") || session.name!=response.optString("name",session.name) || session.workspaceName!=response.optString("workspaceName",session.workspaceName))) {
+                    session=SharedSession(session.endpoint,session.token,session.workspace,response.optString("workspaceName",session.workspaceName),response.optString("name",session.name),response.getString("role"),response.getString("userId"),session.company);credentials.save(session);OrgAccess.set(context,session)
                 }
                 if(session.userId.isNotBlank()) shared.principal(session.userId)
             }
