@@ -155,7 +155,8 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
 @Composable private fun MeetingSearchDialog(data: Snapshot,users: List<CompanyUser>,deputy: Boolean,query: String,change: (String)->Unit,dismiss: ()->Unit,open: (Long)->Unit,delete: ((Long)->Unit)?) {
     val focus=remember {FocusRequester()}
     val shown=remember(data.meetings,users,query) {if(query.isBlank()) emptyList() else data.meetings.filter{meetingSearch(it,users,query)}.sortedWith(MeetingSchedule.order)}
-    Dialog(onDismissRequest=dismiss,properties=DialogProperties(usePlatformDefaultWidth=false)) {
+    Dialog(onDismissRequest=dismiss,properties=speechDialogProperties()) {
+        KeyboardSpeechHost {
         Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.surface) {
             Column(Modifier.safeDrawingPadding().imePadding().testTag("meeting_search_modal")) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -172,6 +173,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
             }
         }
         LaunchedEffect(Unit) {focus.requestFocus()}
+        }
     }
 }
 

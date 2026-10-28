@@ -12,7 +12,8 @@ import java.io.File
 
 internal enum class DictationMode(val key: String,val title: String,val help: String) {
     TAP("tap","لمس و پایان","میکروفون را لمس کنید، صحبت کنید و «پایان» را بزنید."),
-    HOLD("hold","نگه‌داشتن و صحبت","میکروفون را نگه دارید و صحبت کنید؛ با رهاکردن، متن وارد می‌شود.");
+    HOLD("hold","نگه‌داشتن و صحبت","میکروفون را نگه دارید و صحبت کنید؛ با رهاکردن، متن وارد می‌شود."),
+    KEYBOARD("keyboard","نوار گفتار بالای کیبورد","روی فیلد متن بزنید؛ میکروفون نوار بالای کیبورد را نگه دارید و برای تبدیل رها کنید.");
     companion object {
         const val PREFERENCE="dictation_mode"
         fun read(context: Context)=from(context.getSharedPreferences("settings",0).getString(PREFERENCE,null))

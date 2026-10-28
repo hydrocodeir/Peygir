@@ -1,6 +1,6 @@
 {
-  "checkedAtTehran": "2026-10-28T23:05:43.481526+03:30",
-  "tests": 257,
+  "checkedAtTehran": "2026-10-28T23:50:53.686613+03:30",
+  "tests": 273,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
@@ -137,6 +137,14 @@
     {
       "name": "ir.peygir.app.HoldDictationTest",
       "tests": 9
+    },
+    {
+      "name": "ir.peygir.app.KeyboardSpeechTest",
+      "tests": 14
+    },
+    {
+      "name": "ir.peygir.app.KeyboardSpeechVisualTest",
+      "tests": 2
     },
     {
       "name": "ir.peygir.app.LegacyStorageTest",

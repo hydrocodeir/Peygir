@@ -54,7 +54,8 @@ internal fun taskMatchesFilter(t: Resolution,today: Long,filter: String)=when(fi
     if(search) {
         val focus=remember{FocusRequester()}
         val results=data.tasks.filter{t->query.isNotBlank() && listOf(t.title,t.owner,t.description,data.meetings.find{it.id==t.meetingId}?.title.orEmpty()).any{meetingSearchText(it,query)}}.sortedWith(order)
-        Dialog(onDismissRequest={search=false},properties=DialogProperties(usePlatformDefaultWidth=false)) {
+        Dialog(onDismissRequest={search=false},properties=speechDialogProperties()) {
+            KeyboardSpeechHost {
             Surface(Modifier.fillMaxSize()) {Column(Modifier.safeDrawingPadding().imePadding().testTag("task_search_modal")) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {IconButton(onClick={search=false}){Icon(Icons.Outlined.Close,"بستن جست‌وجوی مصوبات")};Text("جست‌وجوی مصوبات",style=MaterialTheme.typography.titleMedium)}
                 VoiceTextField(query,{query=it},voiceLabel="عنوان، مسئول یا جلسه",label={Text("عنوان، مسئول یا جلسه",maxLines=1)},singleLine=true,leadingIcon={Icon(Icons.Outlined.Search,null)},trailingIcon={if(query.isNotEmpty()) IconButton(onClick={query=""}){Icon(Icons.Outlined.Close,"پاک‌کردن جست‌وجو")}},modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).focusRequester(focus).testTag("task_search_field"),shape=RoundedCornerShape(16.dp))
@@ -66,6 +67,7 @@ internal fun taskMatchesFilter(t: Resolution,today: Long,filter: String)=when(fi
                 }
             }}
             LaunchedEffect(Unit){focus.requestFocus()}
+            }
         }
     }
 }

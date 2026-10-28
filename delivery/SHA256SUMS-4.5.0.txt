@@ -1,0 +1,2 @@
+8e12f90deb4227fc8f71afcb0c6d0f7629edde679f4d07577d9b188dcf2715d7  Peygir-4.5.0-debug.apk
+e13b0b8514db86d7b1225ea701b1cd166a9d8b78833b54b177a31bd080199df8  Peygir-4.5.0-source.zip

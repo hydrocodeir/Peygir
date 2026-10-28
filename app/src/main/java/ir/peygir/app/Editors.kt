@@ -86,19 +86,22 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
 }
 
 @Composable fun FullEditor(title: String, busy: Boolean, dismiss: () -> Unit, save: () -> Unit, canSave: Boolean = true, feedback: String = "", saveLabel: String = "ذخیره", dismissible: Boolean = true, actions: List<PageAction> = emptyList(), content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest={ if(!busy && dismissible) dismiss() },properties=DialogProperties(usePlatformDefaultWidth=false)) {
+    Dialog(onDismissRequest={ if(!busy && dismissible) dismiss() },properties=speechDialogProperties()) {
+        KeyboardSpeechHost(enabled=!busy) {
+        val voiceWorking=LocalKeyboardSpeech.current?.working==true
         Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.surface) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
                     if(dismissible) IconButton(onClick=dismiss,enabled=!busy) { Icon(Icons.Outlined.Close,"بستن") }
                     Text(title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
-                    Button(onClick=save,enabled=!busy && canSave) { Text(if(busy) "در حال ثبت…" else saveLabel) }
+                    Button(onClick=save,enabled=!busy && canSave && !voiceWorking) { Text(if(busy) "در حال ثبت…" else saveLabel) }
                     PageActions("گزینه‌های فرم",actions,!busy)
                 }
                 HorizontalDivider()
                 if(feedback.isNotBlank()) Text(feedback,Modifier.padding(horizontal=16.dp,vertical=8.dp),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp),content=content)
             }
+        }
         }
     }
 }
@@ -205,6 +208,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var priority by rememberSaveable { mutableStateOf(task.priority.name) }
     var status by rememberSaveable { mutableStateOf(task.status.name) }
     var meetingId by rememberSaveable { mutableStateOf(task.meetingId ?: 0L) }
+    val keyboardSpeech=rememberDictationMode()==DictationMode.KEYBOARD
     var meetingMenu by remember { mutableStateOf(false) }
     var meetingQuery by remember {mutableStateOf("")}
     var dates by rememberSaveable { mutableStateOf(reminders.map { it.at }.joinToString(",")) }
@@ -271,7 +275,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         if(more) {
             if(task.id>0) TextButton(onClick={focus.clearFocus();ownerDetails=owner.trim()},enabled=owner.isNotBlank() && !busy,modifier=Modifier.testTag("owner_open_tasks")){Icon(Icons.Outlined.PersonOutline,null);Spacer(Modifier.width(6.dp));Text("مصوبات باز مسئول")}
             Box {Row(verticalAlignment=Alignment.CenterVertically) {TextButton(onClick={meetingQuery="";meetingMenu=true}){Icon(Icons.Outlined.Groups,null);Spacer(Modifier.width(6.dp));Text(meetings.find{it.id==meetingId}?.title ?: "جلسه (اختیاری)");Icon(Icons.Outlined.ExpandMore,null)}}
-                DropdownMenu(meetingMenu,{meetingMenu=false}){VoiceTextField(meetingQuery,{meetingQuery=it},voiceLabel="جست‌وجوی جلسهٔ مرتبط",label={Text("جست‌وجوی جلسه")},singleLine=true,modifier=Modifier.width(260.dp).padding(8.dp));DropdownMenuItem(text={Text("بدون جلسه")},onClick={meetingId=0;meetingMenu=false});meetings.filter{PeopleSuggestions.matches(it.title,meetingQuery)}.forEach{m->DropdownMenuItem(text={Text(m.title)},onClick={meetingId=m.id;meetingMenu=false})}}}
+                DropdownMenu(meetingMenu && !keyboardSpeech,{meetingMenu=false}){VoiceTextField(meetingQuery,{meetingQuery=it},voiceLabel="جست‌وجوی جلسهٔ مرتبط",label={Text("جست‌وجوی جلسه")},singleLine=true,modifier=Modifier.width(260.dp).padding(8.dp));DropdownMenuItem(text={Text("بدون جلسه")},onClick={meetingId=0;meetingMenu=false});meetings.filter{PeopleSuggestions.matches(it.title,meetingQuery)}.forEach{m->DropdownMenuItem(text={Text(m.title)},onClick={meetingId=m.id;meetingMenu=false})}}}
             ChoiceRow(Priority.entries.associate{it.name to it.label},priority,"اولویت مصوبه"){priority=it}
             ChoiceRow(OrgAccess.statuses(context,task.copy(assignee=assignee)).associate{it.name to it.label},status,"وضعیت مصوبه"){status=it}
             VoiceTextField(description,{description=it},voiceLabel="شرح کار و توضیحات",label={Text("شرح کار و توضیحات")},minLines=2,modifier=Modifier.fillMaxWidth())
@@ -283,6 +287,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             OutlinedButton(onClick={dateFor="reminder"},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.AddAlarm,null);Spacer(Modifier.width(6.dp));Text("افزودن زمان پیگیری")}
         }
     }
+    if(meetingMenu && keyboardSpeech) LinkedMeetingSearch(meetings,meetingQuery,{meetingQuery=it},{meetingMenu=false}){meetingId=it;meetingMenu=false}
     changeDue?.let {kind->ChangeDueDialog(task,DueChangeKind.valueOf(kind),busy,{changeDue=null},feedback) {newDay,reason,reminder->
         error=when {title.isBlank()->"عنوان مصوبه را وارد کنید.";owner.isBlank()->"مسئول انجام کار را مشخص کنید.";else->""}
         if(error.isBlank()) {

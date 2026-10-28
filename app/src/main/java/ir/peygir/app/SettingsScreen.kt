@@ -103,7 +103,7 @@ import java.time.LocalTime
                     }
                 }
             }
-            Text("میکروفون کنار همان فیلد است. در روش نگه‌داشتن، برای لغو انگشت را از دکمه بیرون ببرید. تبدیل روی گوشی انجام می‌شود و متن قابل ویرایش است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if(dictationMode==DictationMode.KEYBOARD) "با لمس متن، نوار گفتار بالای کیبورد گوشی ظاهر می‌شود. برای تبدیل رها کنید؛ با بیرون‌بردن انگشت، بستن کیبورد یا تغییر فیلد، ورود صوتی لغو می‌شود. تایپ با زبان‌های کیبورد گوشی است؛ گفتار فارسی روی گوشی تبدیل می‌شود." else "میکروفون کنار همان فیلد است. در روش نگه‌داشتن، برای لغو انگشت را از دکمه بیرون ببرید. تبدیل روی گوشی انجام می‌شود و متن قابل ویرایش است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SettingsGroup("ظاهر",when(mode){"dark"->"تیره";"light"->"روشن";else->"همراه گوشی"},group=="appearance",{group=if(group=="appearance") "" else "appearance"},"settings_appearance") {
         OptionPicker("اندازهٔ نوشته‌ها",options.font,UserOptions.fonts,"option_font"){prefs.edit().putString("text_size",it).apply()}
