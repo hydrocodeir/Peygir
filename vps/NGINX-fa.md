@@ -6,11 +6,11 @@
 
 ## ۱ - انتقال بسته و اجرای API
 
-بستهٔ `Peygir-4.2.0-nginx-vps.zip` را با SFTP یا WinSCP به پوشهٔ خانگی کاربر سرور منتقل کنید. سپس:
+بستهٔ `Peygir-4.2.0-nginx-vps-fix1.zip` را با SFTP یا WinSCP به پوشهٔ خانگی کاربر سرور منتقل کنید. سپس:
 
 ```bash
 mkdir -p ~/peygir
-unzip ~/Peygir-4.2.0-nginx-vps.zip -d ~/peygir
+unzip ~/Peygir-4.2.0-nginx-vps-fix1.zip -d ~/peygir
 cd ~/peygir/Peygir-VPS
 ```
 
@@ -22,7 +22,7 @@ sudo docker run --rm --user "$(id -u):$(id -g)" \
   node:24.21.0-bookworm-slim \
   node vps/scripts/init.mjs --domain peygir.hydrocode.ir
 
-sudo bash vps/scripts/peygir-nginx.sh up -d --build
+sudo bash vps/scripts/peygir-nginx.sh up -d --build --wait --wait-timeout 90
 sudo bash vps/scripts/peygir-nginx.sh ps
 curl --fail http://127.0.0.1:18300/health
 ```
@@ -30,6 +30,31 @@ curl --fail http://127.0.0.1:18300/health
 پاسخ آخر باید JSON با `service: peygir-vps` و نسخهٔ `4.2.0` باشد. اطلاعات ورود مدیر سامانه در `.device-private/vps/owner-login.txt` ساخته می‌شود؛ آن را فقط روی سیستم خودتان بخوانید و در چت نفرستید. رمز در خروجی init چاپ نمی‌شود. فایل‌های خصوصی وارد بسته یا image نمی‌شوند.
 
 برای همهٔ فرمان‌های پیگیر در این سرور، از `sudo bash vps/scripts/peygir-nginx.sh ...` استفاده کنید؛ این میان‌بر همیشه فایل Compose مخصوص Nginx را انتخاب می‌کند. فرمان عمومی `-f vps/compose.yaml up` مربوط به حالت مستقل Caddy است و روی این سرور مناسب نیست.
+
+## رفع خطای EACCES در بستهٔ اولیه
+
+اگر لاگ `permission denied, open '/run/secrets/admin_bootstrap'` دارد، بستهٔ اولیه تحت umask محدودکننده، فایل‌های JSON را ۶۰۰ ساخته است. کانتینر با کاربر غیرریشه اجرا می‌شود و باید فایل‌های mountشده را بخواند. بستهٔ fix1 صریحاً فقط سه JSON موردنیاز را به ۶۴۴ تنظیم می‌کند؛ پوشهٔ خصوصی ۷۰۰ و فایل اطلاعات ورود و compose.env به حالت ۶۰۰ باقی می‌مانند. این تغییر، فایل‌ها را در اینترنت منتشر نمی‌کند؛ مسیر پوشهٔ خصوصی را عمومی نکنید.
+
+روی نصب موجود، init را دوباره اجرا نکنید. از ریشهٔ بسته:
+
+```bash
+sudo chmod 700 .device-private/vps
+sudo chmod 644 .device-private/vps/admin-bootstrap.json \
+  .device-private/vps/fcm-service-account.json \
+  .device-private/vps/fcm-public.json
+sudo chmod 600 .device-private/vps/compose.env .device-private/vps/owner-login.txt
+
+sudo bash vps/scripts/peygir-nginx.sh up -d --force-recreate --wait --wait-timeout 90 api
+sudo bash vps/scripts/peygir-nginx.sh ps
+curl --fail http://127.0.0.1:18300/health
+```
+
+این کار رمز و داده و نام volume را تغییر نمی‌دهد و به rebuild نیاز ندارد. اگر همچنان خطا دارید، خروجی `logs --tail 30 api` را بررسی کنید؛ از chmod بازگشتی یا اجرای API با root استفاده نکنید. برای کنترل خوانایی بدون چاپ محتوا:
+
+```bash
+sudo bash vps/scripts/peygir-nginx.sh run --rm --no-deps api node -e \
+  "const fs=require('node:fs'); for(const k of ['ADMIN_BOOTSTRAP_FILE','FCM_SERVICE_ACCOUNT_FILE','FCM_PUBLIC_JSON_FILE']) fs.accessSync(process.env[k],fs.constants.R_OK); console.log('Secrets readable');"
+```
 
 ## ۲ - آماده‌سازی گواهی HTTPS
 

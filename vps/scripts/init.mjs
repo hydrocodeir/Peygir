@@ -15,5 +15,11 @@ for(const [name,content] of Object.entries({
   'fcm-service-account.json':'{}\n','fcm-public.json':'{}\n',
   'compose.env':`PEYGIR_DOMAIN=${domain}\nPEYGIR_DATA_VOLUME=peygir_data\nPEYGIR_BACKUP_VOLUME=peygir_backups\n`,
   'owner-login.txt':`Management: https://${domain}/admin/\nUsername: owner\nPassword: ${password}\n`
-})) writeFileSync(join(dir,name),content,{flag:'wx',mode:0o644});
+})) {
+  const path=join(dir,name);
+  // Keep new files private during creation. umask 077 masks mode 0644 to 0600;
+  // chmod explicitly after writing the three files mounted into the non-root API.
+  writeFileSync(path,content,{flag:'wx',mode:0o600});
+  if(['admin-bootstrap.json','fcm-service-account.json','fcm-public.json'].includes(name)) chmodSync(path,0o644);
+}
 console.log('Private configuration created in .device-private/vps. Read owner-login.txt locally; no credentials were printed.');

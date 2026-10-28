@@ -6,7 +6,7 @@
 
 ## سرور دارای Nginx
 
-برای سرور دارای Nginx، از [راهنمای مخصوص peygir.hydrocode.ir](NGINX-fa.md) و `compose.nginx.yaml` استفاده کنید. این حالت فقط API را روی `127.0.0.1:18300` منتشر می‌کند؛ Nginx میزبان HTTPS را مدیریت می‌کند. میان‌بر `sudo bash vps/scripts/peygir-nginx.sh ...` تمام فرمان‌های Compose را به همین حالت هدایت می‌کند. بستهٔ جداگانهٔ `Peygir-4.2.0-nginx-vps.zip` شامل سورس کامل سرور و راهنمای `START-HERE-fa.md` است.
+برای سرور دارای Nginx، از [راهنمای مخصوص peygir.hydrocode.ir](NGINX-fa.md) و `compose.nginx.yaml` استفاده کنید. این حالت فقط API را روی `127.0.0.1:18300` منتشر می‌کند؛ Nginx میزبان HTTPS را مدیریت می‌کند. میان‌بر `sudo bash vps/scripts/peygir-nginx.sh ...` تمام فرمان‌های Compose را به همین حالت هدایت می‌کند. بستهٔ جداگانهٔ `Peygir-4.2.0-nginx-vps-fix1.zip` شامل سورس کامل سرور و راهنمای `START-HERE-fa.md` است.
 
 بخش «راه‌اندازی نخست» پایین مربوط به حالت مستقل Caddy است؛ روی سرور دارای Nginx، مراحل راهنمای اختصاصی را اجرا کنید. برای پشتیبان/بازیابی/import هم فایل Compose حالت انتخابی را حفظ کنید تا Caddy ناخواسته بالا نیاید.
 
@@ -43,6 +43,18 @@ docker compose --env-file .device-private/vps/compose.env \
 اسکریپت، رمز تصادفی مدیر سامانه و فایل‌های تنظیمات را در `.device-private/vps` می‌سازد و رمز را در خروجی ترمینال چاپ نمی‌کند. اطلاعات ورود در `owner-login.txt` همان پوشه است؛ آن را فقط روی سیستم خودتان بخوانید. اجرای دوباره، تنظیمات موجود را بازنویسی نمی‌کند. این پوشه وارد Git، کانتینر یا بستهٔ سورس تحویلی نمی‌شود.
 
 پوشهٔ خصوصی مجوز ۷۰۰ دارد. فایل‌های JSON داخل آن ۶۴۴ هستند تا Compose آن‌ها را به‌صورت secret برای کاربر غیرریشهٔ API قابل خواندن کند؛ پوشهٔ خصوصی را عمومی یا قابل دسترسی برای کاربران دیگر نکنید. [مستندات secrets در Compose](https://docs.docker.com/compose/how-tos/use-secrets/).
+
+بستهٔ اولیهٔ init تحت umask ۰۷۷، مجوز درخواستی ۶۴۴ را به ۶۰۰ تبدیل می‌کرد و API غیرریشه خطای `EACCES` می‌گرفت. این ایراد در init اصلاح شده است: سه JSON mountشده پس از ساخت، chmod صریح ۶۴۴ می‌شوند؛ فایل ورود و تنظیمات ۶۰۰ و پوشه ۷۰۰ هستند. برای فایل‌های موجود، بدون اجرای دوبارهٔ init:
+
+```bash
+chmod 700 .device-private/vps
+chmod 644 .device-private/vps/admin-bootstrap.json \
+  .device-private/vps/fcm-service-account.json \
+  .device-private/vps/fcm-public.json
+chmod 600 .device-private/vps/owner-login.txt .device-private/vps/compose.env
+```
+
+سپس فقط API را با Compose حالت انتخاب‌شده recreate کنید. برای Nginx، [دستور رفع خطای نصب موجود](NGINX-fa.md#رفع-خطای-eacces-در-بستهٔ-اولیه) آماده است. محتوا و رمزها تغییر نمی‌کنند.
 
 پس از آماده‌شدن دامنه، نشانی `https://sync.example.com/admin/` را باز کنید. Caddy گواهی HTTPS را صادر و تمدید می‌کند؛ دادهٔ گواهی در volume جدا باقی می‌ماند. [شرایط HTTPS خودکار](https://caddyserver.com/docs/automatic-https#overview).
 

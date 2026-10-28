@@ -3,10 +3,18 @@ from pathlib import Path
 import hashlib
 import re
 import zipfile
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--revision', default='')
+revision = parser.parse_args().revision
+if revision and not re.fullmatch(r'[a-z0-9-]{1,32}', revision):
+    parser.error('revision must contain lowercase letters, numbers or hyphens')
+suffix = '-' + revision if revision else ''
 
 root = Path(__file__).resolve().parents[1]
 version = re.search(r'versionName = "([^"]+)"', (root / 'app/build.gradle.kts').read_text(encoding='utf-8')).group(1)
-dest = root / f'delivery/Peygir-{version}-nginx-vps.zip'
+dest = root / f'delivery/Peygir-{version}-nginx-vps{suffix}.zip'
 excluded = {'.git', '.agents', '.device-private', '.signing', 'node_modules', '__pycache__', '.wrangler'}
 files = list((root / 'vps').rglob('*')) + list((root / 'cloudflare/src').glob('*.mjs')) + list((root / 'cloudflare/migrations').glob('*.sql'))
 files += [root / '.dockerignore', root / '.gitignore', root / '.gitattributes',
@@ -23,6 +31,6 @@ with zipfile.ZipFile(dest) as z:
     assert z.testzip() is None
     assert 'Peygir-VPS/vps/compose.nginx.yaml' in z.namelist()
     assert not any(p in excluded for n in z.namelist() for p in Path(n).parts)
-checksum = root / f'delivery/SHA256SUMS-{version}-nginx.txt'
+checksum = root / f'delivery/SHA256SUMS-{version}-nginx{suffix}.txt'
 checksum.write_text(hashlib.sha256(dest.read_bytes()).hexdigest() + '  ' + dest.name + '\n', encoding='utf-8')
 print(dest.name, dest.stat().st_size)
