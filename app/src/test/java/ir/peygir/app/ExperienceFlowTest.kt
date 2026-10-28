@@ -23,7 +23,7 @@ class ExperienceFlowTest {
     @After fun close(){store.close()}
     @Test fun monthlyCalendarCreatesTheMeetingWithTheChosenDateAndStartTime() {
         val day=LocalDate.now().let{if(Solar.parts(it).day>1) it.minusDays(1) else it.plusDays(1)}.toEpochDay()
-        compose.setContent{PeygirApp()}
+        compose.setContent{PeygirApp(calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000){compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("meeting_mode_MONTH").performClick()
         compose.onNodeWithTag("meeting_day_$day").performClick()
@@ -38,7 +38,7 @@ class ExperienceFlowTest {
         assertEquals(day,saved.date);assertEquals(870,saved.start);assertEquals(930,saved.end)
     }
     @Test fun slotDraftPrefillsTimesAndDiscardDoesNotCarryFieldsIntoTheNextBlankForm() {
-        compose.setContent{PeygirApp()}
+        compose.setContent{PeygirApp(calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000){compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("meeting_mode_DAY").performClick()
         val y=126f*compose.activity.resources.displayMetrics.density
@@ -55,7 +55,7 @@ class ExperienceFlowTest {
         compose.runOnIdle{assertTrue(store.snapshot().meetings.isEmpty())}
     }
     @Test fun homeStartsAtMeetingsThenSwipesThroughFollowupTasksAndReviewWithoutAGlobalAddButton() {
-        compose.setContent{PeygirApp()}
+        compose.setContent{PeygirApp(calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000){compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("section_2").assertIsDisplayed()
         compose.onNodeWithText("ثبت مصوبه",substring=false).assertDoesNotExist()
@@ -72,7 +72,7 @@ class ExperienceFlowTest {
         store.saveMeeting(Meeting(title="جلسهٔ مخفی در مرور"))
         store.saveTask(Resolution(title="مصوبهٔ امروز",owner="احمدی",due=day),emptyList())
         store.saveTask(Resolution(title="مصوبهٔ تمام‌شده",owner="رضایی",due=day,status=Status.DONE),emptyList())
-        compose.setContent{PeygirApp()}
+        compose.setContent{PeygirApp(calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000){compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
         compose.onNodeWithText("مصوبهٔ امروز").assertIsDisplayed()

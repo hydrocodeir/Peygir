@@ -40,7 +40,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
     val text=clean(listOf(meeting.title,meeting.location,meeting.guests.joinToString(" "),users.filter{it.id in meeting.attendees}.joinToString(" "){it.name}).joinToString(" "))
     return clean(query).split(Regex("\\s+")).all{text.contains(it)}
 }
-@Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String="DAY",createAt: ((Long,Int)->Unit)?=null) {
+@Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String="DAY",createAt: ((Long,Int)->Unit)?=null,active: Boolean=true,focusVersion: Int=0,clock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
     val c=LocalContext.current;val deputy=OrgAccess.deputy(c)
     val users by Organization.members.collectAsState()
     val min=remember {WidgetDays.min};val max=remember {WidgetDays.max}
@@ -87,7 +87,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
                 HorizontalDivider(Modifier.padding(horizontal=16.dp))
             }
             if(daily) {
-                key(mode) {MeetingTimePages(data,mode,day,navigation,{day=it},::go,open,creator,::pickStart)}
+                key(mode) {MeetingTimePages(data,mode,day,navigation,{day=it},::go,open,creator,::pickStart,active,focusVersion,clock)}
             } else {
                 val pageDay=day
                 val pageDate=LocalDate.ofEpochDay(pageDay);val pageMonth=Solar.monthStart(pageDate)

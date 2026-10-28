@@ -15,14 +15,12 @@
   "forgedForwardingIpCannotBypassRateLimit": true,
   "scope": "Local Docker only; synthetic accounts and self-signed test CA; no public deployment or real certificate issuance",
   "nginxVersion": "nginx version: nginx/1.30.6",
+  "version": "4.3.0",
   "composeServices": [
     "api"
   ],
   "composePort": "127.0.0.1:18300:3000",
   "composeOrigin": "https://peygir.hydrocode.ir",
   "productionDeployed": false,
-  "realCertificateIssued": false,
-  "androidChanged": false,
-  "priorApiTestsVersion": "4.2.0",
-  "priorAndroidTests": 218
+  "realCertificateIssued": false
 }

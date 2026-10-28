@@ -46,7 +46,7 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
   async function dispatch(request,ip) {
     const url=new URL(request.url),path=url.pathname;
     if(stopping) throw new ApiError(503,'سرویس در حال راه‌اندازی مجدد است.');
-    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.2.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
+    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.3.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
     if((path==='/' || path==='/admin') && request.method==='GET') return new Response(null,{status:302,headers:{Location:'/admin/'}});
     if(assets.has(path) && request.method==='GET') {const [name,type]=assets.get(path);return new Response(readFileSync(new URL('../public/'+name,import.meta.url)),{headers:{'Content-Type':type}});}
     if(path==='/admin/font.ttf' && request.method==='GET') return new Response(readFileSync(new URL('../../app/src/main/res/font/vazirmatn_regular.ttf',import.meta.url)),{headers:{'Content-Type':'font/ttf'}});

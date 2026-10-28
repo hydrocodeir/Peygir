@@ -202,3 +202,26 @@ test('existing tenant databases acquire contacts schema on reopen without losing
     const r=await sync(fresh,'company-a',a.token);assert.equal(r.status,200,r.text);assert.ok(r.text.includes('MIGRATED'));assert.deepEqual(r.data.contacts,[]);
   }finally{await fresh.close();}
 });
+
+
+test('new invitations and assignments target their recipient while ordinary edits stay update events',async t=>{
+  const {app}=await setup(t);const c=await company(app,'company-a'),chief=await login(app,'company-a');
+  const first=await user(app,'company-a',chief.token,'deputy','first'),second=await user(app,'company-a',chief.token,'deputy','second');
+  const assistantId=await user(app,'company-a',chief.token,'assistant','assistant');
+  const assistant=await login(app,'company-a','assistant','account-password-123456');
+  const meeting={title:'PRIVATE MEETING TITLE',date:20000,notes:'',start:540,end:600,location:'',attendees:[first],guests:['PRIVATE GUEST'],repeat:'NONE',until:null,series:null};
+  const invitation=operation('meeting',meeting);assert.equal((await sync(app,'company-a',assistant.token,[invitation])).data.results[0].ok,true);
+  const assigned=operation('task',task('PRIVATE TASK TITLE',first));assert.equal((await sync(app,'company-a',assistant.token,[assigned])).data.results[0].ok,true);
+  const edit=operation('task',{...assigned.payload,title:'CHANGED TASK TITLE'},assigned.recordId,randomUUID(),1);assert.equal((await sync(app,'company-a',assistant.token,[edit])).data.results[0].ok,true);
+  const addGuest=operation('meeting',{...meeting,attendees:[first,second]},invitation.recordId,randomUUID(),1);assert.equal((await sync(app,'company-a',assistant.token,[addGuest])).data.results[0].ok,true);
+  await sync(app,'company-a',assistant.token,[invitation]);
+  const lease=app.registry.lease(c.company);try {
+    const rows=lease.db.prepare('SELECT id,user_id,kind FROM push_outbox').all();
+    const event=(op,id)=>rows.find(r=>r.id===op.id+'|'+id)?.kind;
+    assert.equal(event(invitation,first),'invitation');assert.equal(event(invitation,chief.userId),'meeting');
+    assert.equal(event(assigned,first),'assignment');assert.equal(event(assigned,chief.userId),'task');assert.equal(event(edit,first),'task');
+    assert.equal(event(addGuest,first),'meeting');assert.equal(event(addGuest,second),'invitation');assert.equal(event(addGuest,assistantId),undefined);
+    assert.equal(rows.filter(r=>r.id===invitation.id+'|'+first).length,1);
+    assert.ok(!JSON.stringify(rows).includes('PRIVATE'));
+  }finally{lease.release();}
+});

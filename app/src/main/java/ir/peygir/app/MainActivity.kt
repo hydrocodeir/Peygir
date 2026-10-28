@@ -59,10 +59,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable internal fun PeygirApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int=2) {
+@Composable internal fun PeygirApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int=2,calendarClock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
     val context=LocalContext.current
     val store=remember {Store.get(context)}
     val accountRevision by SharedSync.revision.collectAsState()
+    val serverState by SharedSync.connection.state.collectAsState()
+    val serverWorking by SharedSync.working.collectAsState()
+    val sharedAccount=SharedCredentials(context).connected()
+    var serverDetails by remember {mutableStateOf(false)}
+    var calendarFocus by remember {mutableIntStateOf(0)}
     val deputy=OrgAccess.deputy(context)
     val role=OrgAccess.role(context)
     val prefs=remember {context.getSharedPreferences("settings",0)}
@@ -130,10 +135,10 @@ class MainActivity : ComponentActivity() {
     LaunchedEffect(editTask,editMeeting,deletingMeeting) {editorFeedback=""}
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            revision++
+            revision++;calendarFocus++
             withContext(Dispatchers.IO) {runCatching {Reminders.process(context);ReviewWidget.updateAll(context)}}
-            SharedJobs.schedule(context)
-            while(isActive) {today=LocalDate.now().toEpochDay();SharedSync.request(context);delay(30_000)}
+            SharedJobs.schedule(context);ServerNetwork.observe(context)
+            while(isActive) {today=LocalDate.now().toEpochDay();SharedSync.request(context,force=false);delay(5_000)}
         }
     }
     LaunchedEffect(revision) {
@@ -174,6 +179,12 @@ class MainActivity : ComponentActivity() {
             else SharedSync.request(context)
         }
     }
+    if(serverDetails && sharedAccount) AlertDialog(onDismissRequest={serverDetails=false},title={Text("اتصال به سرور")},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text(serverState.label)
+        if(serverState.lastSuccess>0) Text("آخرین پاسخ موفق: ${java.time.Instant.ofEpochMilli(serverState.lastSuccess).atZone(java.time.ZoneId.systemDefault()).toLocalTime().withNano(0).withSecond(0).toString().fa()}",style=MaterialTheme.typography.bodySmall)
+        if(!serverState.connected && !serverState.loginRequired) Text("تلاش مجدد خودکار انجام می‌شود؛ اطلاعات روی گوشی محفوظ است.",style=MaterialTheme.typography.bodySmall)
+        if(serverState.loginRequired) Text("از تنظیمات حساب، دوباره وارد شوید.")
+    }},confirmButton={TextButton(onClick={serverDetails=false;if(serverState.loginRequired) settingsOpen=true else {revision++;SharedSync.request(context)}},enabled=!serverWorking){Text(if(serverState.loginRequired) "تنظیمات حساب" else "تازه‌سازی")}},dismissButton={TextButton(onClick={serverDetails=false}){Text("بستن")}})
     var lastPrincipal by remember {mutableStateOf(OrgAccess.company(context)+"|"+OrgAccess.id(context))}
     LaunchedEffect(accountRevision,data.tasks,data.meetings) {
         val principal=OrgAccess.company(context)+"|"+OrgAccess.id(context)
@@ -185,13 +196,13 @@ class MainActivity : ComponentActivity() {
     BackHandler(enabled=settingsOpen || page!=2 || selectedMeeting>0) {when {settingsOpen -> settingsOpen=false;selectedMeeting>0 && page==2 -> selectedMeeting=0;else -> navigate(2)}}
     PeygirTheme(mode=mode,dynamicColors=dynamicColors) {
         Scaffold(
-            topBar={TopAppBar(title={Column {Text(if(settingsOpen) "تنظیمات" else if(selectedMeeting>0 && page==2) "جزئیات جلسه" else "پیگیر",style=MaterialTheme.typography.titleLarge)}},navigationIcon={if(settingsOpen || (selectedMeeting>0 && page==2)) IconButton(onClick={if(settingsOpen) settingsOpen=false else selectedMeeting=0}){Icon(Icons.AutoMirrored.Outlined.ArrowBack,"بازگشت")}},actions={if(!settingsOpen) {if(!deputy && page in listOf(0,1)) {
+            topBar={TopAppBar(title={ServerTitle(if(settingsOpen) "تنظیمات" else if(selectedMeeting>0 && page==2) "جزئیات جلسه" else "پیگیر",serverState.takeIf{sharedAccount}){serverDetails=true}},navigationIcon={if(settingsOpen || (selectedMeeting>0 && page==2)) IconButton(onClick={if(settingsOpen) settingsOpen=false else selectedMeeting=0}){Icon(Icons.AutoMirrored.Outlined.ArrowBack,"بازگشت")}},actions={if(!settingsOpen) {if(!deputy && page in listOf(0,1)) {
                 val awaiting=data.tasks.count{it.status==Status.REVIEW}
                 if(role=="manager") {
-                    if(awaiting>0) FilledTonalButton(onClick={selectFilter("review")},enabled=!loading && !busy,contentPadding=PaddingValues(horizontal=12.dp)){CountLabel("تأییدها",awaiting,color=LocalContentColor.current)}
+                    if(awaiting>0) IconButton(onClick={selectFilter("review")},enabled=!loading && !busy){BadgedBox(badge={Badge{Text(if(awaiting>99) "۹۹+" else awaiting.fa())}}){Icon(Icons.Outlined.TaskAlt,"تأییدها")}}
                     IconButton(onClick={newTask()},enabled=!loading && !busy){Icon(Icons.Outlined.Add,"ثبت مصوبه")}
                 } else FilledTonalButton(onClick={newTask()},enabled=!loading && !busy,contentPadding=PaddingValues(horizontal=12.dp)){Icon(Icons.Outlined.Add,null,Modifier.size(18.dp));Spacer(Modifier.width(4.dp));Text("ثبت مصوبه")}
-            };IconButton(onClick={settingsOpen=true}){Icon(Icons.Outlined.Settings,"تنظیمات")}}})},
+            };ServerRefresh(serverWorking){revision++;SharedSync.request(context)};IconButton(onClick={settingsOpen=true}){Icon(Icons.Outlined.Settings,"تنظیمات")}}})},
             bottomBar={NavigationBar {listOf((if(deputy) "جلسات من" else "جلسات") to Icons.Outlined.Groups,"پیگیری" to Icons.Outlined.Checklist,(if(deputy) "مصوبات من" else "مصوبات") to Icons.Outlined.TaskAlt,"مرور" to Icons.Outlined.CalendarMonth).forEachIndexed { i,(label,icon) -> NavigationBarItem(selected=!settingsOpen && page==pageOrder[i],onClick={navigate(pageOrder[i]);selectedMeeting=0},icon={val awaiting=if(role=="manager" && i==1) data.tasks.count{it.status==Status.REVIEW} else 0
                 Box(Modifier.size(32.dp),contentAlignment=Alignment.Center){Icon(icon,null,Modifier.size(24.dp));if(awaiting>0) Badge(containerColor=MaterialTheme.colorScheme.primary,modifier=Modifier.align(Alignment.TopEnd).testTag("approval_badge").semantics{contentDescription="${awaiting.fa()} مصوبه نیازمند تأیید"}){Text(if(awaiting>99) "۹۹+" else awaiting.fa())}}},label={Text(label)})}}},
             snackbarHost={SnackbarHost(snackbar)}
@@ -211,7 +222,7 @@ class MainActivity : ComponentActivity() {
                                 when(section) {
                                     0 -> DashboardScreen(data,today,::selectFilter,::openTask,{id,s -> action("وضعیت به‌روز شد") {store.status(id,s)}},{navigate(3)},{newTask()},addMeeting={newMeeting()})
                                     1 -> TaskListScreen(data,today,filter,{filter=it},::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}})
-                                    2 -> if(selectedMeeting==0L) key(calendarVersion) {MeetingCalendarScreen(data,{selectedMeeting=it},{newMeeting(it)},if(deputy) null else ({deletingMeeting=it}),initialDay=calendarDay,initialMode=calendarMode,createAt={day,start->newMeeting(day,start)})} else MeetingDetail(data,selectedMeeting,today,::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}},{if(!deputy) editMeeting=selectedMeeting},{newTask(selectedMeeting)},if(deputy) null else ({deletingMeeting=selectedMeeting}),copy=if(deputy) null else ({data.meetings.find{it.id==selectedMeeting}?.let(::copyMeeting)}))
+                                    2 -> if(selectedMeeting==0L) key(calendarVersion) {MeetingCalendarScreen(data,{selectedMeeting=it},{newMeeting(it)},if(deputy) null else ({deletingMeeting=it}),initialDay=calendarDay,initialMode=calendarMode,createAt={day,start->newMeeting(day,start)},active=page==2,focusVersion=calendarFocus,clock=calendarClock)} else MeetingDetail(data,selectedMeeting,today,::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}},{if(!deputy) editMeeting=selectedMeeting},{newTask(selectedMeeting)},if(deputy) null else ({deletingMeeting=selectedMeeting}),copy=if(deputy) null else ({data.meetings.find{it.id==selectedMeeting}?.let(::copyMeeting)}))
                                     3 -> key(reviewRequestVersion) {DailyReviewScreen(data,today,reviewDay,{reviewDay=it},::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}},{selectedMeeting=it;navigate(2)},{r->newTask(r.meetingId,reviewDay,r.id)},{selectFilter("late")},{newTask(due=it)})}
                                 }
                             }

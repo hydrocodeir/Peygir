@@ -131,7 +131,10 @@ async function mutate(env,user,op) {
   if(op.kind==='meeting') p.attendees.forEach(x=>recipients.add(x));
   if(taskRecord?.payload.assignee) recipients.add(taskRecord.payload.assignee);
   recipients.delete(user.id);
-  for(const recipient of recipients) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,op.kind==='meeting'?'meeting':p.status==='REVIEW'?'review':'task',now,user.workspace,op.recordId,op.id));
+  for(const recipient of recipients) {
+    const kind=!op.deleted && op.kind==='meeting' && p.attendees.includes(recipient) && !normalize('meeting',previous?.payload||{}).attendees.includes(recipient)?'invitation':!op.deleted && op.kind==='task' && p.assignee===recipient && p.assignee!==normalize('task',previous?.payload||{}).assignee?'assignment':op.kind==='meeting'?'meeting':p.status==='REVIEW'?'review':'task';
+    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,kind,now,user.workspace,op.recordId,op.id));
+  }
   await env.DB.batch(statements);
   const saved=await env.DB.prepare('SELECT response,user_id,fingerprint FROM operations WHERE workspace=? AND id=?').bind(user.workspace,op.id).first();
   if(saved) {requireValue(saved.user_id===user.id && saved.fingerprint===fingerprint);return {...JSON.parse(saved.response),record:await projected(env,user,JSON.parse(saved.response).record)};}

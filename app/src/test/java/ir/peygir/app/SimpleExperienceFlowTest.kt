@@ -49,7 +49,7 @@ class SimpleExperienceFlowTest {
         compose.waitUntil(15000){compose.onAllNodesWithTag("meeting_calendar").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithTag("approval_badge",useUnmergedTree=true).assertIsDisplayed()
         compose.onNodeWithText("پیگیری",useUnmergedTree=true).performClick()
-        compose.onNodeWithText("تأییدها",substring=false).performClick()
+        compose.onNodeWithContentDescription("تأییدها").performClick()
         compose.onNodeWithTag("task_filter_button").assertTextContains("منتظر تأیید")
     }
     @Test fun settingsHideTechnicalFieldsButKeepPermissionProblemsVisible() {

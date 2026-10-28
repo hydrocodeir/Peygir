@@ -33,6 +33,7 @@ import java.time.LocalDateTime
 
 data class MeetingPlacement(val meeting: Meeting,val lane: Int,val lanes: Int)
 object MeetingTimeline {
+    fun initialHour(minute: Int)=((minute.coerceIn(0,1439)/60f)-0.5f).coerceAtLeast(0f)
     fun weekStart(day: Long)=day-((LocalDate.ofEpochDay(day).dayOfWeek.value+1)%7)
     fun minuteAt(y: Float,height: Float): Int {
         require(height>0 && height.isFinite() && y.isFinite())
@@ -56,7 +57,7 @@ object MeetingTimeline {
     }
 }
 
-@Composable internal fun MeetingTimePages(data: Snapshot,mode: String,selectedDay: Long,navigation: Int,onPage: (Long)->Unit,choose: (Long)->Unit,open: (Long)->Unit,create: ((Long,Int)->Unit)?=null,pickTime: ((Long)->Unit)?=null) {
+@Composable internal fun MeetingTimePages(data: Snapshot,mode: String,selectedDay: Long,navigation: Int,onPage: (Long)->Unit,choose: (Long)->Unit,open: (Long)->Unit,create: ((Long,Int)->Unit)?=null,pickTime: ((Long)->Unit)?=null,active: Boolean=true,focusVersion: Int=0,clock: ()->LocalDateTime = {LocalDateTime.now()}) {
     val weekly=mode=="WEEK";val step=if(weekly) 7 else 1
     val first=if(weekly) MeetingTimeline.weekStart(WidgetDays.min) else WidgetDays.min
     val pager=rememberPagerState(initialPage=((selectedDay-first)/step).toInt(),pageCount={((WidgetDays.max-first)/step+1).toInt()})
@@ -71,8 +72,10 @@ object MeetingTimeline {
     val hourHeight=if(weekly) 48.dp else 56.dp
     val gutter=with(LocalDensity.current){38.sp.toDp()}.coerceIn(38.dp,72.dp)
     val dayBadge=with(LocalDensity.current){32.sp.toDp()}.coerceIn(32.dp,44.dp)
-    val firstHour=remember {((data.meetings.filter{it.date in selectedDay-6..selectedDay+6}.mapNotNull{it.start}.minOrNull() ?: 480)/60-1).coerceIn(0,7)}
-    val scroll=rememberScrollState(with(LocalDensity.current){(hourHeight*firstHour).roundToPx()})
+    val density=LocalDensity.current
+    val initialMinute=remember {clock().let{it.hour*60+it.minute}}
+    val scroll=rememberScrollState(with(LocalDensity.current){(hourHeight*MeetingTimeline.initialHour(initialMinute)).roundToPx()})
+    LaunchedEffect(active,focusVersion,mode) {if(active) scroll.scrollTo(with(density){(hourHeight*MeetingTimeline.initialHour(clock().let{it.hour*60+it.minute})).roundToPx()})}
     Box(Modifier.fillMaxSize().testTag("meeting_day_page_$selectedDay")) {
         HorizontalPager(pager,modifier=Modifier.fillMaxSize().testTag("meeting_days_pager"),key={first+it*step}) {index->
             val anchor=first+index*step;val days=(0 until step).map{anchor+it}

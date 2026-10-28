@@ -24,14 +24,14 @@ class CalendarCreationTest {
     @After fun cleanup(){OrgAccess.set(context,null)}
     @Test fun dailyEmptySpaceUsesTappedTimeIncludingTheVerticalScrollOffset() {
         var created: Pair<Long,Int>?=null
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="DAY",createAt={d,m->created=d to m})}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="DAY",createAt={d,m->created=d to m},clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_timeline_scroll").performTouchInput{click(Offset(width/2f,126f))}
         compose.runOnIdle{assertEquals(day to 555,created)}
     }
     @Test fun weeklyEmptySpaceUsesTheTappedColumnRatherThanTheSelectedDay() {
         var created: Pair<Long,Int>?=null
         val target=MeetingTimeline.weekStart(day)
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="WEEK",createAt={d,m->created=d to m})}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="WEEK",createAt={d,m->created=d to m},clock={java.time.LocalDate.now().atTime(7,30)})}}
         val cell=compose.onNodeWithTag("meeting_time_column_$target").fetchSemanticsNode().boundsInRoot
         val viewport=compose.onNodeWithTag("meeting_timeline_scroll").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithTag("meeting_timeline_scroll").performTouchInput{click(Offset(cell.center.x-viewport.left,72f))}
@@ -39,7 +39,7 @@ class CalendarCreationTest {
     }
     @Test fun monthEmptyDayChoosesTimeAndCancellationDoesNotCreateAnything() {
         var created: Pair<Long,Int>?=null
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(Meeting(id=1,title="جلسهٔ موجود",date=day+2))),{},{},initialDay=day,initialMode="MONTH",createAt={d,m->created=d to m})}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(Meeting(id=1,title="جلسهٔ موجود",date=day+2))),{},{},initialDay=day,initialMode="MONTH",createAt={d,m->created=d to m},clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_day_${day+2}").performClick()
         compose.runOnIdle{assertNull(created)}
         compose.onNodeWithTag("meeting_day_${day+1}").performClick()
@@ -49,7 +49,7 @@ class CalendarCreationTest {
     }
     @Test fun meetingCardAndVerticalOrHorizontalSwipesNeverCreateAnExtraMeeting() {
         var count=0;var opened=0L
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(Meeting(id=7,title="جلسهٔ موجود",date=day,start=540,end=600))),{opened=it},{},initialDay=day,initialMode="WEEK",createAt={_,_->count++})}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(Meeting(id=7,title="جلسهٔ موجود",date=day,start=540,end=600))),{opened=it},{},initialDay=day,initialMode="WEEK",createAt={_,_->count++},clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_card_7").performClick()
         compose.runOnIdle{assertEquals(7L,opened);assertEquals(0,count)}
         compose.onNodeWithTag("meeting_timeline_scroll").performTouchInput{swipeUp()}
@@ -59,7 +59,7 @@ class CalendarCreationTest {
     @Test fun deputyCannotCreateByTappingEmptyTimeOrEmptyMonthlyDates() {
         OrgAccess.set(context,SharedSession("https://test.invalid","","","","معاون","deputy","person"))
         var count=0
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="WEEK",createAt={_,_->count++})}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="WEEK",createAt={_,_->count++},clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_timeline_scroll").performTouchInput{click(Offset(width/2f,72f))}
         compose.onNodeWithTag("meeting_mode_MONTH").performClick()
         compose.onNodeWithTag("meeting_day_${day+1}").performClick()

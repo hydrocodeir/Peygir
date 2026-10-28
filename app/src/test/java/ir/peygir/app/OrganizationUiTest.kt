@@ -23,7 +23,7 @@ class OrganizationUiTest {
     @After fun cleanup() {context.getSharedPreferences("shared_private",0).edit().clear().commit();OrgAccess.set(context,null);Organization.members.value=emptyList()}
     @Test fun calendarSearchFindsOldMeetingByParticipantAndSwitchesDayWeekMonth() {
         val meeting=Meeting(id=1,title="جلسه بودجه",date=LocalDate.now().minusMonths(3).toEpochDay(),attendees=listOf(deputy.id))
-        compose.setContent {PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(meeting)),{},{})}}
+        compose.setContent {PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(meeting)),{},{},clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithText("جلسه بودجه").assertDoesNotExist()
         compose.onNodeWithContentDescription("جست‌وجوی جلسات").performClick()
         compose.onNodeWithTag("meeting_search_field").performTextInput("احمدی")
@@ -36,7 +36,7 @@ class OrganizationUiTest {
     @Test fun dailyTimeGridScrollsToEveningAndOpensTheCorrectMeeting() {
         val day=LocalDate.now().toEpochDay();var opened=0L
         val data=Snapshot(meetings=listOf(Meeting(id=40,title="جلسهٔ عصر",date=day,start=1080,end=1140)))
-        compose.setContent {PeygirTheme("light"){MeetingCalendarScreen(data,{opened=it},{},initialDay=day)}}
+        compose.setContent {PeygirTheme("light"){MeetingCalendarScreen(data,{opened=it},{},initialDay=day,clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected()
         compose.onNodeWithTag("meeting_mode_DAY").performClick()
         compose.onNodeWithTag("meeting_card_40").performScrollTo().assertIsDisplayed().performClick()
@@ -45,7 +45,7 @@ class OrganizationUiTest {
     @Test fun weeklySwipeTurnsWholeWeeksAndReturnsWithoutSwitchingMode() {
         val friday=LocalDate.of(2026,10,30).toEpochDay()
         val data=Snapshot(meetings=listOf(Meeting(id=1,title="جلسهٔ جمعه",date=friday),Meeting(id=2,title="جلسهٔ هفته بعد",date=friday+7)))
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(data,{},{},initialDay=friday)}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(data,{},{},initialDay=friday,clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_mode_WEEK").performClick()
         compose.onNodeWithTag("meeting_week_day_$friday").assertIsSelected()
         compose.onNodeWithText("جلسهٔ جمعه",substring=false).assertIsDisplayed()
@@ -63,7 +63,7 @@ class OrganizationUiTest {
     @Test fun modalSearchFindsAllDatesClosesOnSelectionAndKeepsCalendarDayOnDismissal() {
         val today=LocalDate.now().toEpochDay();var opened: Long?=null
         val old=Meeting(id=7,title="جلسهٔ ماه قبل",date=today-35,attendees=listOf(deputy.id))
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(old)),{opened=it},{})}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(old)),{opened=it},{},clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_search_field").assertDoesNotExist()
         compose.onNodeWithTag("meeting_mode_WEEK").performClick()
         compose.onNodeWithTag("meeting_days_pager").performTouchInput{swipeRight()}
@@ -82,7 +82,7 @@ class OrganizationUiTest {
     @Test fun weekDayTapKeepsWeeklyModeAndNewMeetingUsesThatDay() {
         val friday=LocalDate.of(2026,10,30).toEpochDay();val thursday=friday-1
         var added: Long?=null
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{added=it},initialDay=friday)}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{added=it},initialDay=friday,clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_mode_WEEK").performClick()
         compose.onNodeWithTag("meeting_week_day_$thursday").performClick()
         compose.onNodeWithTag("meeting_mode_WEEK").assertIsSelected()
@@ -92,7 +92,7 @@ class OrganizationUiTest {
     }
     @Test fun monthlySelectionDailySwipesAndModeChangesKeepOneSelectedDate() {
         val today=LocalDate.now().toEpochDay();val target=if(Solar.parts(LocalDate.now()).day>1) today-1 else today+7
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialMode="MONTH")}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(),{},{},initialMode="MONTH",clock={java.time.LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_day_$target").performClick()
         compose.onNodeWithTag("meeting_day_$target").assertIsSelected()
         compose.onNodeWithTag("meeting_mode_DAY").performClick()

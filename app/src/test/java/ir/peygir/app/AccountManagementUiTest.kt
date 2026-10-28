@@ -62,7 +62,7 @@ class AccountManagementUiTest {
     private fun calendar(mode: String) {
         val day=LocalDate.now().toEpochDay();val meeting=Meeting(id=1,title="بررسی عملکرد",date=day,start=540,end=660)
         var opened=0L
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(meeting)),{opened=it},{},initialDay=day,initialMode=mode)}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(Snapshot(meetings=listOf(meeting)),{opened=it},{},initialDay=day,initialMode=mode,clock={LocalDate.now().atTime(7,30)})}}
         compose.onNodeWithTag("meeting_card_1").assertIsDisplayed()
         compose.onAllNodesWithText(meeting.clockLabel(),substring=false).assertCountEquals(0)
         compose.onNodeWithContentDescription("${meeting.title}، ${Solar.label(LocalDate.ofEpochDay(day))}، ${meeting.clockLabel()}").assertExists()

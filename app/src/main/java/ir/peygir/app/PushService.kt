@@ -17,7 +17,7 @@ import org.json.JSONObject
 import java.util.concurrent.Executors
 
 class PeygirApplication: Application() {
-    override fun onCreate() {super.onCreate();PushRegistration.initialize(this)}
+    override fun onCreate() {super.onCreate();PushRegistration.initialize(this);ServerNetwork.observe(this)}
 }
 internal object PushRegistration {
     private val worker=Executors.newSingleThreadExecutor()
@@ -76,12 +76,22 @@ class PeygirMessagingService: FirebaseMessagingService() {
         if(SharedCredentials(this).alerts() && NotificationManagerCompat.from(this).areNotificationsEnabled()) {
             val manager=getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel("company_updates","مصوبات و دعوت جلسات",NotificationManager.IMPORTANCE_HIGH))
-            val title=when(data["kind"]) {"meeting"->"برنامهٔ جلسه به‌روز شد";"review"->"گزارش انجام مصوبه برای بررسی";else->"مصوبهٔ سازمانی به‌روز شد"}
+            val title=CompanyPush.title(data["kind"])
             val intent=Intent(this,MainActivity::class.java).putExtra("shared_record",data["recordId"]).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             val pending=PendingIntent.getActivity(this,data["recordId"].hashCode(),intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification=NotificationCompat.Builder(this,"company_updates").setSmallIcon(R.drawable.ic_notification).setContentTitle(title).setContentText("برای مشاهدهٔ اطلاعات تازه، پیگیر را باز کنید.").setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).build()
             runCatching {manager.notify(eventKey.hashCode(),notification);received.edit().putString("recent",(recent.filter{it.isNotBlank()}+eventKey).takeLast(200).joinToString("\n")).apply()}
         }
         SharedJobs.immediate(this)
+    }
+}
+
+internal object CompanyPush {
+    fun title(kind: String?)=when(kind) {
+        "invitation"->"به جلسه دعوت شده‌اید"
+        "assignment"->"مصوبه‌ای به شما واگذار شد"
+        "meeting"->"برنامهٔ جلسه به‌روز شد"
+        "review"->"گزارش انجام مصوبه برای بررسی"
+        else->"مصوبهٔ سازمانی به‌روز شد"
     }
 }

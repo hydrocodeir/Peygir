@@ -1,5 +1,8 @@
 package ir.peygir.app
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -21,6 +24,27 @@ import java.time.LocalDate
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VisualTest {
     @get:Rule val compose=createAndroidComposeRule<ComponentActivity>()
+    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+    @Test @Config(qualifiers="fa-rIR-w360dp-h740dp-mdpi")
+    fun rendersCompactConnectionHeaderInLightAndDarkWithLargeFont() {
+        val status=androidx.compose.runtime.mutableStateOf(ServerState(connected=true))
+        val theme=androidx.compose.runtime.mutableStateOf("light")
+        val config=android.content.res.Configuration(compose.activity.resources.configuration).apply{fontScale=1.5f}
+        @Suppress("DEPRECATION")
+        compose.activity.resources.updateConfiguration(config,compose.activity.resources.displayMetrics)
+        compose.setContent{PeygirTheme(theme.value){androidx.compose.material3.Scaffold(topBar={
+            androidx.compose.material3.TopAppBar(title={ServerTitle("پیگیر",status.value){}},actions={
+                androidx.compose.material3.IconButton(onClick={}){androidx.compose.material3.BadgedBox(badge={androidx.compose.material3.Badge{androidx.compose.material3.Text("۲")}}){androidx.compose.material3.Icon(Icons.Outlined.TaskAlt,"تأییدها")}}
+                androidx.compose.material3.IconButton(onClick={}){androidx.compose.material3.Icon(Icons.Outlined.Add,"ثبت مصوبه")}
+                ServerRefresh(status.value.checking){}
+                androidx.compose.material3.IconButton(onClick={}){androidx.compose.material3.Icon(Icons.Outlined.Settings,"تنظیمات")}
+            })
+        }) {padding->androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.then(androidx.compose.ui.Modifier.padding(padding))){MeetingCalendarScreen(Snapshot(),{},{},clock={LocalDate.now().atTime(16,42)})}}}}
+        compose.onNodeWithTag("server_connection").assertIsDisplayed();compose.onNodeWithTag("server_refresh").assertIsDisplayed()
+        capture("connection-header-light-large")
+        compose.runOnIdle{status.value=ServerState(failures=2);theme.value="dark"};capture("connection-header-dark-large")
+        compose.runOnIdle{status.value=ServerState(checking=true,failures=2)};capture("connection-header-retrying-large")
+    }
     @Test @Config(qualifiers="fa-rIR-w360dp-h740dp-mdpi")
     fun voiceFormsRemainReadableInBothThemesWithLargeText() {
         val theme=androidx.compose.runtime.mutableStateOf("light")
@@ -94,7 +118,7 @@ class VisualTest {
         val day=Solar.toDate(1405,8,6)!!.toEpochDay()
         val draft=androidx.compose.runtime.mutableStateOf<Pair<Long,Int>?>(null)
         compose.setContent{PeygirTheme("light"){
-            androidx.compose.material3.Surface{MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="MONTH",createAt={d,m->draft.value=d to m})}
+            androidx.compose.material3.Surface{MeetingCalendarScreen(Snapshot(),{},{},initialDay=day,initialMode="MONTH",createAt={d,m->draft.value=d to m},clock={java.time.LocalDate.now().atTime(7,30)})}
             draft.value?.let{(d,m)->MeetingEditor(Meeting(date=d),false,{draft.value=null},{},initialStart=m)}
         }}
         compose.onNodeWithTag("meeting_day_$day").performClick();capture("calendar-create-time")
@@ -115,7 +139,7 @@ class VisualTest {
             Meeting(id=26,title="جلسهٔ قدیمی",date=week+2,start=null,end=null)
         ))
         val theme=androidx.compose.runtime.mutableStateOf("light")
-        compose.setContent{PeygirTheme(theme.value){androidx.compose.material3.Surface{MeetingCalendarScreen(data,{},{},initialDay=day)}}}
+        compose.setContent{PeygirTheme(theme.value){androidx.compose.material3.Surface{MeetingCalendarScreen(data,{},{},initialDay=day,clock={java.time.LocalDate.now().atTime(7,30)})}}}
         compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected();compose.onNodeWithTag("meeting_mode_WEEK").performClick()
         capture("meeting-timetable-week-light")
         compose.onNodeWithTag("meeting_mode_DAY").performClick()
@@ -135,7 +159,7 @@ class VisualTest {
         val first=Solar.toDate(1405,8,2)!!.toEpochDay()
         val meetings=listOf(1,2,12).flatMapIndexed {offset,count->(1..count).map{Meeting(id=(offset*100+it).toLong(),title="جلسهٔ نمونه",date=first+offset)}}
         val mode=androidx.compose.runtime.mutableStateOf("dark")
-        compose.setContent{PeygirTheme(mode.value){androidx.compose.material3.Surface{MeetingCalendarScreen(Snapshot(meetings=meetings),{},{},initialDay=first,initialMode="MONTH")}}}
+        compose.setContent{PeygirTheme(mode.value){androidx.compose.material3.Surface{MeetingCalendarScreen(Snapshot(meetings=meetings),{},{},initialDay=first,initialMode="MONTH",clock={java.time.LocalDate.now().atTime(7,30)})}}}
         fun assertMarkersFit() {
             for(day in first..first+2) {
                 val cell=compose.onNodeWithTag("meeting_day_$day").fetchSemanticsNode().boundsInRoot
@@ -163,7 +187,7 @@ class VisualTest {
         store.saveTask(Resolution(title="تهیه گزارش فروش",owner="احمدی",due=today),emptyList())
         store.saveTask(Resolution(title="ارسال قرارداد",owner="رضایی",due=today,status=Status.ACTIVE),emptyList())
         var measuredFontScale=0f
-        compose.setContent{val density=androidx.compose.ui.platform.LocalDensity.current;androidx.compose.runtime.SideEffect{measuredFontScale=density.fontScale};PeygirApp(initialSection=0)}
+        compose.setContent{val density=androidx.compose.ui.platform.LocalDensity.current;androidx.compose.runtime.SideEffect{measuredFontScale=density.fontScale};PeygirApp(initialSection=0,calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000){compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         compose.runOnIdle{org.junit.Assert.assertEquals(1.3f,measuredFontScale,0.01f)}
         compose.onNode(hasText("جلسات",substring=false) and hasClickAction()).performClick()
@@ -205,7 +229,7 @@ class VisualTest {
             Meeting(id=3,title="مرور برنامهٔ فروش",date=today+2,start=600,end=660),
             Meeting(id=4,title="جلسهٔ ماه قبل",date=today-32,attendees=listOf(person.id))
         ))
-        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(data,{},{},initialMode="MONTH")}}
+        compose.setContent{PeygirTheme("light"){MeetingCalendarScreen(data,{},{},initialMode="MONTH",clock={java.time.LocalDate.now().atTime(7,30)})}}
         capture("company-calendar-month")
         compose.onNodeWithTag("meeting_mode_WEEK").performClick();capture("company-calendar-week")
         compose.onNodeWithTag("meeting_days_pager").performTouchInput{swipeRight()}
@@ -223,7 +247,7 @@ class VisualTest {
         Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
         context.deleteDatabase("peygir.db");context.getSharedPreferences("shared_private",0).edit().clear().commit()
         context.getSharedPreferences("settings",0).edit().clear().putString("theme","light").commit()
-        compose.setContent{PeygirApp(initialSection=0)}
+        compose.setContent{PeygirApp(initialSection=0,calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000){compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithContentDescription("تنظیمات").performClick()
         compose.onNodeWithTag("settings_account").performClick()
@@ -247,7 +271,7 @@ class VisualTest {
         store.addFollowUp(tracked,"منتظر تأیید مالی است")
         store.saveTask(Resolution(title="پیگیری قرارداد تأمین‌کننده",owner="آقای احمدی",meetingId=m,due=today+1,status=Status.ACTIVE),emptyList())
         store.saveTask(Resolution(title="ارسال صورت‌جلسه",owner="خانم محمدی",meetingId=m,due=today,status=Status.DONE),emptyList())
-        compose.setContent {PeygirApp(initialSection=0)}
+        compose.setContent {PeygirApp(initialSection=0,calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000) {compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         capture("dashboard-light")
         compose.onNodeWithText("مرور",useUnmergedTree=true).performClick()
@@ -297,7 +321,7 @@ class VisualTest {
         context.deleteDatabase("peygir.db")
         context.getSharedPreferences("drafts",0).edit().clear().commit()
         context.getSharedPreferences("settings",0).edit().clear().putString("theme","dark").commit()
-        compose.setContent {PeygirApp(initialSection=0)}
+        compose.setContent {PeygirApp(initialSection=0,calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000) {compose.onAllNodesWithText("برای پیگیری").fetchSemanticsNodes().isNotEmpty()}
         capture("dashboard-dark-small")
     }
@@ -341,7 +365,7 @@ class VisualTest {
         Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
         context.deleteDatabase("peygir.db")
         context.getSharedPreferences("settings",0).edit().clear().putString("theme","light").commit()
-        compose.setContent {PeygirApp(initialSection=0)}
+        compose.setContent {PeygirApp(initialSection=0,calendarClock={java.time.LocalDate.now().atTime(7,30)})}
         compose.waitUntil(15000) {compose.onAllNodesWithContentDescription("تنظیمات").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithContentDescription("تنظیمات").performClick()
         compose.waitUntil(15000) {compose.onAllNodesWithTag("settings_notifications").fetchSemanticsNodes().isNotEmpty()}

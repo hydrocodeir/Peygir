@@ -1,10 +1,10 @@
 {
-  "checkedAtTehran": "2026-10-28T16:48:57.066389+03:30",
-  "tests": 218,
+  "checkedAtTehran": "2026-10-28T19:29:36.072515+03:30",
+  "tests": 223,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
-  "lintWarnings": 79,
+  "lintWarnings": 81,
   "lintWarningIds": [
     "ApplySharedPref",
     "ApplySharedPref",
@@ -83,6 +83,8 @@
     "UseKtx",
     "UseKtx",
     "UseKtx",
+    "UseKtx",
+    "UseKtx",
     "RtlSymmetry",
     "RtlSymmetry"
   ],
@@ -98,6 +100,10 @@
     {
       "name": "ir.peygir.app.CalendarCreationTest",
       "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.ConnectionExperienceTest",
+      "tests": 4
     },
     {
       "name": "ir.peygir.app.CoreTest",
@@ -201,7 +207,7 @@
     },
     {
       "name": "ir.peygir.app.VisualTest",
-      "tests": 14
+      "tests": 15
     },
     {
       "name": "ir.peygir.app.VoiceCommandsTest",

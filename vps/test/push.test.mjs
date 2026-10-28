@@ -12,7 +12,7 @@ test('FCM sends only a generic, company-scoped event via the existing HTTP v1 in
     assert.equal(String(url),'https://fcm.googleapis.com/v1/projects/synthetic-project/messages:send');message=JSON.parse(options.body).message;return Response.json({name:'synthetic-message'});
   });
   assert.equal(await sendPush(env,'synthetic-device',{userId:'u',eventId:'e',recordId:'r',kind:'task'}),'ok');
-  assert.deepEqual(message.data,{userId:'u',eventId:'e',recordId:'r',kind:'task',company:'company-a'});assert.equal(message.token,'synthetic-device');assert.equal(message.notification,undefined);
+  assert.deepEqual(message.data,{userId:'u',eventId:'e',recordId:'r',kind:'task',company:'company-a'});assert.equal(message.token,'synthetic-device');assert.equal(message.notification,undefined);assert.equal(message.android.priority,'HIGH');assert.equal(message.android.ttl,'3600s');
 });
 test('unregistered devices are distinguishable from retryable FCM failures',async t=>{
   let invalid=true;

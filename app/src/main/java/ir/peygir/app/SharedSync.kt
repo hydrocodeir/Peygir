@@ -107,6 +107,7 @@ internal object SyncEngine {
     }
 }
 internal object SharedSync {
+    val connection=ConnectionTracker()
     val revision=MutableStateFlow(0L)
     val working=MutableStateFlow(false)
     private val worker=Executors.newSingleThreadExecutor()
@@ -123,6 +124,7 @@ internal object SharedSync {
         if(session.role=="deputy" && principal.isEmpty()) check(Store.get(context).snapshot().let{it.tasks.isEmpty() && it.meetings.isEmpty()}) {"ورود معاون باید روی دفتر خالی انجام شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید."}
         shared.bind(session.endpoint,session.workspace,session.company)
         try {SharedCredentials(context).save(session)} catch(e:Exception) {if(old.isEmpty()) shared.detach();throw e}
+        context.getSharedPreferences("shared_status",0).edit().clear().apply();connection.reset();ServerNetwork.observe(context)
         shared.principal(session.userId);OrgAccess.set(context,session);PushRegistration.configure(context);SharedJobs.schedule(context);revision.value++
     }
     @Synchronized fun disconnect(context: Context,detach: Boolean=false) {
@@ -131,19 +133,21 @@ internal object SharedSync {
             SharedStore(Store.get(context)).clearScopedData(detachBinding=true);Organization.members.value=emptyList();Organization.contacts.value=emptyList()
             context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
         }
-        credentials.clear();OrgAccess.set(context,null);SharedJobs.cancel(context)
+        credentials.clear();OrgAccess.set(context,null);SharedJobs.cancel(context);ServerNetwork.stop();connection.reset();context.getSharedPreferences("shared_status",0).edit().clear().apply()
         if(detach) SharedStore(Store.get(context)).detach()
         if(session!=null) worker.execute{runCatching{SharedHttp(session.endpoint,session.token,session.company).post("/v1/logout",JSONObject())}}
         revision.value++
     }
-    fun request(context: Context) {
+    fun request(context: Context,force: Boolean=true) {
         val app=context.applicationContext
-        if(!SharedCredentials(app).connected() || !running.compareAndSet(false,true)) return
-        worker.execute {try {perform(app)} finally {running.set(false)}}
+        if(!SharedCredentials(app).connected() || app.getSharedPreferences("shared_status",0).getBoolean("auth_expired",false) || (!force && !connection.due()) || !running.compareAndSet(false,true)) return
+        worker.execute {try {if(!perform(app) && !connection.state.value.loginRequired) SharedJobs.immediate(app)} finally {running.set(false)}}
     }
     @Synchronized fun perform(context: Context): Boolean {
         val credentials=SharedCredentials(context);if(!credentials.connected()) return true
-        val prefs=context.getSharedPreferences("shared_status",0);working.value=true
+        val prefs=context.getSharedPreferences("shared_status",0)
+        if(prefs.getBoolean("auth_expired",false)) {if(!connection.state.value.loginRequired) connection.failure(true);return true}
+        working.value=true;connection.start()
         return try {
             var session=credentials.read() ?: return true
             val store=Store.get(context);val shared=SharedStore(store)
@@ -161,13 +165,13 @@ internal object SharedSync {
             val after=store.snapshot().tasks.associateBy{it.id}
             before.forEach{(id,old)->val current=after[id];if(current==null || current.due!=old.due || current.status==Status.DONE) context.getSystemService(android.app.NotificationManager::class.java).cancel(id.toInt())}
             prefs.edit().putLong("last",System.currentTimeMillis()).remove("error").remove("auth_expired").apply()
-            store.externalChanges.value++;Reminders.process(context);ReviewWidget.updateAll(context);true
+            store.externalChanges.value++;Reminders.process(context);ReviewWidget.updateAll(context);connection.success();true
         } catch(e:Exception) {
             if(e is SharedHttpError && e.code==401 && OrgAccess.id(context).isNotBlank()) {
                 SharedStore(Store.get(context)).clearScopedData();Organization.members.value=emptyList();Organization.contacts.value=emptyList();context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
             }
             val message=if(e is SharedHttpError) e.message else e.message?.takeIf{it.any{c->c in 'آ'..'ی'}} ?: "اتصال برقرار نشد؛ تغییرات روی گوشی محفوظ‌اند و دوباره ارسال می‌شوند."
-            prefs.edit().putString("error",message).putBoolean("auth_expired",e is SharedHttpError && e.code==401).apply();false
+            prefs.edit().putString("error",message).putBoolean("auth_expired",e is SharedHttpError && e.code==401).apply();connection.failure(e is SharedHttpError && e.code==401);false
         } finally {working.value=false;revision.value++}
     }
 }
@@ -180,7 +184,7 @@ internal object SharedJobs {
     }
     fun immediate(context: Context) {
         if(!SharedCredentials(context).connected()) return
-        val b=JobInfo.Builder(7002,ComponentName(context,SharedJobService::class.java)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+        val b=JobInfo.Builder(7002,ComponentName(context,SharedJobService::class.java)).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setBackoffCriteria(30000,JobInfo.BACKOFF_POLICY_EXPONENTIAL)
         if(android.os.Build.VERSION.SDK_INT>=31) b.setExpedited(true) else b.setMinimumLatency(0)
         context.getSystemService(JobScheduler::class.java).schedule(b.build())
     }
