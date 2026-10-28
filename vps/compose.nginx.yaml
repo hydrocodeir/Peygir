@@ -1,0 +1,20 @@
+name: peygir
+services:
+  api:
+    extends:
+      file: compose.yaml
+      service: api
+    ports:
+      - "127.0.0.1:18300:3000"
+volumes:
+  data:
+    name: ${PEYGIR_DATA_VOLUME:-peygir_data}
+  backups:
+    name: ${PEYGIR_BACKUP_VOLUME:-peygir_backups}
+secrets:
+  admin_bootstrap:
+    file: ../.device-private/vps/admin-bootstrap.json
+  fcm_service:
+    file: ../.device-private/vps/fcm-service-account.json
+  fcm_public:
+    file: ../.device-private/vps/fcm-public.json
