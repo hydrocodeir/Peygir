@@ -1,10 +1,10 @@
 {
-  "checkedAtTehran": "2026-10-28T19:29:36.072515+03:30",
-  "tests": 223,
+  "checkedAtTehran": "2026-10-28T22:15:42.380984+03:30",
+  "tests": 237,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
-  "lintWarnings": 81,
+  "lintWarnings": 82,
   "lintWarningIds": [
     "ApplySharedPref",
     "ApplySharedPref",
@@ -85,6 +85,7 @@
     "UseKtx",
     "UseKtx",
     "UseKtx",
+    "UseKtx",
     "RtlSymmetry",
     "RtlSymmetry"
   ],
@@ -95,7 +96,7 @@
     },
     {
       "name": "ir.peygir.app.BackupTest",
-      "tests": 12
+      "tests": 13
     },
     {
       "name": "ir.peygir.app.CalendarCreationTest",
@@ -110,12 +111,20 @@
       "tests": 23
     },
     {
+      "name": "ir.peygir.app.DictationVisualTest",
+      "tests": 4
+    },
+    {
       "name": "ir.peygir.app.ExperienceFlowTest",
       "tests": 5
     },
     {
       "name": "ir.peygir.app.FirstRunTest",
       "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.HoldDictationTest",
+      "tests": 9
     },
     {
       "name": "ir.peygir.app.LegacyStorageTest",

@@ -48,7 +48,7 @@ class BackupTest {
         val audio=File(directory,"archive.wav").apply{writeBytes(AudioCapture.wavHeader(160)+ByteArray(160))}
         val audioBytes=audio.readBytes()
         store.saveRecording(Recording(meetingId=meeting,path=audio.path,created=System.currentTimeMillis(),seconds=2,transcript="متن آرشیوی"))
-        context.getSharedPreferences("settings",0).edit().putString("theme","dark").putBoolean("dynamic_colors",true).putBoolean("daily",false).putString("times","10:05").commit()
+        context.getSharedPreferences("settings",0).edit().putString("theme","dark").putBoolean("dynamic_colors",true).putBoolean("daily",false).putString("times","10:05").putString(DictationMode.PREFERENCE,"hold").commit()
         val expected=store.snapshot();val bytes=export()
         store.saveTask(Resolution(title="دادهٔ بعد از پشتیبان",owner="رضایی"),emptyList())
         context.getSharedPreferences("settings",0).edit().clear().commit()
@@ -59,6 +59,7 @@ class BackupTest {
         assertArrayEquals(audioBytes,File(actual.recordings.single().path).readBytes());assertFalse(audio.exists())
         assertTrue(context.getSharedPreferences("settings",0).getBoolean("dynamic_colors",false))
         assertEquals("dark",context.getSharedPreferences("settings",0).getString("theme",null))
+        assertEquals(DictationMode.HOLD,DictationMode.read(context))
         assertEquals(listOf(java.time.LocalTime.of(10,5)),Reminders.dailyTimes(context));assertFalse(Reminders.dailyEnabled(context))
         assertTrue(store.saveTask(Resolution(title="بعد از بازیابی",owner="احمدی"),emptyList())>id)
     }
@@ -110,6 +111,12 @@ class BackupTest {
         store.saveMeeting(Meeting(title="اصل"));val before=store.snapshot()
         assertThrows(Exception::class.java) {store.replaceAll(Snapshot()) {error("simulated failure")}}
         assertEquals(before,store.snapshot())
+    }
+    @Test fun oldBackupsDefaultToTapAndInvalidDictationSettingsAreRejected() {
+        val old=archive({it.getJSONObject("settings").remove("dictation")})
+        Backup.read(context,old.inputStream()).use{assertEquals("tap",it.settings.dictation)}
+        val invalid=archive({it.getJSONObject("settings").put("dictation","unexpected")})
+        assertThrows(Exception::class.java){Backup.read(context,invalid.inputStream())}
     }
     @Test fun versionOneBackupCanStillBeRestoredWithoutFollowUps() {
         val task=store.saveTask(Resolution(title="نسخهٔ قبلی",owner="احمدی"),emptyList())

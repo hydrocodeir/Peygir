@@ -15,16 +15,16 @@ import java.util.zip.ZipOutputStream
 object Backup {
     private const val MAX_BYTES=512L*1024*1024
     private const val MAX_JSON=16L*1024*1024
-    data class Preferences(val theme: String, val dynamic: Boolean, val daily: Boolean, val times: String)
+    data class Preferences(val theme: String, val dynamic: Boolean, val daily: Boolean, val times: String,val dictation: String="tap")
     class Prepared internal constructor(val data: Snapshot, val settings: Preferences, internal val directory: File): Closeable {
         override fun close() {directory.deleteRecursively()}
     }
     private fun settings(context: Context): Preferences {
         val p=context.getSharedPreferences("settings",0)
-        return Preferences(p.getString("theme","system") ?: "system",p.getBoolean("dynamic_colors",false),Reminders.dailyEnabled(context),Reminders.dailyTimes(context).joinToString(","))
+        return Preferences(p.getString("theme","system") ?: "system",p.getBoolean("dynamic_colors",false),Reminders.dailyEnabled(context),Reminders.dailyTimes(context).joinToString(","),DictationMode.read(context).key)
     }
     private fun applySettings(context: Context, value: Preferences) {
-        check(context.getSharedPreferences("settings",0).edit().putString("theme",value.theme).putBoolean("dynamic_colors",value.dynamic).putBoolean("daily",value.daily).putString("times",value.times).remove("last_review").commit()) {"ذخیرهٔ تنظیمات بازیابی ناموفق بود."}
+        check(context.getSharedPreferences("settings",0).edit().putString("theme",value.theme).putBoolean("dynamic_colors",value.dynamic).putBoolean("daily",value.daily).putString("times",value.times).putString(DictationMode.PREFERENCE,value.dictation).remove("last_review").commit()) {"ذخیرهٔ تنظیمات بازیابی ناموفق بود."}
     }
     private fun obj(vararg fields: Pair<String,Any?>)=JSONObject().apply {fields.forEach{put(it.first,it.second ?: JSONObject.NULL)}}
     private fun <T> array(values: List<T>, convert: (T)->JSONObject)=JSONArray().apply {values.forEach {put(convert(it))}}
@@ -45,7 +45,7 @@ object Backup {
         }
         val p=settings(context)
         val json=obj("format" to "peygir-backup","version" to 5,"createdAt" to System.currentTimeMillis(),
-            "settings" to obj("theme" to p.theme,"dynamic" to p.dynamic,"daily" to p.daily,"times" to p.times),
+            "settings" to obj("theme" to p.theme,"dynamic" to p.dynamic,"daily" to p.daily,"times" to p.times,"dictation" to p.dictation),
             "contacts" to JSONArray(data.contacts),
             "meetings" to array(data.meetings) {obj("id" to it.id,"title" to it.title,"date" to it.date,"notes" to it.notes).meetingOrganization(it)},
             "tasks" to array(data.tasks) {obj("id" to it.id,"meeting" to it.meetingId,"title" to it.title,"description" to it.description,"owner" to it.owner,"due" to it.due,"priority" to it.priority.name,"status" to it.status.name).taskOrganization(it)},
@@ -118,7 +118,8 @@ object Backup {
             require(followUps.all {it.taskId in taskIds && it.text.isNotBlank() && it.text.length<=1000 && it.created>0})
             require(recordings.all {(it.meetingId==null || it.meetingId in meetingIds) && it.created>0 && it.seconds>=0})
             val p=root.getJSONObject("settings")
-            val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"))
+            val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"),p.optString("dictation","tap"))
+            require(DictationMode.entries.any{it.key==settings.dictation}) {"روش ورود صوتی پشتیبان معتبر نیست."}
             require(settings.theme in setOf("system","light","dark") && settings.times.length<10000)
             require(settings.times.isEmpty() || settings.times.split(',').all {runCatching {LocalTime.parse(it)}.isSuccess})
             return Prepared(Snapshot(meetings,tasks,reminders,recordings,history,followUps=followUps,backlog=backlog,contacts=contacts),settings,directory)

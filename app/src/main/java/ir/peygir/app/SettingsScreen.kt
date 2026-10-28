@@ -10,6 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -32,6 +35,7 @@ import java.time.LocalTime
 @Composable fun SettingsScreen(mode: String, setMode: (String)->Unit, message: (String)->Unit, dynamicColors: Boolean = false, setDynamicColors: (Boolean)->Unit = {}, restored: ()->Unit = {},showTitle: Boolean=true) {
     val context=LocalContext.current
     val prefs=remember {context.getSharedPreferences("settings",0)}
+    val dictationMode=rememberDictationMode()
     var enabled by remember {mutableStateOf(Reminders.dailyEnabled(context))}
     var times by remember {mutableStateOf(Reminders.dailyTimes(context))}
     var notification by remember {mutableStateOf(Reminders.allowed(context))}
@@ -79,6 +83,20 @@ import java.time.LocalTime
             if(times.isEmpty()) Text("برای دریافت مرور روزانه، دست‌کم یک ساعت انتخاب کنید.",style=MaterialTheme.typography.bodySmall)
             TextButton(onClick={context.startActivity(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,Reminders.REVIEW_CHANNEL))}) {Text("تنظیمات اعلان مرور روزانه")}
         }}
+        }
+        SettingsGroup("ورود صوتی",dictationMode.title,group=="voice",{group=if(group=="voice") "" else "voice"},"settings_voice") {
+            Column(Modifier.selectableGroup(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                DictationMode.entries.forEach {option->
+                    OutlinedCard(Modifier.fillMaxWidth().testTag("dictation_mode_${option.key}").selectable(selected=dictationMode==option,role=Role.RadioButton,onClick={prefs.edit().putString(DictationMode.PREFERENCE,option.key).apply()})) {
+                        Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+                            RadioButton(selected=dictationMode==option,onClick=null)
+                            Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {Text(option.title,style=MaterialTheme.typography.titleSmall);Text(option.help,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                        }
+                    }
+                }
+            }
+            Text("میکروفون کنار همان فیلد است. در روش نگه‌داشتن، برای لغو انگشت را از دکمه بیرون ببرید. تبدیل روی گوشی انجام می‌شود و متن قابل ویرایش است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SettingsGroup("ظاهر",when(mode){"dark"->"تیره";"light"->"روشن";else->"همراه گوشی"},group=="appearance",{group=if(group=="appearance") "" else "appearance"},"settings_appearance") {
         FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {listOf("system" to "همراه گوشی","light" to "روشن","dark" to "تیره").forEach {(value,label)->FilterChip(mode==value,{setMode(value)},label={Text(label)})}}
