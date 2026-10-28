@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 7) {
+class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 8) {
     private val appContext=context.applicationContext
     val externalChanges=kotlinx.coroutines.flow.MutableStateFlow(0L)
     private val recordingDirectory=java.io.File(context.filesDir,"recordings").canonicalFile
@@ -22,6 +22,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createBacklog(db)
         SharedStore.create(db)
         Organization.create(db)
+        MeetingAlerts.create(db)
     }
     private fun createHistory(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE due_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,old_due INTEGER NOT NULL,new_due INTEGER NOT NULL,changed_at INTEGER NOT NULL,kind TEXT NOT NULL,reason TEXT NOT NULL)")
@@ -39,13 +40,14 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createHistory(db)
         val hasDraft=db.rawQuery("PRAGMA table_info(recordings)",null).use{c->var found=false;while(c.moveToNext()) if(c.getString(1)=="draft_session") found=true;found}
         if(!hasDraft) db.execSQL("ALTER TABLE recordings ADD COLUMN draft_session TEXT NOT NULL DEFAULT ''")
-    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db)}
+    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db);if(old<8) MeetingAlerts.create(db)}
     @Synchronized internal fun <T> syncDb(block: (SQLiteDatabase)->T): T = block(writableDatabase)
     @Synchronized fun snapshot(): Snapshot {
         val db = readableDatabase
         val history=db.rawQuery("SELECT * FROM due_changes ORDER BY id DESC",null).use {c->buildList{while(c.moveToNext()) add(DueChange(c.getLong(0),c.getLong(1),c.getLong(2),c.getLong(3),c.getLong(4),DueChangeKind.valueOf(c.getString(5)),c.getString(6)))}}
         val delays=history.filter{it.newDue>it.oldDue}.groupingBy{it.taskId}.eachCount()
-        val meetings = db.rawQuery("SELECT * FROM meetings ORDER BY date DESC,COALESCE(start,1440),COALESCE(end,1440),id",null).use { c -> buildList { while(c.moveToNext()) add(Meeting(c.getLong(0),c.getString(1),c.getLong(2),c.getString(3)).withOrganization(c)) } }
+        val alerts=MeetingAlerts.overrides(db)
+        val meetings = db.rawQuery("SELECT * FROM meetings ORDER BY date DESC,COALESCE(start,1440),COALESCE(end,1440),id",null).use { c -> buildList { while(c.moveToNext()) add(Meeting(c.getLong(0),c.getString(1),c.getLong(2),c.getString(3)).withOrganization(c).copy(alertMinutes=alerts[c.getLong(0)])) } }
         val tasks = db.rawQuery("SELECT * FROM tasks ORDER BY due,id DESC",null).use { c -> buildList { while(c.moveToNext()) add(Resolution(c.getLong(0),if(c.isNull(1)) null else c.getLong(1),c.getString(2),c.getString(3),c.getString(4),c.getLong(5),Priority.valueOf(c.getString(6)),Status.valueOf(c.getString(7)),delays[c.getLong(0)] ?: 0).withOrganization(c)) } }
         val reminders = db.rawQuery("SELECT * FROM reminders ORDER BY at",null).use { c -> buildList { while(c.moveToNext()) add(Reminder(c.getLong(0),c.getLong(1),c.getLong(2),c.getInt(3)==1)) } }
         val recordings = db.rawQuery("SELECT * FROM recordings ORDER BY created DESC",null).use { c -> buildList { while(c.moveToNext()) add(Recording(c.getLong(0),if(c.isNull(1)) null else c.getLong(1),c.getString(2),c.getLong(3),c.getInt(4),c.getString(5),c.getString(6))) } }
@@ -59,7 +61,13 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         val v = ContentValues().apply { put("title",m.title.trim()); put("date",m.date); put("notes",m.notes);meetingOrganization(m) }
         val db=writableDatabase;db.beginTransaction()
         try {
-            val id=if(m.id==0L) db.insertOrThrow("meetings",null,v) else {check(db.update("meetings",v,"id=?",arrayOf(m.id.toString()))==1);m.id}
+            val id=if(m.id==0L) db.insertOrThrow("meetings",null,v) else {
+                val old=db.rawQuery("SELECT * FROM meetings WHERE id=?",arrayOf(m.id.toString())).use{c->check(c.moveToFirst());Meeting(c.getLong(0),c.getString(1),c.getLong(2),c.getString(3)).withOrganization(c)}
+                // Local reminder changes do not dirty the shared meeting or notify colleagues.
+                if(old.copy(alertMinutes=m.alertMinutes)!=m.copy(title=m.title.trim())) check(db.update("meetings",v,"id=?",arrayOf(m.id.toString()))==1)
+                m.id
+            }
+            MeetingAlerts.save(db,id,m.alertMinutes)
             Organization.rememberContacts(db,m.guests);db.setTransactionSuccessful();return id
         } finally {db.endTransaction()}
     }
@@ -170,7 +178,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         try {
             listOf("backlog","notification_tokens","follow_ups","recordings","reminders","due_changes","tasks","meetings").forEach {db.delete(it,null,null)}
             data.backlog.forEach {b->db.insertOrThrow("backlog",null,ContentValues().apply {put("id",b.id);put("title",b.title);put("description",b.description);put("owner",b.owner);put("created",b.created)})}
-            data.meetings.forEach {m->db.insertOrThrow("meetings",null,ContentValues().apply {put("id",m.id);put("title",m.title);put("date",m.date);put("notes",m.notes);meetingOrganization(m)})}
+            data.meetings.forEach {m->db.insertOrThrow("meetings",null,ContentValues().apply {put("id",m.id);put("title",m.title);put("date",m.date);put("notes",m.notes);meetingOrganization(m)});MeetingAlerts.save(db,m.id,m.alertMinutes)}
             data.tasks.forEach {t->db.insertOrThrow("tasks",null,ContentValues().apply {put("id",t.id);put("meeting_id",t.meetingId);put("title",t.title);put("description",t.description);put("owner",t.owner);put("due",t.due);put("priority",t.priority.name);put("status",t.status.name);taskOrganization(t)})}
             data.reminders.forEach {r->db.insertOrThrow("reminders",null,ContentValues().apply {put("id",r.id);put("task_id",r.taskId);put("at",r.at);put("delivered",if(r.delivered) 1 else 0)})}
             data.history.forEach {h->db.insertOrThrow("due_changes",null,ContentValues().apply {put("id",h.id);put("task_id",h.taskId);put("old_due",h.oldDue);put("new_due",h.newDue);put("changed_at",h.changedAt);put("kind",h.kind.name);put("reason",h.reason)})}

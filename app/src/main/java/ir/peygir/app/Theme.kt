@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +48,9 @@ private val PeygirTypography = with(BaseTypography) {
 @Composable fun PeygirTheme(mode: String, dynamicColors: Boolean = false, language: String = "fa", content: @Composable () -> Unit) {
     val dark = when (mode) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
     val context = LocalContext.current
+    val options=rememberUserOptions()
+    val baseDensity=LocalDensity.current
+    val density=if(options.font=="system") baseDensity else Density(baseDensity.density,options.fontScale(baseDensity.fontScale))
     // Official M3 baseline palettes; optional Material You on Android 12+.
     val colors = when {
         dynamicColors && Build.VERSION.SDK_INT >= 31 -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -62,7 +67,7 @@ private val PeygirTypography = with(BaseTypography) {
             }
         }
     }
-    CompositionLocalProvider(LocalLayoutDirection provides if (language == "en") LayoutDirection.Ltr else LayoutDirection.Rtl) {
+    CompositionLocalProvider(LocalDensity provides density,LocalLayoutDirection provides if (language == "en") LayoutDirection.Ltr else LayoutDirection.Rtl) {
         MaterialTheme(colorScheme = colors, typography = PeygirTypography,
             shapes = Shapes(extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(8.dp),
                 medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(16.dp), extraLarge = RoundedCornerShape(28.dp)),

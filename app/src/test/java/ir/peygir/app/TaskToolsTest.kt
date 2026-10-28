@@ -62,7 +62,7 @@ class TaskToolsTest {
         val before=store.snapshot()
         store.writableDatabase.execSQL("DROP TABLE follow_ups");store.writableDatabase.execSQL("DROP TABLE notification_tokens");store.writableDatabase.execSQL("DROP TABLE backlog")
         store.writableDatabase.version=2;store.close();store=Store(context,"tools.db")
-        assertEquals(before,store.snapshot());assertEquals(7,store.readableDatabase.version)
+        assertEquals(before,store.snapshot());assertEquals(8,store.readableDatabase.version)
         store.addFollowUp(task,"پس از مهاجرت");assertEquals(1,store.snapshot().followUps.size)
     }
     @Test fun sharingUsesTheSystemChooserAndOnlyTheRequestedPlainTextFields() {

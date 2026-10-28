@@ -40,11 +40,12 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
     val text=clean(listOf(meeting.title,meeting.location,meeting.guests.joinToString(" "),users.filter{it.id in meeting.attendees}.joinToString(" "){it.name}).joinToString(" "))
     return clean(query).split(Regex("\\s+")).all{text.contains(it)}
 }
-@Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String="DAY",createAt: ((Long,Int)->Unit)?=null,active: Boolean=true,focusVersion: Int=0,clock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
+@Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String?=null,createAt: ((Long,Int)->Unit)?=null,active: Boolean=true,focusVersion: Int=0,clock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
     val c=LocalContext.current;val deputy=OrgAccess.deputy(c)
     val users by Organization.members.collectAsState()
     val min=remember {WidgetDays.min};val max=remember {WidgetDays.max}
-    var mode by rememberSaveable {mutableStateOf(initialMode)}
+    val options=rememberUserOptions()
+    var mode by rememberSaveable {mutableStateOf(initialMode ?: options.calendar)}
     var day by rememberSaveable {mutableLongStateOf(initialDay.coerceIn(min,max))}
     var navigation by remember {mutableIntStateOf(0)}
     var query by rememberSaveable {mutableStateOf("")};var searchOpen by rememberSaveable {mutableStateOf(false)};var picker by remember {mutableStateOf(false)}
@@ -132,11 +133,19 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
 }
 
 @Composable private fun MeetingCalendarCard(m: Meeting,data: Snapshot,users: List<CompanyUser>,deputy: Boolean,open: (Long)->Unit,delete: ((Long)->Unit)?,showDate: Boolean=true) {
+    val expanded=rememberUserOptions().cards=="full"
     OutlinedCard(onClick={open(m.id)},shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth().testTag("meeting_card_${m.id}")) {
         Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(m.title,style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
                 Text(if(showDate) "${Solar.label(LocalDate.ofEpochDay(m.date))} - ${m.clockLabel()}" else m.clockLabel(),style=MaterialTheme.typography.bodySmall)
+                if(expanded) {
+                    if(m.location.isNotBlank()) Text(m.location,style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    val names=(users.filter{it.id in m.attendees}.map{it.name}+m.guests).joinToString("، ")
+                    if(names.isNotBlank()) Text(names,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    if(m.notes.isNotBlank()) Text(m.notes,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    CountLabel("مصوبات",data.tasks.count{it.meetingId==m.id})
+                }
             }
             if(!deputy && delete!=null) PageActions("گزینه‌های جلسهٔ ${m.title}",listOf(PageAction("حذف جلسهٔ ${m.title}",{delete(m.id)},destructive=true)))
         }

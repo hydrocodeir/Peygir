@@ -73,9 +73,10 @@ object MeetingTimeline {
     val gutter=with(LocalDensity.current){38.sp.toDp()}.coerceIn(38.dp,72.dp)
     val dayBadge=with(LocalDensity.current){32.sp.toDp()}.coerceIn(32.dp,44.dp)
     val density=LocalDensity.current
+    val options=rememberUserOptions()
     val initialMinute=remember {clock().let{it.hour*60+it.minute}}
-    val scroll=rememberScrollState(with(LocalDensity.current){(hourHeight*MeetingTimeline.initialHour(initialMinute)).roundToPx()})
-    LaunchedEffect(active,focusVersion,mode) {if(active) scroll.scrollTo(with(density){(hourHeight*MeetingTimeline.initialHour(clock().let{it.hour*60+it.minute})).roundToPx()})}
+    val scroll=rememberScrollState(with(LocalDensity.current){(hourHeight*options.focusHour(initialMinute)).roundToPx()})
+    LaunchedEffect(active,focusVersion,mode,options.focus,options.workStart) {if(active) scroll.scrollTo(with(density){(hourHeight*options.focusHour(clock().let{it.hour*60+it.minute})).roundToPx()})}
     Box(Modifier.fillMaxSize().testTag("meeting_day_page_$selectedDay")) {
         HorizontalPager(pager,modifier=Modifier.fillMaxSize().testTag("meeting_days_pager"),key={first+it*step}) {index->
             val anchor=first+index*step;val days=(0 until step).map{anchor+it}
@@ -129,6 +130,7 @@ object MeetingTimeline {
 
 @Composable private fun DayTimeColumn(day: Long,meetings: List<MeetingPlacement>,weekly: Boolean,hourHeight: androidx.compose.ui.unit.Dp,open: (Long)->Unit,modifier: Modifier,create: ((Long,Int)->Unit)?,pickTime: ((Long)->Unit)?) {
     val scheme=MaterialTheme.colorScheme
+    val expanded=rememberUserOptions().cards=="full"
     var now by remember {mutableStateOf(LocalDateTime.now())}
     val latestCreate by rememberUpdatedState(create)
     LaunchedEffect(Unit) {while(true) {now=LocalDateTime.now();delay(60_000)}}
@@ -155,6 +157,10 @@ object MeetingTimeline {
                 Column(Modifier.padding(if(weekly) 3.dp else 8.dp)) {
                     Text(m.title,fontSize=if(weekly) 11.sp else 15.sp,lineHeight=if(weekly) 16.sp else 22.sp,fontWeight=FontWeight.Medium,maxLines=if(weekly) 6 else 3,overflow=TextOverflow.Ellipsis)
                     if(!weekly && height>100.dp && m.location.isNotBlank()) Text(m.location,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    if(expanded && height>160.dp) {
+                        if(weekly && m.location.isNotBlank()) Text(m.location,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        if(m.notes.isNotBlank()) Text(m.notes,fontSize=if(weekly) 10.sp else 12.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    }
                 }
             }
         }

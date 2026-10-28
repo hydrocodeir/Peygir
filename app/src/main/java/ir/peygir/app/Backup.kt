@@ -15,16 +15,16 @@ import java.util.zip.ZipOutputStream
 object Backup {
     private const val MAX_BYTES=512L*1024*1024
     private const val MAX_JSON=16L*1024*1024
-    data class Preferences(val theme: String, val dynamic: Boolean, val daily: Boolean, val times: String,val dictation: String="tap")
+    data class Preferences(val theme: String, val dynamic: Boolean, val daily: Boolean, val times: String,val dictation: String="tap",val options: UserOptions=UserOptions())
     class Prepared internal constructor(val data: Snapshot, val settings: Preferences, internal val directory: File): Closeable {
         override fun close() {directory.deleteRecursively()}
     }
     private fun settings(context: Context): Preferences {
         val p=context.getSharedPreferences("settings",0)
-        return Preferences(p.getString("theme","system") ?: "system",p.getBoolean("dynamic_colors",false),Reminders.dailyEnabled(context),Reminders.dailyTimes(context).joinToString(","),DictationMode.read(context).key)
+        return Preferences(p.getString("theme","system") ?: "system",p.getBoolean("dynamic_colors",false),Reminders.dailyEnabled(context),Reminders.dailyTimes(context).joinToString(","),DictationMode.read(context).key,UserOptions.read(context))
     }
     private fun applySettings(context: Context, value: Preferences) {
-        check(context.getSharedPreferences("settings",0).edit().putString("theme",value.theme).putBoolean("dynamic_colors",value.dynamic).putBoolean("daily",value.daily).putString("times",value.times).putString(DictationMode.PREFERENCE,value.dictation).remove("last_review").commit()) {"ذخیرهٔ تنظیمات بازیابی ناموفق بود."}
+        check(value.options.save(context.getSharedPreferences("settings",0).edit()).putString("theme",value.theme).putBoolean("dynamic_colors",value.dynamic).putBoolean("daily",value.daily).putString("times",value.times).putString(DictationMode.PREFERENCE,value.dictation).remove("last_review").commit()) {"ذخیرهٔ تنظیمات بازیابی ناموفق بود."}
     }
     private fun obj(vararg fields: Pair<String,Any?>)=JSONObject().apply {fields.forEach{put(it.first,it.second ?: JSONObject.NULL)}}
     private fun <T> array(values: List<T>, convert: (T)->JSONObject)=JSONArray().apply {values.forEach {put(convert(it))}}
@@ -45,9 +45,9 @@ object Backup {
         }
         val p=settings(context)
         val json=obj("format" to "peygir-backup","version" to 5,"createdAt" to System.currentTimeMillis(),
-            "settings" to obj("theme" to p.theme,"dynamic" to p.dynamic,"daily" to p.daily,"times" to p.times,"dictation" to p.dictation),
+            "settings" to obj("theme" to p.theme,"dynamic" to p.dynamic,"daily" to p.daily,"times" to p.times,"dictation" to p.dictation,"options" to p.options.json()),
             "contacts" to JSONArray(data.contacts),
-            "meetings" to array(data.meetings) {obj("id" to it.id,"title" to it.title,"date" to it.date,"notes" to it.notes).meetingOrganization(it)},
+            "meetings" to array(data.meetings) {obj("id" to it.id,"title" to it.title,"date" to it.date,"notes" to it.notes,"localAlert" to it.alertMinutes).meetingOrganization(it)},
             "tasks" to array(data.tasks) {obj("id" to it.id,"meeting" to it.meetingId,"title" to it.title,"description" to it.description,"owner" to it.owner,"due" to it.due,"priority" to it.priority.name,"status" to it.status.name).taskOrganization(it)},
             "reminders" to array(data.reminders) {obj("id" to it.id,"task" to it.taskId,"at" to it.at,"delivered" to it.delivered)},
             "history" to array(data.history) {obj("id" to it.id,"task" to it.taskId,"old" to it.oldDue,"new" to it.newDue,"changed" to it.changedAt,"kind" to it.kind.name,"reason" to it.reason)},
@@ -91,7 +91,8 @@ object Backup {
             fun JSONObject.ref(key: String): Long?=if(isNull(key)) null else getLong(key)
             fun JSONObject.text(key: String)=getString(key).also {require(it.length<=200000)}
             val contacts=root.optJSONArray("contacts")?.strings().orEmpty();require(contacts.size<=100000 && contacts.all{it.isNotBlank() && it.length<=200})
-            val meetings=list("meetings") {Meeting(it.getLong("id"),it.text("title"),it.getLong("date"),it.text("notes")).fromOrganization(it)}
+            val meetings=list("meetings") {Meeting(it.getLong("id"),it.text("title"),it.getLong("date"),it.text("notes")).fromOrganization(it).copy(alertMinutes=if(it.isNull("localAlert")) null else it.getInt("localAlert"))}
+            require(meetings.all{it.alertMinutes==null || it.alertMinutes in UserOptions.leads}) {"زمان یادآوری جلسه در پشتیبان معتبر نیست."}
             val tasks=list("tasks") {Resolution(it.getLong("id"),it.ref("meeting"),it.text("title"),it.text("description"),it.text("owner"),it.getLong("due"),Priority.valueOf(it.getString("priority")),Status.valueOf(it.getString("status"))).fromOrganization(it)}
             val reminders=list("reminders") {Reminder(it.getLong("id"),it.getLong("task"),it.getLong("at"),it.getBoolean("delivered"))}
             val history=list("history") {DueChange(it.getLong("id"),it.getLong("task"),it.getLong("old"),it.getLong("new"),it.getLong("changed"),DueChangeKind.valueOf(it.getString("kind")),it.text("reason"))}
@@ -118,7 +119,8 @@ object Backup {
             require(followUps.all {it.taskId in taskIds && it.text.isNotBlank() && it.text.length<=1000 && it.created>0})
             require(recordings.all {(it.meetingId==null || it.meetingId in meetingIds) && it.created>0 && it.seconds>=0})
             val p=root.getJSONObject("settings")
-            val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"),p.optString("dictation","tap"))
+            require(!p.has("options") || p.isNull("options") || p.get("options") is JSONObject) {"قالب تنظیمات راحتی استفاده معتبر نیست."}
+            val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"),p.optString("dictation","tap"),UserOptions.from(p.optJSONObject("options")))
             require(DictationMode.entries.any{it.key==settings.dictation}) {"روش ورود صوتی پشتیبان معتبر نیست."}
             require(settings.theme in setOf("system","light","dark") && settings.times.length<10000)
             require(settings.times.isEmpty() || settings.times.split(',').all {runCatching {LocalTime.parse(it)}.isSuccess})

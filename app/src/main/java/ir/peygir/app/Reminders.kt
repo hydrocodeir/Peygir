@@ -22,6 +22,7 @@ object Reminders {
         context.getSystemService(NotificationManager::class.java).apply {
             createNotificationChannel(NotificationChannel(CHANNEL,"پیگیری مصوبات",NotificationManager.IMPORTANCE_HIGH).apply { description="زمان بررسی وضعیت مصوبات" })
             createNotificationChannel(NotificationChannel(REVIEW_CHANNEL,"مرور روزانه",NotificationManager.IMPORTANCE_DEFAULT).apply { description="خلاصهٔ مصوبات روز و تعداد کارهای معوق" })
+            MeetingAlerts.channel(this)
         }
     }
     fun allowed(context: Context, channel: String = CHANNEL): Boolean {
@@ -52,7 +53,8 @@ object Reminders {
         val active=data.tasks.filter { it.status!=Status.DONE }.map { it.id }.toSet()
         val taskAt=data.reminders.filter { !it.delivered && it.taskId in active && it.at>now }.minOfOrNull { it.at }
         val reviewAt=if(dailyEnabled(context)) nextDaily(ZonedDateTime.now(),dailyTimes(context)) else null
-        val at=listOfNotNull(taskAt,reviewAt).minOrNull()
+        val meetingAt=MeetingAlerts.next(context,Store.get(context),data,now)
+        val at=listOfNotNull(taskAt,reviewAt,meetingAt).minOrNull()
         val manager=context.getSystemService(AlarmManager::class.java)
         if(at==null) { manager.cancel(pending(context)); return }
         val pi=pending(context,if(at==reviewAt) reviewAt!! else 0)
@@ -85,6 +87,7 @@ object Reminders {
         val store=Store.get(context)
         val data=store.snapshot()
         val now=System.currentTimeMillis()
+        MeetingAlerts.process(context,store,data,now)
         data.reminders.filter { !it.delivered && it.at<=now }.groupBy { it.taskId }.forEach { (taskId,rs) ->
             val t=data.tasks.find { it.id==taskId }
             if(t==null || t.status==Status.DONE) store.delivered(rs.map { it.id })

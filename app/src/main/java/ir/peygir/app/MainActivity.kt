@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable internal fun PeygirApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int=2,calendarClock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
+@Composable internal fun PeygirApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int?=null,calendarClock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
     val context=LocalContext.current
     val store=remember {Store.get(context)}
     val accountRevision by SharedSync.revision.collectAsState()
@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
     val deputy=OrgAccess.deputy(context)
     val role=OrgAccess.role(context)
     val prefs=remember {context.getSharedPreferences("settings",0)}
+    val options=rememberUserOptions()
     var mode by rememberSaveable {mutableStateOf(prefs.getString("theme","system") ?: "system")}
     var dynamicColors by rememberSaveable {mutableStateOf(prefs.getBoolean("dynamic_colors",false))}
     var settingsRevision by remember {mutableIntStateOf(0)}
@@ -80,14 +81,17 @@ class MainActivity : ComponentActivity() {
     var revision by remember {mutableIntStateOf(0)}
     var today by remember {mutableLongStateOf(LocalDate.now().toEpochDay())}
     val pageOrder=listOf(2,0,1,3)
-    val pager=rememberPagerState(initialPage=pageOrder.indexOf(initialSection).coerceAtLeast(0),pageCount={4})
+    val pager=rememberPagerState(initialPage=pageOrder.indexOf(initialSection ?: options.launchSection(prefs.getInt("last_section",2))).coerceAtLeast(0),pageCount={4})
+    LaunchedEffect(pager.settledPage) {prefs.edit().putInt("last_section",pageOrder[pager.settledPage]).apply()}
     val page=pageOrder[pager.currentPage]
     var settingsOpen by rememberSaveable {mutableStateOf(false)}
     val sectionState=rememberSaveableStateHolder()
     var filter by rememberSaveable {mutableStateOf("open")}
     var calendarDay by rememberSaveable {mutableLongStateOf(LocalDate.now().toEpochDay())}
     var calendarVersion by rememberSaveable {mutableIntStateOf(0)}
-    var calendarMode by rememberSaveable {mutableStateOf("DAY")}
+    var calendarMode by rememberSaveable {mutableStateOf(options.calendar)}
+    var previousCalendarPreference by remember {mutableStateOf(options.calendar)}
+    LaunchedEffect(options.calendar) {if(previousCalendarPreference!=options.calendar) {calendarMode=options.calendar;calendarVersion++;previousCalendarPreference=options.calendar}}
     var selectedMeeting by rememberSaveable {mutableLongStateOf(0)}
     var editTask by rememberSaveable {mutableStateOf<String?>(null)}
     var taskEditing by rememberSaveable {mutableStateOf(false)}
@@ -222,7 +226,7 @@ class MainActivity : ComponentActivity() {
                                 when(section) {
                                     0 -> DashboardScreen(data,today,::selectFilter,::openTask,{id,s -> action("وضعیت به‌روز شد") {store.status(id,s)}},{navigate(3)},{newTask()},addMeeting={newMeeting()})
                                     1 -> TaskListScreen(data,today,filter,{filter=it},::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}})
-                                    2 -> if(selectedMeeting==0L) key(calendarVersion) {MeetingCalendarScreen(data,{selectedMeeting=it},{newMeeting(it)},if(deputy) null else ({deletingMeeting=it}),initialDay=calendarDay,initialMode=calendarMode,createAt={day,start->newMeeting(day,start)},active=page==2,focusVersion=calendarFocus,clock=calendarClock)} else MeetingDetail(data,selectedMeeting,today,::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}},{if(!deputy) editMeeting=selectedMeeting},{newTask(selectedMeeting)},if(deputy) null else ({deletingMeeting=selectedMeeting}),copy=if(deputy) null else ({data.meetings.find{it.id==selectedMeeting}?.let(::copyMeeting)}))
+                                    2 -> if(selectedMeeting==0L) key(calendarVersion) {MeetingCalendarScreen(data,{selectedMeeting=it},{newMeeting(it)},if(deputy) null else ({deletingMeeting=it}),initialDay=calendarDay,initialMode=calendarMode,createAt={day,start->newMeeting(day,start)},active=page==2,focusVersion=calendarFocus,clock=calendarClock)} else MeetingDetail(data,selectedMeeting,today,::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}},{if(!deputy) editMeeting=selectedMeeting},{newTask(selectedMeeting)},if(deputy) null else ({deletingMeeting=selectedMeeting}),copy=if(deputy) null else ({data.meetings.find{it.id==selectedMeeting}?.let(::copyMeeting)}),reminderChange={lead->val id=selectedMeeting;action(""){store.syncDb{MeetingAlerts.save(it,id,lead)}}})
                                     3 -> key(reviewRequestVersion) {DailyReviewScreen(data,today,reviewDay,{reviewDay=it},::openTask,{id,s->action("وضعیت به‌روز شد"){store.status(id,s)}},{selectedMeeting=it;navigate(2)},{r->newTask(r.meetingId,reviewDay,r.id)},{selectFilter("late")},{newTask(due=it)})}
                                 }
                             }
@@ -297,6 +301,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable fun TaskCard(t: Resolution,meeting: String?,today: Long,edit: ()->Unit,status: (Status)->Unit) {
     val context=LocalContext.current;val deputy=OrgAccess.deputy(context)
+    val expanded=rememberUserOptions().cards=="full"
     val late=t.due<today && t.status!=Status.DONE
     val date=Solar.parts(LocalDate.ofEpochDay(t.due)).let{"${it.day.fa()} ${Solar.months[it.month-1]}"}
     Surface(onClick=edit,modifier=Modifier.fillMaxWidth().testTag("task_card_${t.id}"),shape=RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -306,6 +311,11 @@ class MainActivity : ComponentActivity() {
                 Text(t.title,style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis,textDecoration=if(t.status==Status.DONE) TextDecoration.LineThrough else null)
                 Text("${t.owner.ifBlank{"بدون مسئول"}} - ${if(t.due==today) "امروز" else date}${if(late) " - معوق" else ""}",style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis,color=if(late) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){TaskState(t);if(t.priority==Priority.URGENT) Text("فوری",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.error)}
+                if(expanded) {
+                    if(t.description.isNotBlank()) Text(t.description,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    if(!meeting.isNullOrBlank()) Text("جلسه: $meeting",style=MaterialTheme.typography.labelSmall,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    if(t.priority!=Priority.NORMAL && t.priority!=Priority.URGENT) Text("اولویت: ${t.priority.label}",style=MaterialTheme.typography.labelSmall)
+                }
             }
             PageActions("وضعیت و گزینه‌های ${t.title}",buildList {
                 OrgAccess.statuses(context,t).filter{it!=t.status}.forEach{state->add(PageAction(state.label,{status(state)}))}
@@ -326,7 +336,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-@Composable fun MeetingDetail(data: Snapshot,id: Long,today: Long,edit: (Resolution)->Unit,status: (Long,Status)->Unit,editMeeting: ()->Unit,add: ()->Unit,delete: (() -> Unit)? = null,copy: (() -> Unit)? = null) {
+@Composable fun MeetingDetail(data: Snapshot,id: Long,today: Long,edit: (Resolution)->Unit,status: (Long,Status)->Unit,editMeeting: ()->Unit,add: ()->Unit,delete: (() -> Unit)? = null,copy: (() -> Unit)? = null,reminderChange: ((Int?)->Unit)?=null) {
     val context=LocalContext.current;val deputy=OrgAccess.deputy(context);val role=OrgAccess.role(context)
     val people by Organization.members.collectAsState()
     val m=data.meetings.find{it.id==id} ?: return
@@ -346,6 +356,7 @@ class MainActivity : ComponentActivity() {
             if(!deputy) Button(onClick=add,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Add,null);Spacer(Modifier.width(6.dp));Text("ثبت مصوبه")}
             MoreDetails(more,{more=!more},"meeting_detail_more")
             if(more) {
+                if(reminderChange!=null) MeetingAlertPicker(m.alertMinutes,reminderChange)
                 if(m.location.isNotBlank()) Text("محل: ${m.location}")
                 if(names.isNotEmpty()) Text(names.joinToString("، "))
                 if(m.notes.isNotBlank()) Text(m.notes)

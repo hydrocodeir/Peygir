@@ -1,0 +1,52 @@
+{
+  "version": "4.4.0",
+  "versionCode": 33,
+  "checkedAtTehran": "2026-10-28T22:48:21.367467+03:30",
+  "tests": 255,
+  "failures": 0,
+  "skipped": 0,
+  "lintErrors": 0,
+  "lintWarnings": 94,
+  "apkSha256": "bb1933e1c467778b716569abd51d6c303e71ac75d98292a982b24feda9bdc5b3",
+  "databaseVersion": 8,
+  "backupVersion": 5,
+  "protocol": 2,
+  "serverChanged": false,
+  "physicalDeviceTested": false,
+  "defaults": {
+    "launch": "meetings",
+    "calendar": "DAY",
+    "focus": "now",
+    "meetingDurationMinutes": 60,
+    "meetingReminderMinutes": -1,
+    "pushUpdates": "all",
+    "cards": "compact",
+    "font": "system"
+  },
+  "importantPushKinds": [
+    "invitation",
+    "assignment",
+    "review"
+  ],
+  "meetingReminderMaxLateMinutes": 15,
+  "meetingReminderOverridesSynchronized": false,
+  "newScenarios": [
+    "allChoicesAndPerMeetingOverridesRoundTripWithoutServerCredentials",
+    "missingPreferencesExactlyPreservePreviousDefaults",
+    "textSizeUpdatesImmediatelyAndSystemKeepsItsOriginalScale",
+    "preferredLandingAndLastSectionPersistButExplicitNavigationWins",
+    "expandedCardsAddDetailsAndCompactRemainsTheDefault",
+    "versionSevenUpgradePreservesSharedDataAndPendingOperations",
+    "meetingDurationOnlyChangesTheInitialSuggestionAndCanBeEdited",
+    "personalSettingsUseImmediateChoicesWithoutExtraSave",
+    "weeklyCalendarAndWorkStartAreUsedInsteadOfCurrentTime",
+    "localAlarmPostsOnceAndEditingOrDeletingCancelsItsStaleNotification",
+    "earliestMeetingAndTaskShareTheExistingAlarmDispatcher",
+    "ordinaryUpdatesCanBeMutedWithoutSuppressingSyncOrImportantEvents",
+    "meetingsHaveNoAlarmByDefaultAndLocalOverridesCanEnableOrDisableIt",
+    "reminderOverridesStayLocalAcrossSyncAndDisappearWithCompanyData",
+    "detailedCardsUseTheChosenExtraSpaceAndStillOpenOnTouch",
+    "controlsRemainReachableInLandscape",
+    "compactGroupsAndChoicesStayReadableInBothThemesWithLargeText"
+  ]
+}

@@ -1,10 +1,10 @@
 {
-  "checkedAtTehran": "2026-10-28T22:15:42.380984+03:30",
-  "tests": 237,
+  "checkedAtTehran": "2026-10-28T22:48:21.367467+03:30",
+  "tests": 255,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
-  "lintWarnings": 82,
+  "lintWarnings": 94,
   "lintWarningIds": [
     "ApplySharedPref",
     "ApplySharedPref",
@@ -86,6 +86,18 @@
     "UseKtx",
     "UseKtx",
     "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
+    "UseKtx",
     "RtlSymmetry",
     "RtlSymmetry"
   ],
@@ -96,7 +108,7 @@
     },
     {
       "name": "ir.peygir.app.BackupTest",
-      "tests": 13
+      "tests": 14
     },
     {
       "name": "ir.peygir.app.CalendarCreationTest",
@@ -131,6 +143,10 @@
       "tests": 2
     },
     {
+      "name": "ir.peygir.app.MeetingAlertsTest",
+      "tests": 5
+    },
+    {
       "name": "ir.peygir.app.MeetingCopyFlowTest",
       "tests": 2
     },
@@ -161,6 +177,14 @@
     {
       "name": "ir.peygir.app.OrganizationUiTest",
       "tests": 8
+    },
+    {
+      "name": "ir.peygir.app.PersonalOptionsTest",
+      "tests": 9
+    },
+    {
+      "name": "ir.peygir.app.PersonalOptionsVisualTest",
+      "tests": 3
     },
     {
       "name": "ir.peygir.app.PresentationTest",

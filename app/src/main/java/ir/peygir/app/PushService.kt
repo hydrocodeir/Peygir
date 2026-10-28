@@ -73,6 +73,10 @@ class PeygirMessagingService: FirebaseMessagingService() {
         val eventKey=if(company.isEmpty()) event else "$company|$event"
         val recent=received.getString("recent","").orEmpty().split('\n')
         if(event.isBlank() || eventKey in recent) {SharedJobs.immediate(this);return}
+        if(!CompanyPush.shouldNotify(data["kind"],UserOptions.read(this).updates)) {
+            received.edit().putString("recent",(recent.filter{it.isNotBlank()}+eventKey).takeLast(200).joinToString("\n")).apply()
+            SharedJobs.immediate(this);return
+        }
         if(SharedCredentials(this).alerts() && NotificationManagerCompat.from(this).areNotificationsEnabled()) {
             val manager=getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel("company_updates","مصوبات و دعوت جلسات",NotificationManager.IMPORTANCE_HIGH))
@@ -87,6 +91,7 @@ class PeygirMessagingService: FirebaseMessagingService() {
 }
 
 internal object CompanyPush {
+    fun shouldNotify(kind: String?,mode: String)=mode!="essential" || kind in setOf("invitation","assignment","review")
     fun title(kind: String?)=when(kind) {
         "invitation"->"به جلسه دعوت شده‌اید"
         "assignment"->"مصوبه‌ای به شما واگذار شد"

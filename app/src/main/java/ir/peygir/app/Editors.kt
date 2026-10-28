@@ -110,9 +110,11 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var picker by rememberSaveable {mutableStateOf(false)}
     var error by rememberSaveable {mutableStateOf(false)}
     val context=LocalContext.current
+    val defaults=rememberUserOptions()
     val users by Organization.members.collectAsState()
     var start by rememberSaveable {mutableStateOf(if(meeting.id>0 || copied) meeting.start else initialStart?.takeIf{it in 0..1438})}
-    var end by rememberSaveable {mutableStateOf(if(meeting.id>0 || copied) meeting.end else initialStart?.takeIf{it in 0..1438}?.let{minOf(it+60,1439)})}
+    var end by rememberSaveable {mutableStateOf(if(meeting.id>0 || copied) meeting.end else initialStart?.takeIf{it in 0..1438}?.let{minOf(it+defaults.duration,1439)})}
+    var alertMinutes by rememberSaveable {mutableStateOf(meeting.alertMinutes)}
     var location by rememberSaveable {mutableStateOf(meeting.location)}
     var guests by rememberSaveable {mutableStateOf(org.json.JSONArray(meeting.guests).toString())}
     val contacts by Organization.contacts.collectAsState()
@@ -133,7 +135,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         merge(previous.until ?: minOf(previous.date+90,WidgetDays.max),until,meeting.until ?: minOf(meeting.date+90,WidgetDays.max)){until=it}
         previous=meeting
     }
-    val value=meeting.copy(title=title,date=day,notes=notes,start=start,end=end,location=location,guests=org.json.JSONArray(guests).strings(),attendees=attendees.split(',').filter{it.isNotBlank()}.distinct(),repeat=repeat,until=if(repeat=="NONE") null else until)
+    val value=meeting.copy(title=title,date=day,notes=notes,start=start,end=end,location=location,guests=org.json.JSONArray(guests).strings(),attendees=attendees.split(',').filter{it.isNotBlank()}.distinct(),repeat=repeat,until=if(repeat=="NONE") null else until,alertMinutes=alertMinutes)
     val conflicts=remember(day,start,end,attendees,repeat,until,meeting.id,allMeetings){MeetingConflicts.find(value,allMeetings)}
     FullEditor(if(copied) "کپی جلسه" else if(meeting.id==0L) "جلسهٔ تازه" else "ویرایش جلسه",busy,dismiss,{
         if(title.isBlank()) error=true else {
@@ -147,7 +149,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         VoiceTextField(title,{title=it;error=false},voiceLabel="عنوان جلسه",label={Text("عنوان جلسه *")},isError=error,singleLine=true,modifier=Modifier.fillMaxWidth())
         OutlinedButton(onClick={picker=true},modifier=Modifier.fillMaxWidth()) {Icon(Icons.Outlined.CalendarMonth,null);Spacer(Modifier.width(8.dp));Text(Solar.label(LocalDate.ofEpochDay(day)))}
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick={TimePickerDialog(context,{_,h,m->start=h*60+m;if(end==null || end!!<=start!!) end=minOf(start!!+60,1439);validation=""},(start ?: 540)/60,(start ?: 540)%60,true).show()},modifier=Modifier.weight(1f).testTag("meeting_start_time")){Text(start?.let{"شروع: ${"%02d:%02d".format(it/60,it%60).fa()}"} ?: "ساعت شروع")}
+            OutlinedButton(onClick={TimePickerDialog(context,{_,h,m->start=h*60+m;if(end==null || end!!<=start!!) end=minOf(start!!+defaults.duration,1439);validation=""},(start ?: 540)/60,(start ?: 540)%60,true).show()},modifier=Modifier.weight(1f).testTag("meeting_start_time")){Text(start?.let{"شروع: ${"%02d:%02d".format(it/60,it%60).fa()}"} ?: "ساعت شروع")}
             OutlinedButton(onClick={TimePickerDialog(context,{_,h,m->end=h*60+m;validation=""},(end ?: 600)/60,(end ?: 600)%60,true).show()},modifier=Modifier.weight(1f).testTag("meeting_end_time")){Text(end?.let{"پایان: ${"%02d:%02d".format(it/60,it%60).fa()}"} ?: "ساعت پایان")}
         }
         Text("ساعت شروع و پایان الزامی است.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -167,6 +169,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             if(!more && (location.isNotBlank() || notes.isNotBlank() || repeat!="NONE")) {Spacer(Modifier.width(8.dp));Text("دارای اطلاعات",style=MaterialTheme.typography.labelSmall)}
         }
         if(more) {
+            MeetingAlertPicker(alertMinutes){alertMinutes=it}
             VoiceTextField(location,{location=it},voiceLabel="محل جلسه",label={Text("محل یا لینک جلسه")},modifier=Modifier.fillMaxWidth())
             val locations=allMeetings.map{it.location}.filter{it.isNotBlank() && it!=location && PeopleSuggestions.matches(it,location)}.distinct().take(4)
             if(locations.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){locations.forEach{place->SuggestionChip(onClick={location=place},label={Text(place)})}}

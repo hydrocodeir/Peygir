@@ -1,6 +1,6 @@
 {
-  "apkBytes": 147848595,
-  "sha256": "1b126554a52386e35d7e064d20d417f095466d33f92fd62d70ac39582fc7d8c6",
+  "apkBytes": 147881359,
+  "sha256": "bb1933e1c467778b716569abd51d6c303e71ac75d98292a982b24feda9bdc5b3",
   "localBuildHelperPackaged": false,
   "bundledAssets": {
     "assets/tessdata/fas.traineddata": {

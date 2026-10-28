@@ -118,6 +118,14 @@ class BackupTest {
         val invalid=archive({it.getJSONObject("settings").put("dictation","unexpected")})
         assertThrows(Exception::class.java){Backup.read(context,invalid.inputStream())}
     }
+    @Test fun oldBackupsKeepTheOriginalSixDefaultsAndDisableMeetingAlarms() {
+        store.saveMeeting(Meeting(title="قدیمی"))
+        val old=archive({p->p.getJSONObject("settings").remove("options");p.getJSONArray("meetings").getJSONObject(0).remove("localAlert")})
+        Backup.read(context,old.inputStream()).use{assertEquals(UserOptions(),it.settings.options);assertNull(it.data.meetings.single().alertMinutes)}
+        val bad=archive({it.getJSONObject("settings").put("options","invalid")})
+        assertThrows(IllegalArgumentException::class.java){Backup.read(context,bad.inputStream())}
+        assertThrows(IllegalArgumentException::class.java){UserOptions.from(JSONObject().put("duration",30.5))}
+    }
     @Test fun versionOneBackupCanStillBeRestoredWithoutFollowUps() {
         val task=store.saveTask(Resolution(title="نسخهٔ قبلی",owner="احمدی"),emptyList())
         store.addFollowUp(task,"یادداشت تازه")

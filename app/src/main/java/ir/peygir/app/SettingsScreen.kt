@@ -36,6 +36,7 @@ import java.time.LocalTime
     val context=LocalContext.current
     val prefs=remember {context.getSharedPreferences("settings",0)}
     val dictationMode=rememberDictationMode()
+    val options=rememberUserOptions()
     var enabled by remember {mutableStateOf(Reminders.dailyEnabled(context))}
     var times by remember {mutableStateOf(Reminders.dailyTimes(context))}
     var notification by remember {mutableStateOf(Reminders.allowed(context))}
@@ -64,6 +65,11 @@ import java.time.LocalTime
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(settingsScroll),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         SettingsGroup("حساب و همگام‌سازی",when(OrgAccess.role(context)){"manager"->"حساب رئیس";"deputy"->"حساب معاون";"assistant"->"حساب دستیار";else->"اتصال به شرکت"},group=="account",{group=if(group=="account") "" else "account"},"settings_account") {SharedPanel(message);CompanyAccountsPanel()}
         SettingsGroup("یادآوری‌ها",if(enabled) "مرور روزانه فعال" else "مرور روزانه خاموش",group=="notifications",{group=if(group=="notifications") "" else "notifications"},"settings_notifications") {
+        OptionPicker("اعلان تغییرات فضای مشترک",options.updates,UserOptions.updateModes,"option_updates"){prefs.edit().putString("push_updates",it).apply()}
+        Text("رویدادهای اصلی شامل دعوت، واگذاری و درخواست تأیید رئیس است. این انتخاب روی دریافت اطلاعات، یادآوری موعدها و مرور صبح اثر ندارد.",style=MaterialTheme.typography.bodySmall)
+        OptionPicker("پیش‌فرض یادآوری قبل از جلسه",options.meetingLead.toString(),UserOptions.leads.mapKeys{it.key.toString()},"option_meeting_lead"){prefs.edit().putInt("meeting_lead",it.toInt()).apply();reschedule()}
+        Text("برای جلسات قابل‌مشاهده در این گوشی؛ در جزئیات هر جلسه قابل تغییر است. پیش‌فرض خاموش است.",style=MaterialTheme.typography.bodySmall)
+        if(options.meetingLead>=0) TextButton(onClick={context.startActivity(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,MeetingAlerts.CHANNEL))}){Text("تنظیمات اعلان جلسات")}
         OutlinedCard {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Row {Icon(Icons.Outlined.NotificationsActive,null);Spacer(Modifier.width(10.dp));Text("اعلان‌ها",style=MaterialTheme.typography.titleMedium)}
             Text(if(notification) "مجوز اعلان فعال است" else "مجوز اعلان غیرفعال است",color=if(notification) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
@@ -84,6 +90,7 @@ import java.time.LocalTime
             TextButton(onClick={context.startActivity(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID,Reminders.REVIEW_CHANNEL))}) {Text("تنظیمات اعلان مرور روزانه")}
         }}
         }
+        SettingsGroup("راحتی استفاده","شروع برنامه، تقویم و ثبت جلسه",group=="personal",{group=if(group=="personal") "" else "personal"},"settings_personal") {PersonalSettings(options)}
         SettingsGroup("ورود صوتی",dictationMode.title,group=="voice",{group=if(group=="voice") "" else "voice"},"settings_voice") {
             Column(Modifier.selectableGroup(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 DictationMode.entries.forEach {option->
@@ -99,6 +106,9 @@ import java.time.LocalTime
             Text("میکروفون کنار همان فیلد است. در روش نگه‌داشتن، برای لغو انگشت را از دکمه بیرون ببرید. تبدیل روی گوشی انجام می‌شود و متن قابل ویرایش است.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SettingsGroup("ظاهر",when(mode){"dark"->"تیره";"light"->"روشن";else->"همراه گوشی"},group=="appearance",{group=if(group=="appearance") "" else "appearance"},"settings_appearance") {
+        OptionPicker("اندازهٔ نوشته‌ها",options.font,UserOptions.fonts,"option_font"){prefs.edit().putString("text_size",it).apply()}
+        Text("«همراه تنظیمات گوشی» اندازهٔ نوشتهٔ انتخاب‌شده در گوشی را حفظ می‌کند.",style=MaterialTheme.typography.bodySmall)
+        OptionPicker("کارت‌های داخل برنامه",options.cards,UserOptions.cardModes,"option_cards"){prefs.edit().putString("card_details",it).apply()}
         FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {listOf("system" to "همراه گوشی","light" to "روشن","dark" to "تیره").forEach {(value,label)->FilterChip(mode==value,{setMode(value)},label={Text(label)})}}
         OutlinedCard {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment=Alignment.CenterVertically) {Column(Modifier.weight(1f)) {Text("رنگ‌های گوشی",style=MaterialTheme.typography.titleMedium);Text("هماهنگ با پالت تصویر زمینهٔ گوشی",style=MaterialTheme.typography.bodySmall)};Switch(dynamicColors,onCheckedChange=setDynamicColors,enabled=Build.VERSION.SDK_INT>=31,modifier=Modifier.testTag("dynamic_colors"))}
