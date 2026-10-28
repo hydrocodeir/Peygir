@@ -17,7 +17,7 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
   let stopping=false;const pending=new Set();let sweepRunning=false;
   const fcm=!!(fcmService?.private_key && fcmService?.client_email && fcmService?.project_id && fcmPublic?.projectId && fcmPublic?.senderId && fcmPublic?.apiKey && fcmPublic?.applicationId);
   if(fcm && fcmService.project_id!==fcmPublic.projectId) {registry.close();unlock();throw new Error('FCM project IDs must match.');}
-  const environment=(lease,c)=>({DB:lease.d1,COMPANY_CODE:c.code,ALLOW_ASSISTANT_ACCOUNTS:true,ACCOUNT_MANAGEMENT_V2:true,...(fcm?{FCM_SERVICE_ACCOUNT:JSON.stringify(fcmService),FCM_PUBLIC_JSON:JSON.stringify(fcmPublic)}:{})});
+  const environment=(lease,c)=>({DB:lease.d1,COMPANY_CODE:c.code,ALLOW_ASSISTANT_ACCOUNTS:true,ACCOUNT_MANAGEMENT_V2:true,CONTACTS_ENABLED:true,...(fcm?{FCM_SERVICE_ACCOUNT:JSON.stringify(fcmService),FCM_PUBLIC_JSON:JSON.stringify(fcmPublic)}:{})});
   function track(promise) {pending.add(promise);void promise.finally(()=>pending.delete(promise)).catch(()=>{});}
   const cookie=token=>`${cookieName}=${token}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=${token?28800:0}${secure?'; Secure':''}`;
   async function admin(request,path,ip) {
@@ -46,7 +46,7 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
   async function dispatch(request,ip) {
     const url=new URL(request.url),path=url.pathname;
     if(stopping) throw new ApiError(503,'سرویس در حال راه‌اندازی مجدد است.');
-    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.1.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
+    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.2.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
     if((path==='/' || path==='/admin') && request.method==='GET') return new Response(null,{status:302,headers:{Location:'/admin/'}});
     if(assets.has(path) && request.method==='GET') {const [name,type]=assets.get(path);return new Response(readFileSync(new URL('../public/'+name,import.meta.url)),{headers:{'Content-Type':type}});}
     if(path==='/admin/font.ttf' && request.method==='GET') return new Response(readFileSync(new URL('../../app/src/main/res/font/vazirmatn_regular.ttf',import.meta.url)),{headers:{'Content-Type':'font/ttf'}});

@@ -57,7 +57,7 @@ import java.io.File
     fun persist(value: String) {text=value}
     fun prepare(value: String, fromRecording: Long? = null) {
         if(value.isBlank()) {report("متنی تشخیص داده نشد؛ می‌توانید بنویسید یا دوباره امتحان کنید.");return}
-        persist(value);preparedRecording=fromRecording;prepared=value;recordingUsed(fromRecording);applyRevision++
+        mode=if(fromRecording==null) "write" else "voice";persist(value);preparedRecording=fromRecording;prepared=value;recordingUsed(fromRecording);applyRevision++
         if(batchEnabled) batchChanged(if(fromRecording==null) value else "")
         if(fromRecording!=null && VoiceCommands.extract(value)==null) {showText=true;report("ابتدا «عنوان» و متن کار، سپس «مسئول» و نام شخص را بگویید. تاریخ را از تقویم انتخاب کنید.");return}
         if(fromRecording!=null) feedback="عنوان و مسئول در فرم وارد شدند؛ آن‌ها را بررسی و سررسید را انتخاب کنید."
@@ -110,11 +110,6 @@ import java.io.File
     fun startCapture() {try {feedback="";capture.start();recordingMeeting[0]=meetingId ?: 0;recording=true} catch(_:Exception){report("میکروفون در دسترس نیست؛ مجوز آن را بررسی کنید.")}}
     val microphone=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {if(it) startCapture() else report("برای ضبط صدا، مجوز میکروفون لازم است.")}
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            listOf(Triple("write","نوشتن",Icons.Outlined.Edit),Triple("voice","صدا",Icons.Outlined.MicNone)).forEach {(value,label,icon)->
-                FilterChip(selected=(if(mode=="voice") "voice" else "write")==value,onClick={mode=value},enabled=!locked,modifier=Modifier.weight(1f).testTag("input_$value"),label={Text(label)},leadingIcon={Icon(icon,null,Modifier.size(18.dp))})
-            }
-        }
         if(mode=="voice") {
             Text("بگویید: «عنوان، تهیه گزارش فروش؛ مسئول، آقای احمدی»",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.primary)
             TextButton(onClick={help=!help}){Text("راهنمای گفتار")}
@@ -133,7 +128,7 @@ import java.io.File
             }
         }
         if(showText && (mode!="voice" || preparedRecording!=null)) {
-            OutlinedTextField(text,{persist(it)},label={Text("متن ورودی")},placeholder={Text(if(mode=="voice") "عنوان، تهیه گزارش فروش؛ مسئول، آقای احمدی" else "هر مصوبه در یک خط؛ مسئول: احمدی؛ مهلت: ۱۴۰۵/۰۸/۱۵")},minLines=3,maxLines=7,modifier=Modifier.fillMaxWidth().testTag("capture_text"),enabled=!locked)
+            VoiceTextField(text,{persist(it)},voiceLabel="متن ورودی",label={Text("متن ورودی")},placeholder={Text(if(mode=="voice") "عنوان، تهیه گزارش فروش؛ مسئول، آقای احمدی" else "هر مصوبه در یک خط؛ مسئول: احمدی؛ مهلت: ۱۴۰۵/۰۸/۱۵")},minLines=3,maxLines=7,modifier=Modifier.fillMaxWidth().testTag("capture_text"),enabled=!locked)
             Row {TextButton(onClick={showText=false}){Text("جمع کردن متن")};Spacer(Modifier.weight(1f));TextButton(onClick={prepare(text,if(mode=="voice") preparedRecording else null)},enabled=text.isNotBlank() && !locked){Text(if(mode=="voice") "اعمال متن گفتار" else "استخراج مصوبات")}}
         } else Row(verticalAlignment=Alignment.CenterVertically) {
             if(mode!="voice" || preparedRecording!=null) TextButton(onClick={showText=true},enabled=!locked,contentPadding=PaddingValues(0.dp)){Text(if(mode=="voice") "بازبینی متن گفتار" else if(text.isBlank()) "ورود چند مصوبه از متن" else "بازبینی متن ورودی",style=MaterialTheme.typography.labelMedium)}

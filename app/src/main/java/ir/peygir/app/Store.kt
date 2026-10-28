@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 6) {
+class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 7) {
     private val appContext=context.applicationContext
     val externalChanges=kotlinx.coroutines.flow.MutableStateFlow(0L)
     private val recordingDirectory=java.io.File(context.filesDir,"recordings").canonicalFile
@@ -39,7 +39,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createHistory(db)
         val hasDraft=db.rawQuery("PRAGMA table_info(recordings)",null).use{c->var found=false;while(c.moveToNext()) if(c.getString(1)=="draft_session") found=true;found}
         if(!hasDraft) db.execSQL("ALTER TABLE recordings ADD COLUMN draft_session TEXT NOT NULL DEFAULT ''")
-    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<6) Organization.create(db)}
+    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db)}
     @Synchronized internal fun <T> syncDb(block: (SQLiteDatabase)->T): T = block(writableDatabase)
     @Synchronized fun snapshot(): Snapshot {
         val db = readableDatabase
@@ -51,12 +51,17 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         val recordings = db.rawQuery("SELECT * FROM recordings ORDER BY created DESC",null).use { c -> buildList { while(c.moveToNext()) add(Recording(c.getLong(0),if(c.isNull(1)) null else c.getLong(1),c.getString(2),c.getLong(3),c.getInt(4),c.getString(5),c.getString(6))) } }
         val followUps=db.rawQuery("SELECT * FROM follow_ups ORDER BY created DESC,id DESC",null).use {c->buildList {while(c.moveToNext()) add(FollowUp(c.getLong(0),c.getLong(1),c.getString(2),c.getLong(3)))}}
         val backlog=db.rawQuery("SELECT * FROM backlog ORDER BY created DESC,id DESC",null).use {c->buildList {while(c.moveToNext()) add(BacklogItem(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getLong(4)))}}
-        return Snapshot(meetings,tasks,reminders,recordings.filter{it.draftSession.isEmpty()},history,recordings.filter{it.draftSession.isNotEmpty()},followUps,backlog)
+        return Snapshot(meetings,tasks,reminders,recordings.filter{it.draftSession.isEmpty()},history,recordings.filter{it.draftSession.isNotEmpty()},followUps,backlog,Organization.contactNames(this))
     }
     @Synchronized fun saveMeeting(m: Meeting): Long {
         require(m.title.isNotBlank());MeetingSchedule.requireTime(m)
+        require(m.guests.size<=200 && m.guests.all{it.isNotBlank() && it.length<=200 && Owners.key(it).isNotBlank()} && m.guests.distinctBy{Owners.key(it)}.size==m.guests.size) {"نام مخاطبان باید معتبر و بدون تکرار باشد."}
         val v = ContentValues().apply { put("title",m.title.trim()); put("date",m.date); put("notes",m.notes);meetingOrganization(m) }
-        return if(m.id == 0L) writableDatabase.insertOrThrow("meetings",null,v) else { check(writableDatabase.update("meetings",v,"id=?",arrayOf(m.id.toString()))==1); m.id }
+        val db=writableDatabase;db.beginTransaction()
+        try {
+            val id=if(m.id==0L) db.insertOrThrow("meetings",null,v) else {check(db.update("meetings",v,"id=?",arrayOf(m.id.toString()))==1);m.id}
+            Organization.rememberContacts(db,m.guests);db.setTransactionSuccessful();return id
+        } finally {db.endTransaction()}
     }
     @Synchronized fun saveMeetingSeries(m: Meeting): Long {
         val db=writableDatabase;db.beginTransaction()
@@ -85,6 +90,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
                 require(at > System.currentTimeMillis()) { "زمان یادآوری باید در آینده باشد" }
                 db.insertOrThrow("reminders",null,ContentValues().apply { put("task_id",id); put("at",at) })
             }
+            Organization.rememberContacts(db,if(t.assignee==null) listOf(t.owner) else emptyList())
             val clause="(draft_session<>'' AND draft_session=?) OR id=?"
             val args=arrayOf(draftSession.orEmpty(),(consumedRecording ?: -1).toString())
             audioToDelete=db.rawQuery("SELECT path FROM recordings WHERE $clause",args).use{c->buildList{while(c.moveToNext()) add(c.getString(0))}}
@@ -170,7 +176,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
             data.history.forEach {h->db.insertOrThrow("due_changes",null,ContentValues().apply {put("id",h.id);put("task_id",h.taskId);put("old_due",h.oldDue);put("new_due",h.newDue);put("changed_at",h.changedAt);put("kind",h.kind.name);put("reason",h.reason)})}
             data.followUps.forEach {f->db.insertOrThrow("follow_ups",null,ContentValues().apply {put("id",f.id);put("task_id",f.taskId);put("text",f.text);put("created",f.created)})}
             data.recordings.forEach {r->db.insertOrThrow("recordings",null,ContentValues().apply {put("id",r.id);put("meeting_id",r.meetingId);put("path",r.path);put("created",r.created);put("seconds",r.seconds);put("transcript",r.transcript);put("draft_session","")})}
-            db.delete("sync_objects",null,null);db.delete("sync_dirty",null,null)
+            db.delete("sync_objects",null,null);db.delete("sync_dirty",null,null);db.delete("contacts",null,null);Organization.rememberContacts(db,data.contacts)
             beforeCommit()
             db.setTransactionSuccessful()
         } finally {db.endTransaction()}

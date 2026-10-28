@@ -114,11 +114,13 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var start by rememberSaveable {mutableStateOf(if(meeting.id>0 || copied) meeting.start else initialStart?.takeIf{it in 0..1438})}
     var end by rememberSaveable {mutableStateOf(if(meeting.id>0 || copied) meeting.end else initialStart?.takeIf{it in 0..1438}?.let{minOf(it+60,1439)})}
     var location by rememberSaveable {mutableStateOf(meeting.location)}
+    var guests by rememberSaveable {mutableStateOf(org.json.JSONArray(meeting.guests).toString())}
+    val contacts by Organization.contacts.collectAsState()
     var attendees by rememberSaveable {mutableStateOf(meeting.attendees.joinToString(","))}
     var repeat by rememberSaveable {mutableStateOf(meeting.repeat)}
     var until by rememberSaveable {mutableLongStateOf(meeting.until ?: minOf(meeting.date+90,WidgetDays.max))}
     var more by rememberSaveable {mutableStateOf(false)}
-    var people by remember {mutableStateOf(false)};var untilPicker by remember {mutableStateOf(false)}
+    var untilPicker by remember {mutableStateOf(false)}
     var showConflicts by remember {mutableStateOf(false)}
     var validation by remember {mutableStateOf("")}
     var previous by remember {mutableStateOf(meeting)}
@@ -127,11 +129,11 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         fun <T> merge(old: T,current: T,new: T,assign: (T)->Unit) {if(current==old) assign(new) else if(new!=old && new!=current) incoming=true}
         merge(previous.title,title,meeting.title){title=it};merge(previous.notes,notes,meeting.notes){notes=it};merge(previous.date,day,meeting.date){day=it}
         merge(previous.start,start,meeting.start){start=it};merge(previous.end,end,meeting.end){end=it};merge(previous.location,location,meeting.location){location=it}
-        merge(previous.attendees.joinToString(","),attendees,meeting.attendees.joinToString(",")){attendees=it};merge(previous.repeat,repeat,meeting.repeat){repeat=it}
+        merge(previous.attendees.joinToString(","),attendees,meeting.attendees.joinToString(",")){attendees=it};merge(org.json.JSONArray(previous.guests).toString(),guests,org.json.JSONArray(meeting.guests).toString()){guests=it};merge(previous.repeat,repeat,meeting.repeat){repeat=it}
         merge(previous.until ?: minOf(previous.date+90,WidgetDays.max),until,meeting.until ?: minOf(meeting.date+90,WidgetDays.max)){until=it}
         previous=meeting
     }
-    val value=meeting.copy(title=title,date=day,notes=notes,start=start,end=end,location=location,attendees=attendees.split(',').filter{it.isNotBlank()}.distinct(),repeat=repeat,until=if(repeat=="NONE") null else until)
+    val value=meeting.copy(title=title,date=day,notes=notes,start=start,end=end,location=location,guests=org.json.JSONArray(guests).strings(),attendees=attendees.split(',').filter{it.isNotBlank()}.distinct(),repeat=repeat,until=if(repeat=="NONE") null else until)
     val conflicts=remember(day,start,end,attendees,repeat,until,meeting.id,allMeetings){MeetingConflicts.find(value,allMeetings)}
     FullEditor(if(copied) "کپی جلسه" else if(meeting.id==0L) "جلسهٔ تازه" else "ویرایش جلسه",busy,dismiss,{
         if(title.isBlank()) error=true else {
@@ -139,21 +141,17 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         }
     },canSave=!incoming,feedback=listOf(feedback,validation,if(error) "عنوان جلسه را وارد کنید." else "").filter{it.isNotBlank()}.distinct().joinToString("\n"),saveLabel=if(conflicts.isEmpty()) "ذخیره" else "ثبت با تداخل",actions=if(delete==null) emptyList() else listOf(PageAction("حذف جلسه",delete,destructive=true))) {
         if(incoming) IncomingEditorChanges("${meeting.title}\n${Solar.label(LocalDate.ofEpochDay(meeting.date))}\n${meeting.notes}",{
-            title=meeting.title;notes=meeting.notes;day=meeting.date;start=meeting.start;end=meeting.end;location=meeting.location;attendees=meeting.attendees.joinToString(",");repeat=meeting.repeat;until=meeting.until ?: minOf(meeting.date+90,WidgetDays.max);incoming=false
+            title=meeting.title;notes=meeting.notes;day=meeting.date;start=meeting.start;end=meeting.end;location=meeting.location;attendees=meeting.attendees.joinToString(",");guests=org.json.JSONArray(meeting.guests).toString();repeat=meeting.repeat;until=meeting.until ?: minOf(meeting.date+90,WidgetDays.max);incoming=false
         },{incoming=false})
         if(copied) Text("نسخهٔ تازه با همان افراد؛ تاریخ و ساعت را بررسی کنید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(title,{title=it;error=false},label={Text("عنوان جلسه *")},isError=error,singleLine=true,modifier=Modifier.fillMaxWidth())
+        VoiceTextField(title,{title=it;error=false},voiceLabel="عنوان جلسه",label={Text("عنوان جلسه *")},isError=error,singleLine=true,modifier=Modifier.fillMaxWidth())
         OutlinedButton(onClick={picker=true},modifier=Modifier.fillMaxWidth()) {Icon(Icons.Outlined.CalendarMonth,null);Spacer(Modifier.width(8.dp));Text(Solar.label(LocalDate.ofEpochDay(day)))}
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick={TimePickerDialog(context,{_,h,m->start=h*60+m;if(end==null || end!!<=start!!) end=minOf(start!!+60,1439);validation=""},(start ?: 540)/60,(start ?: 540)%60,true).show()},modifier=Modifier.weight(1f).testTag("meeting_start_time")){Text(start?.let{"شروع: ${"%02d:%02d".format(it/60,it%60).fa()}"} ?: "ساعت شروع")}
             OutlinedButton(onClick={TimePickerDialog(context,{_,h,m->end=h*60+m;validation=""},(end ?: 600)/60,(end ?: 600)%60,true).show()},modifier=Modifier.weight(1f).testTag("meeting_end_time")){Text(end?.let{"پایان: ${"%02d:%02d".format(it/60,it%60).fa()}"} ?: "ساعت پایان")}
         }
         Text("ساعت شروع و پایان الزامی است.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        if(SharedCredentials(context).connected() || value.attendees.isNotEmpty()) {
-            OutlinedButton(onClick={people=true},modifier=Modifier.fillMaxWidth().testTag("meeting_people")){Icon(Icons.Outlined.Groups,null);Spacer(Modifier.width(6.dp));CountLabel("انتخاب شرکت‌کنندگان",value.attendees.size,color=LocalContentColor.current)}
-            val selectedNames=users.filter{it.id in value.attendees}.joinToString("، "){it.name}
-            if(selectedNames.isNotBlank()) Text(selectedNames,style=MaterialTheme.typography.bodySmall,maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        }
+        ParticipantsField(value.attendees,value.guests,users,contacts+allMeetings.flatMap{it.guests}){ids,names->attendees=ids.joinToString(",");guests=org.json.JSONArray(names).toString()}
         if(conflicts.isNotEmpty()) {
             OutlinedCard(Modifier.fillMaxWidth().testTag("meeting_conflicts"),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
@@ -169,17 +167,18 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             if(!more && (location.isNotBlank() || notes.isNotBlank() || repeat!="NONE")) {Spacer(Modifier.width(8.dp));Text("دارای اطلاعات",style=MaterialTheme.typography.labelSmall)}
         }
         if(more) {
-            OutlinedTextField(location,{location=it},label={Text("محل یا لینک جلسه")},modifier=Modifier.fillMaxWidth())
+            VoiceTextField(location,{location=it},voiceLabel="محل جلسه",label={Text("محل یا لینک جلسه")},modifier=Modifier.fillMaxWidth())
+            val locations=allMeetings.map{it.location}.filter{it.isNotBlank() && it!=location && PeopleSuggestions.matches(it,location)}.distinct().take(4)
+            if(locations.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){locations.forEach{place->SuggestionChip(onClick={location=place},label={Text(place)})}}
             if(meeting.id==0L) {
-                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {MeetingRecurrence.labels.forEach{(key,label)->FilterChip(repeat==key,{repeat=key;validation=""},label={Text(label)})}}
+                VoiceChoiceRow(MeetingRecurrence.labels,repeat,"تکرار جلسه"){repeat=it;validation=""}
                 if(repeat!="NONE") {OutlinedButton(onClick={untilPicker=true},modifier=Modifier.fillMaxWidth()){Text("پایان تکرار: ${Solar.label(LocalDate.ofEpochDay(until))}")};Text("هر نوبت، جلسه و مصوبات جداگانه دارد. حداکثر تا یک سال.",style=MaterialTheme.typography.bodySmall)}
             } else if(meeting.series!=null) Text("ویرایش فقط روی این نوبت جلسه اعمال می‌شود.",style=MaterialTheme.typography.bodySmall)
-            OutlinedTextField(notes,{notes=it},label={Text("یادداشت جلسه")},minLines=3,modifier=Modifier.fillMaxWidth())
+            VoiceTextField(notes,{notes=it},voiceLabel="یادداشت جلسه",label={Text("یادداشت جلسه")},minLines=3,modifier=Modifier.fillMaxWidth())
         }
     }
     if(picker) SolarPicker(LocalDate.ofEpochDay(day),{picker=false}) {day=it.toEpochDay();validation="";picker=false}
     if(untilPicker) SolarPicker(LocalDate.ofEpochDay(until),{untilPicker=false}) {until=it.toEpochDay();validation="";untilPicker=false}
-    if(people) CompanyPeoplePicker(value.attendees.toSet(),false,{people=false}){attendees=it.joinToString(",");people=false}
     if(showConflicts) AlertDialog(onDismissRequest={showConflicts=false},title={Text("تداخل‌های زمانی")},text={androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max=360.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){items(conflicts.size){index->MeetingConflictText(conflicts[index],users)}}},confirmButton={TextButton(onClick={showConflicts=false}){Text("بستن")}})
 }
 
@@ -197,13 +196,14 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var description by rememberSaveable { mutableStateOf(task.description) }
     var owner by rememberSaveable { mutableStateOf(task.owner) }
     var assignee by rememberSaveable {mutableStateOf(task.assignee)}
-    var selectPerson by remember {mutableStateOf(false)}
+    val contacts by Organization.contacts.collectAsState()
     val companyUsers by Organization.members.collectAsState()
     var day by rememberSaveable { mutableStateOf(task.due) }
     var priority by rememberSaveable { mutableStateOf(task.priority.name) }
     var status by rememberSaveable { mutableStateOf(task.status.name) }
     var meetingId by rememberSaveable { mutableStateOf(task.meetingId ?: 0L) }
     var meetingMenu by remember { mutableStateOf(false) }
+    var meetingQuery by remember {mutableStateOf("")}
     var dates by rememberSaveable { mutableStateOf(reminders.map { it.at }.joinToString(",")) }
     var autoFollowUp by rememberSaveable {mutableStateOf(task.id==0L && reminders.isEmpty())}
     val autoTime=remember(day) {DefaultFollowUp.forDue(day)}
@@ -217,10 +217,8 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var inputIsVoice by rememberSaveable {mutableStateOf(false)}
     var changeDue by rememberSaveable {mutableStateOf<String?>(null)}
     var showHistory by rememberSaveable {mutableStateOf(false)}
-    var ownerFocused by remember {mutableStateOf(false)}
     var ownerDetails by rememberSaveable {mutableStateOf<String?>(null)}
     val focus=LocalFocusManager.current
-    val suggestedOwners=remember(allTasks,owner) {Owners.suggestions(allTasks,owner)}
     var databaseTimes by remember {mutableStateOf(reminders.map{it.at}.toSet())}
     var previous by remember {mutableStateOf(task)}
     var incoming by rememberSaveable {mutableStateOf(false)}
@@ -239,8 +237,10 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         databaseTimes=current
     }
     val formActions=buildList {
+        if(recordings.isNotEmpty()) add(PageAction("صداهای ذخیره‌شده",{editingInput=true}))
+        if(task.id==0L) add(PageAction("ورود چند مصوبه از متن",{editingInput=true}))
         if(task.id>0) {
-            add(PageAction("ورود صدا یا متن",{editingInput=true}))
+            add(PageAction("ورود چند مصوبه از متن",{editingInput=true}))
             add(PageAction("اشتراک‌گذاری خلاصهٔ مصوبه",{try {context.startActivity(TaskShare.chooser(task.copy(title=title,owner=owner,due=day)))} catch(_:Exception){message("اشتراک‌گذاری باز نشد؛ دوباره تلاش کنید.")}}))
             if(Status.valueOf(status)!=Status.DONE) {add(PageAction("تمدید مهلت",{changeDue=DueChangeKind.EXTEND.name}));add(PageAction("به تعویق انداختن",{changeDue=DueChangeKind.POSTPONE.name}))}
             if(task.status==Status.REVIEW && OrgAccess.role(context)=="manager" && approval!=null) {add(PageAction("تأیید نهایی انجام",{approval(Status.DONE)}));add(PageAction("برگشت برای ادامهٔ کار",{approval(Status.ACTIVE)}))}
@@ -252,17 +252,12 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         if(error.isEmpty()) save(task.copy(title=title,description=description,owner=owner,due=day,priority=Priority.valueOf(priority),status=OrgAccess.targetStatus(context,task.copy(assignee=assignee),Status.valueOf(status)),meetingId=meetingId.takeIf{it>0},assignee=assignee),if(autoFollowUp) listOfNotNull(DefaultFollowUp.forDue(day)) else times)
     },canSave=!inputBusy && !incoming,feedback=listOf(feedback,error).filter{it.isNotBlank()}.distinct().joinToString("\n"),actions=formActions) {
         if(incoming) IncomingEditorChanges("${task.title}\nمسئول: ${task.owner}\n${Solar.label(LocalDate.ofEpochDay(task.due))} - ${task.status.label}\n${task.description}",{
-            title=task.title;description=task.description;owner=task.owner;day=task.due;priority=task.priority.name;status=task.status.name;meetingId=task.meetingId ?: 0L;incoming=false
+            title=task.title;description=task.description;owner=task.owner;assignee=task.assignee;day=task.due;priority=task.priority.name;status=task.status.name;meetingId=task.meetingId ?: 0L;incoming=false
         },{incoming=false})
         if(task.status==Status.REVIEW) Text("گزارش انجام این مصوبه منتظر تأیید رئیس است.",color=MaterialTheme.colorScheme.primary)
-        if(task.id==0L || editingInput) CaptureInput(meetingId.takeIf{it>0},recordings,accepted,task.id==0L,recordingId,busy,{inputBusy=it},{p->title=p.title;owner=p.owner;description=p.source;if(!inputIsVoice){p.due?.let{day=it.toEpochDay()};priority=p.priority.name};error="";proposalSelected(p.key())},refresh,message,initialSource,batchChanged,draftSession,{inputIsVoice=it!=null;recordingUsed(it)})
-        OutlinedTextField(title,{title=it;error=""},label={Text("عنوان مصوبه *")},isError=error.isNotBlank() && title.isBlank(),modifier=Modifier.fillMaxWidth(),minLines=1,maxLines=3)
-        OutlinedTextField(owner,{owner=it;error=""},label={Text("مسئول انجام *")},isError=error.isNotBlank() && owner.isBlank(),leadingIcon={Icon(Icons.Outlined.PersonOutline,null)},modifier=Modifier.fillMaxWidth().onFocusChanged{ownerFocused=it.isFocused},singleLine=true)
-        if(SharedCredentials(context).connected()) {
-            OutlinedButton(onClick={selectPerson=true},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.AssignmentInd,null);Spacer(Modifier.width(8.dp));Text(companyUsers.find{it.id==assignee}?.let{"واگذار به: ${it.name}"} ?: "انتخاب حساب مسئول برای واگذاری")}
-            if(assignee==null) Text("تا انتخاب حساب، فقط رئیس و دستیار می‌بینند.",style=MaterialTheme.typography.labelSmall)
-        }
-        if(ownerFocused && suggestedOwners.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {suggestedOwners.forEach{name->InputChip(selected=false,onClick={owner=name;error="";focus.clearFocus()},label={Text(name)},modifier=Modifier.testTag("owner_suggestion_$name"))}}
+        if(editingInput || recordingId!=null || initialSource.isNotBlank()) CaptureInput(meetingId.takeIf{it>0},recordings,accepted,task.id==0L,recordingId,busy,{inputBusy=it},{p->title=p.title;owner=p.owner;description=p.source;if(!inputIsVoice){p.due?.let{day=it.toEpochDay()};priority=p.priority.name};error="";proposalSelected(p.key())},refresh,message,initialSource,batchChanged,draftSession,{inputIsVoice=it!=null;recordingUsed(it)})
+        VoiceTextField(title,{title=it;error=""},voiceLabel="عنوان مصوبه",label={Text("عنوان مصوبه *")},isError=error.isNotBlank() && title.isBlank(),modifier=Modifier.fillMaxWidth(),minLines=1,maxLines=3)
+        OwnerField(owner,assignee,companyUsers,contacts+allTasks.map{it.owner},error.isNotBlank() && owner.isBlank()){name,id->owner=name;assignee=id;error=""}
         OutlinedButton(onClick={dateFor="due"},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.CalendarMonth,null);Spacer(Modifier.width(8.dp));Text("سررسید - ${Solar.label(LocalDate.ofEpochDay(day))}")}
         if(day<LocalDate.now().toEpochDay() && Status.valueOf(status)!=Status.DONE) Text("موعد این مصوبه گذشته است.",color=MaterialTheme.colorScheme.error)
         if(task.id>0) {
@@ -272,11 +267,11 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         MoreDetails(more,{more=!more},"task_editor_more")
         if(more) {
             if(task.id>0) TextButton(onClick={focus.clearFocus();ownerDetails=owner.trim()},enabled=owner.isNotBlank() && !busy,modifier=Modifier.testTag("owner_open_tasks")){Icon(Icons.Outlined.PersonOutline,null);Spacer(Modifier.width(6.dp));Text("مصوبات باز مسئول")}
-            Box {TextButton(onClick={meetingMenu=true}){Icon(Icons.Outlined.Groups,null);Spacer(Modifier.width(6.dp));Text(meetings.find{it.id==meetingId}?.title ?: "جلسه (اختیاری)");Icon(Icons.Outlined.ExpandMore,null)}
-                DropdownMenu(meetingMenu,{meetingMenu=false}){DropdownMenuItem(text={Text("بدون جلسه")},onClick={meetingId=0;meetingMenu=false});meetings.forEach{m->DropdownMenuItem(text={Text(m.title)},onClick={meetingId=m.id;meetingMenu=false})}}}
-            FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){Priority.entries.forEach{p->FilterChip(selected=priority==p.name,onClick={priority=p.name},label={Text(p.label)})}}
-            FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){OrgAccess.statuses(context,task.copy(assignee=assignee)).forEach{s->FilterChip(selected=status==s.name,onClick={status=s.name},label={Text(s.label)},modifier=Modifier.testTag("task_status_${s.name}"))}}
-            OutlinedTextField(description,{description=it},label={Text("شرح کار و توضیحات")},minLines=2,modifier=Modifier.fillMaxWidth())
+            Box {Row(verticalAlignment=Alignment.CenterVertically) {DictationButton("جلسهٔ مرتبط"){meetingQuery=it;meetingMenu=true};TextButton(onClick={meetingQuery="";meetingMenu=true}){Icon(Icons.Outlined.Groups,null);Spacer(Modifier.width(6.dp));Text(meetings.find{it.id==meetingId}?.title ?: "جلسه (اختیاری)");Icon(Icons.Outlined.ExpandMore,null)}}
+                DropdownMenu(meetingMenu,{meetingMenu=false}){VoiceTextField(meetingQuery,{meetingQuery=it},voiceLabel="جست‌وجوی جلسهٔ مرتبط",label={Text("جست‌وجوی جلسه")},singleLine=true,modifier=Modifier.width(260.dp).padding(8.dp));DropdownMenuItem(text={Text("بدون جلسه")},onClick={meetingId=0;meetingMenu=false});meetings.filter{PeopleSuggestions.matches(it.title,meetingQuery)}.forEach{m->DropdownMenuItem(text={Text(m.title)},onClick={meetingId=m.id;meetingMenu=false})}}}
+            VoiceChoiceRow(Priority.entries.associate{it.name to it.label},priority,"اولویت مصوبه"){priority=it}
+            VoiceChoiceRow(OrgAccess.statuses(context,task.copy(assignee=assignee)).associate{it.name to it.label},status,"وضعیت مصوبه"){status=it}
+            VoiceTextField(description,{description=it},voiceLabel="شرح کار و توضیحات",label={Text("شرح کار و توضیحات")},minLines=2,modifier=Modifier.fillMaxWidth())
             if(task.approved>0) Text("تأیید نهایی: ${Solar.label(Instant.ofEpochMilli(task.approved).atZone(ZoneId.systemDefault()).toLocalDate())}",style=MaterialTheme.typography.bodySmall)
             if(history.isNotEmpty()){TextButton(onClick={showHistory=!showHistory}){CountLabel(if(showHistory) "بستن تاریخچه" else "تاریخچهٔ موعد",history.size,color=LocalContentColor.current)};if(showHistory) DueHistoryList(history)}
             if(task.id>0 && onFollowUp!=null) FollowUpPanel(followUps,busy,onFollowUp)
@@ -305,7 +300,6 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     }
     if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("حذف مصوبه؟")},text={Text("«${task.title}» و یادآوری‌های آن حذف می‌شوند.")},confirmButton={TextButton(onClick={confirmDelete=false;delete?.invoke()}){Text("حذف",color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick={confirmDelete=false}){Text("انصراف")}})
     ownerDetails?.let {name->OwnerTasksDialog(name,allTasks) {ownerDetails=null}}
-    if(selectPerson) CompanyPeoplePicker(setOfNotNull(assignee),true,{selectPerson=false}) {ids->assignee=ids.firstOrNull();companyUsers.find{it.id==assignee}?.let{owner=it.name};selectPerson=false}
 }
 
 @Composable private fun IncomingEditorChanges(latest: String,adopt: ()->Unit,keep: ()->Unit) {

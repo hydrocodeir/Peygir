@@ -4,7 +4,7 @@ import java.time.LocalDate
 
 enum class Status(val label: String) { WAITING("در انتظار"), ACTIVE("در حال انجام"), REVIEW("منتظر تأیید رئیس"), DONE("انجام‌شده") }
 enum class Priority(val label: String) { LOW("کم"), NORMAL("عادی"), HIGH("مهم"), URGENT("فوری") }
-data class Meeting(val id: Long = 0, val title: String = "", val date: Long = LocalDate.now().toEpochDay(), val notes: String = "", val start: Int? = 540, val end: Int? = 600, val location: String = "", val attendees: List<String> = emptyList(), val repeat: String = "NONE", val until: Long? = null, val series: String? = null)
+data class Meeting(val id: Long = 0, val title: String = "", val date: Long = LocalDate.now().toEpochDay(), val notes: String = "", val start: Int? = 540, val end: Int? = 600, val location: String = "", val attendees: List<String> = emptyList(), val repeat: String = "NONE", val until: Long? = null, val series: String? = null, val guests: List<String> = emptyList())
 data class Resolution(val id: Long = 0, val meetingId: Long? = null, val title: String = "", val description: String = "", val owner: String = "", val due: Long = LocalDate.now().plusDays(1).toEpochDay(), val priority: Priority = Priority.NORMAL, val status: Status = Status.WAITING, val delayCount: Int = 0, val assignee: String? = null, val submitted: Long = 0, val approved: Long = 0, val approvedBy: String? = null)
 enum class DueChangeKind(val label: String) { EXTEND("تمدید مهلت"), POSTPONE("به تعویق انداختن"), EDIT("تغییر سررسید") }
 data class DueChange(val id: Long, val taskId: Long, val oldDue: Long, val newDue: Long, val changedAt: Long, val kind: DueChangeKind, val reason: String)
@@ -12,7 +12,7 @@ data class Reminder(val id: Long, val taskId: Long, val at: Long, val delivered:
 data class FollowUp(val id: Long, val taskId: Long, val text: String, val created: Long)
 data class BacklogItem(val id: Long = 0, val title: String = "", val description: String = "", val owner: String = "", val created: Long = System.currentTimeMillis())
 data class Recording(val id: Long = 0, val meetingId: Long? = null, val path: String, val created: Long, val seconds: Int, val transcript: String = "", val draftSession: String = "")
-data class Snapshot(val meetings: List<Meeting> = emptyList(), val tasks: List<Resolution> = emptyList(), val reminders: List<Reminder> = emptyList(), val recordings: List<Recording> = emptyList(), val history: List<DueChange> = emptyList(), val draftRecordings: List<Recording> = emptyList(), val followUps: List<FollowUp> = emptyList(), val backlog: List<BacklogItem> = emptyList())
+data class Snapshot(val meetings: List<Meeting> = emptyList(), val tasks: List<Resolution> = emptyList(), val reminders: List<Reminder> = emptyList(), val recordings: List<Recording> = emptyList(), val history: List<DueChange> = emptyList(), val draftRecordings: List<Recording> = emptyList(), val followUps: List<FollowUp> = emptyList(), val backlog: List<BacklogItem> = emptyList(), val contacts: List<String> = emptyList())
 data class Proposal(val title: String, val owner: String = "", val due: LocalDate? = null, val source: String = "", val priority: Priority = Priority.NORMAL)
 fun Proposal.key(): String = java.util.UUID.nameUUIDFromBytes("$source|$title|$owner|$due".toByteArray(Charsets.UTF_8)).toString()
 object VoiceCommands {

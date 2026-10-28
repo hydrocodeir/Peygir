@@ -58,9 +58,7 @@ class MeetingFormTest {
         val other=Meeting(id=8,title="دیگر",date=day,start=570,end=630,attendees=listOf("a"))
         compose.setContent{PeygirTheme("light"){MeetingEditor(draft,false,{}, {},allMeetings=listOf(other))}}
         compose.onNodeWithTag("meeting_conflicts").assertExists()
-        compose.onNodeWithTag("meeting_people").performClick()
         compose.onNodeWithText("علی احمدی",substring=false).performClick()
-        compose.onNodeWithText("انتخاب",substring=false).performClick()
         compose.onNodeWithTag("meeting_conflicts").assertDoesNotExist()
         compose.onNodeWithText("ذخیره",substring=false).assertExists()
     }

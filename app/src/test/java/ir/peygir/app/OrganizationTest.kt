@@ -79,11 +79,11 @@ class OrganizationTest {
         val m=Meeting(title="جلسه بودجه",attendees=listOf(user.id))
         assertTrue(meetingSearch(m,listOf(user),"علي احمدی"));assertTrue(meetingSearch(m,listOf(user),"بودجه احمدی"));assertFalse(meetingSearch(m,listOf(user),"رضایی"))
     }
-    @Test fun backupV4IncludesCalendarAndAssignmentButNoCompanyDirectoryOrCredentials() {
+    @Test fun backupV5IncludesCalendarAndAssignmentButNoCompanyDirectoryOrCredentials() {
         val meeting=store.saveMeeting(Meeting(title="جلسه",start=540,end=600,location="دفتر",attendees=listOf(id())))
         store.saveTask(Resolution(title="گزارش",owner="احمدی",meetingId=meeting,assignee=id(),status=Status.REVIEW),emptyList())
         val out=ByteArrayOutputStream();Backup.write(context,out,store)
-        ZipInputStream(out.toByteArray().inputStream()).use{z->z.nextEntry;val p=JSONObject(z.readBytes().toString(Charsets.UTF_8));assertEquals(4,p.getInt("version"));assertFalse(p.has("directory"));assertFalse(p.has("session"))}
+        ZipInputStream(out.toByteArray().inputStream()).use{z->z.nextEntry;val p=JSONObject(z.readBytes().toString(Charsets.UTF_8));assertEquals(5,p.getInt("version"));assertFalse(p.has("directory"));assertFalse(p.has("session"))}
         Backup.read(context,out.toByteArray().inputStream()).use{assertEquals(store.snapshot(),it.data)}
     }
     @Test fun clearingOrganizationDataKeepsServerBindingButRemovesAllRecordsAndPendingWrites() {
@@ -115,7 +115,7 @@ class OrganizationTest {
         db.version=5;db.close()
         val upgraded=Store(context,name)
         try {
-            val data=upgraded.snapshot();assertEquals(6,upgraded.readableDatabase.version);assertEquals("جلسهٔ قبلی",data.meetings.single().title);assertNull(data.tasks.single().assignee)
+            val data=upgraded.snapshot();assertEquals(7,upgraded.readableDatabase.version);assertEquals("جلسهٔ قبلی",data.meetings.single().title);assertNull(data.tasks.single().assignee)
             val pending=SharedStore(upgraded).prepare();assertEquals(3,pending.size)
             val deleted=pending.single{it.operation.getBoolean("deleted")}.operation
             assertTrue(deleted.getJSONObject("payload").has("assignee"));assertTrue(deleted.getJSONObject("payload").has("submitted"));assertEquals(deletedRemote,deleted.getString("recordId"))

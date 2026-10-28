@@ -37,7 +37,7 @@ class OrganizationUiTest {
         val day=LocalDate.now().toEpochDay();var opened=0L
         val data=Snapshot(meetings=listOf(Meeting(id=40,title="جلسهٔ عصر",date=day,start=1080,end=1140)))
         compose.setContent {PeygirTheme("light"){MeetingCalendarScreen(data,{opened=it},{},initialDay=day)}}
-        compose.onNodeWithTag("meeting_mode_WEEK").assertIsSelected()
+        compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected()
         compose.onNodeWithTag("meeting_mode_DAY").performClick()
         compose.onNodeWithTag("meeting_card_40").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle{assertEquals(40L,opened)}
@@ -110,9 +110,8 @@ class OrganizationUiTest {
         context.getSharedPreferences("shared_private",0).edit().putString("session","test-only").commit()
         var saved: Resolution?=null
         compose.setContent {PeygirTheme("light"){TaskEditor(Resolution(title="گزارش"),emptyList(),emptyList(),false,{}, {t,_->saved=t},null)}}
-        compose.onNodeWithText("انتخاب حساب مسئول برای واگذاری").performScrollTo().performClick()
+        compose.onNodeWithText("مسئول انجام *").performTextInput("احمدی")
         compose.onNodeWithText(deputy.name,substring=false).performClick()
-        compose.onNodeWithText("انتخاب",substring=false).performClick()
         compose.onNodeWithText("ذخیره",substring=false).performClick()
         compose.runOnIdle{assertEquals(deputy.id,saved?.assignee);assertEquals(deputy.name,saved?.owner)}
     }

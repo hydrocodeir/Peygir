@@ -37,10 +37,10 @@ import java.time.temporal.ChronoUnit
 
 internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: String): Boolean {
     fun clean(s: String)=s.replace('ي','ی').replace('ك','ک').replace('\u200c',' ').trim().lowercase()
-    val text=clean(listOf(meeting.title,meeting.location,users.filter{it.id in meeting.attendees}.joinToString(" "){it.name}).joinToString(" "))
+    val text=clean(listOf(meeting.title,meeting.location,meeting.guests.joinToString(" "),users.filter{it.id in meeting.attendees}.joinToString(" "){it.name}).joinToString(" "))
     return clean(query).split(Regex("\\s+")).all{text.contains(it)}
 }
-@Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String="WEEK",createAt: ((Long,Int)->Unit)?=null) {
+@Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String="DAY",createAt: ((Long,Int)->Unit)?=null) {
     val c=LocalContext.current;val deputy=OrgAccess.deputy(c)
     val users by Organization.members.collectAsState()
     val min=remember {WidgetDays.min};val max=remember {WidgetDays.max}
@@ -153,7 +153,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
                     IconButton(onClick=dismiss){Icon(Icons.Outlined.Close,"بستن جست‌وجوی جلسات")}
                     Text("جست‌وجوی جلسات",style=MaterialTheme.typography.titleMedium)
                 }
-                OutlinedTextField(query,change,label={Text("عنوان جلسه یا نام شرکت‌کننده",maxLines=1)},leadingIcon={Icon(Icons.Outlined.Search,null)},trailingIcon={if(query.isNotEmpty()) IconButton(onClick={change("")}){Icon(Icons.Outlined.Close,"پاک کردن جست‌وجو")}},singleLine=true,modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).focusRequester(focus).testTag("meeting_search_field"),shape=RoundedCornerShape(16.dp))
+                VoiceTextField(query,change,voiceLabel="عنوان جلسه یا نام شرکت‌کننده",label={Text("عنوان جلسه یا نام شرکت‌کننده",maxLines=1)},leadingIcon={Icon(Icons.Outlined.Search,null)},trailingIcon={if(query.isNotEmpty()) IconButton(onClick={change("")}){Icon(Icons.Outlined.Close,"پاک کردن جست‌وجو")}},singleLine=true,modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).focusRequester(focus).testTag("meeting_search_field"),shape=RoundedCornerShape(16.dp))
                 if(query.isBlank()) Text("جست‌وجو در تمام تاریخ‌ها و جلسات قابل مشاهده",Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else CountLabel("نتایج در همهٔ تاریخ‌ها",shown.size,Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall)
                 LazyColumn(Modifier.weight(1f).testTag("meeting_search_results"),contentPadding=PaddingValues(12.dp,4.dp,12.dp,16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {

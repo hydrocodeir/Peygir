@@ -107,7 +107,7 @@ object OfflineText {
     }
 }
 
-class AudioCapture(private val context: Context) {
+class AudioCapture(private val context: Context,private val temporary: Boolean=false) {
     private val running=AtomicBoolean(false)
     private var recorder: AudioRecord?=null
     private var thread: Thread?=null
@@ -120,7 +120,7 @@ class AudioCapture(private val context: Context) {
         val size=maxOf(4096,AudioRecord.getMinBufferSize(16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT))
         val rec=AudioRecord(MediaRecorder.AudioSource.MIC,16000,AudioFormat.CHANNEL_IN_MONO,AudioFormat.ENCODING_PCM_16BIT,size*2)
         check(rec.state==AudioRecord.STATE_INITIALIZED) { rec.release(); "میکروفون در دسترس نیست" }
-        val dest=File(File(context.filesDir,"recordings").apply { mkdirs() },"voice-${System.currentTimeMillis()}.wav")
+        val dest=File(File(if(temporary) context.cacheDir else context.filesDir,if(temporary) "dictation" else "recordings").apply { mkdirs() },"voice-${java.util.UUID.randomUUID()}.wav")
         failure=null
         try { rec.startRecording(); check(rec.recordingState==AudioRecord.RECORDSTATE_RECORDING) } catch(e:Exception) { rec.release(); throw e }
         file=dest; recorder=rec; running.set(true)

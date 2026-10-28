@@ -4,7 +4,7 @@ import zipfile, hashlib, re
 root=Path(__file__).resolve().parents[1]
 version=re.search(r'versionName = "([^"]+)"',(root/'app/build.gradle.kts').read_text(encoding='utf-8')).group(1)
 dest=root/f'delivery/Peygir-{version}-source.zip'
-excluded={'.git','.gradle','.kotlin','.local-build','.signing','.device-private','build','delivery','__pycache__','node_modules','.wrangler'}
+excluded={'.agents','.git','.gradle','.kotlin','.local-build','.signing','.device-private','build','delivery','__pycache__','node_modules','.wrangler'}
 with zipfile.ZipFile(dest,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
     for file in sorted(root.rglob('*')):
         rel=file.relative_to(root)

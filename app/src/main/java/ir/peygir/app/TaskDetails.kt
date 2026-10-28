@@ -38,7 +38,7 @@ private fun followUpTime(at: Long): String {
             Text("آخرین پیگیری: ${followUpTime(latest.created)}",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if(writing) {
-            OutlinedTextField(text,{text=it.take(1000)},label={Text("نتیجهٔ کوتاه پیگیری")},placeholder={Text("مثلاً منتظر تأیید مالی است")},modifier=Modifier.fillMaxWidth(),maxLines=3,enabled=!busy)
+            VoiceTextField(text,{text=it.take(1000)},voiceLabel="نتیجهٔ کوتاه پیگیری",label={Text("نتیجهٔ کوتاه پیگیری")},placeholder={Text("مثلاً منتظر تأیید مالی است")},modifier=Modifier.fillMaxWidth(),maxLines=3,enabled=!busy)
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 FilledTonalButton(onClick={save(text) {text="";writing=false}},enabled=!busy && text.isNotBlank()) {Text("ثبت نتیجه")}
                 TextButton(onClick={text="";writing=false},enabled=!busy) {Text("انصراف")}

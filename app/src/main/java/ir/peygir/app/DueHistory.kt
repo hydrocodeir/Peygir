@@ -35,7 +35,7 @@ import java.time.*
         Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
             listOf(1L to "یک روز",3L to "سه روز",7L to "یک هفته").forEach{(days,label)->OutlinedButton(onClick={day=maxOf(task.due,LocalDate.now().toEpochDay())+days;error=""},enabled=!busy,contentPadding=PaddingValues(horizontal=10.dp)){Text(label)}}
         }
-        OutlinedTextField(reason,{reason=it},label={Text("دلیل (اختیاری)")},modifier=Modifier.fillMaxWidth(),maxLines=3,enabled=!busy)
+        VoiceTextField(reason,{reason=it},voiceLabel="دلیل (اختیاری)",label={Text("دلیل (اختیاری)")},modifier=Modifier.fillMaxWidth(),maxLines=3,enabled=!busy)
         Row(verticalAlignment=Alignment.CenterVertically) {Text("پیگیری یک روز قبل از موعد جدید",Modifier.weight(1f));Switch(remind,{remind=it},enabled=!busy)}
         if(remind) TextButton(onClick={TimePickerDialog(context,{_,h,m->customTime=LocalTime.of(h,m).toString()},selectedTime.hour,selectedTime.minute,true).show()},enabled=!busy) {Text("ساعت یادآوری: ${selectedTime.toString().fa()}")}
         Text("یادآوری‌های ارسال‌نشده با زمان تازه جایگزین می‌شوند. موعد قبلی و دلیل تغییر در تاریخچه می‌مانند.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

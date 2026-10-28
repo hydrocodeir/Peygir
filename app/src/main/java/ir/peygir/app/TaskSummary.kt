@@ -85,7 +85,7 @@ import java.time.*
     if(reporting) {
         var note by rememberSaveable{mutableStateOf("")}
         FullEditor("نتیجهٔ پیگیری",busy,{reporting=false},{followUp(note){note="";reporting=false}},canSave=note.isNotBlank(),feedback=feedback,saveLabel=if(deputy) "ثبت گزارش پیشرفت" else "ثبت نتیجه") {
-            OutlinedTextField(note,{note=it.take(1000)},label={Text(if(deputy) "نتیجهٔ پیگیری در یک خط" else "نتیجهٔ کوتاه پیگیری")},modifier=Modifier.fillMaxWidth(),maxLines=3)
+            VoiceTextField(note,{note=it.take(1000)},voiceLabel="نتیجهٔ پیگیری",label={Text(if(deputy) "نتیجهٔ پیگیری در یک خط" else "نتیجهٔ کوتاه پیگیری")},modifier=Modifier.fillMaxWidth(),maxLines=3)
         }
     }
     changeDue?.let{kind->ChangeDueDialog(task,kind,busy,{changeDue=null},feedback){day,reason,reminder->reschedule?.invoke(task.copy(due=day),(reminders.filter{it.delivered}.map{it.at}+listOfNotNull(reminder)).distinct().sorted(),kind,reason)}}

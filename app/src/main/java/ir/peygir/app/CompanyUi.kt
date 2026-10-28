@@ -25,7 +25,7 @@ import java.util.UUID
     val users by Organization.members.collectAsState()
     var selected by remember {mutableStateOf(initial)};var query by remember {mutableStateOf("")}
     FullEditor(if(single) "حساب مسئول" else "شرکت‌کنندگان شرکت",false,dismiss,{choose(selected)},saveLabel="انتخاب") {
-        OutlinedTextField(query,{query=it},label={Text("جست‌وجوی نام")},modifier=Modifier.fillMaxWidth())
+        VoiceTextField(query,{query=it},voiceLabel="جست‌وجوی نام",label={Text("جست‌وجوی نام")},modifier=Modifier.fillMaxWidth())
         if(single) TextButton(onClick={selected=emptySet()}){Text("بدون واگذاری؛ فقط رئیس و دستیار")}
         if(users.isEmpty()) Text("ابتدا در تنظیمات همگام‌سازی کنید و حساب کاربران را بسازید.")
         users.filter{(it.active || it.id in selected) && (query.isBlank() || it.name.contains(query.trim(),true))}.forEach {u->
@@ -40,9 +40,10 @@ import java.util.UUID
 private val accountRoles=linkedMapOf("manager" to "مدیر","assistant" to "دستیار","deputy" to "کاربر")
 @Composable internal fun AccountRolePicker(role: String,roles: List<String>,enabled: Boolean=true,change: (String)->Unit) {
     var menu by remember {mutableStateOf(false)}
+    var query by remember {mutableStateOf("")}
     Box(Modifier.fillMaxWidth()) {
-        OutlinedButton(onClick={menu=true},enabled=enabled && roles.size>1,modifier=Modifier.fillMaxWidth().testTag("account_role")) {Text("نقش: ${accountRoles[role] ?: role}")}
-        DropdownMenu(menu,{menu=false}) {roles.forEach{key->DropdownMenuItem(text={Text(accountRoles[key] ?: key)},onClick={menu=false;change(key)},modifier=Modifier.testTag("account_role_$key"))}}
+        Row(verticalAlignment=Alignment.CenterVertically) {OutlinedButton(onClick={query="";menu=true},enabled=enabled && roles.size>1,modifier=Modifier.weight(1f).testTag("account_role")) {Text("نقش: ${accountRoles[role] ?: role}")};DictationButton("نقش حساب",enabled && roles.size>1){query=it;menu=true}}
+        DropdownMenu(menu,{menu=false}) {if(query.isNotBlank()) DropdownMenuItem(text={Text("نمایش همهٔ نقش‌ها")},onClick={query=""});roles.filter{PeopleSuggestions.matches(accountRoles[it] ?: it,query)}.forEach{key->DropdownMenuItem(text={Text(accountRoles[key] ?: key)},onClick={menu=false;change(key)},modifier=Modifier.testTag("account_role_$key"))}}
     }
 }
 private fun accountSnapshot(u: CompanyUser)=JSONObject().put("name",u.name).put("username",u.username).put("role",u.role).put("active",u.active)
@@ -81,7 +82,7 @@ private fun accountSnapshot(u: CompanyUser)=JSONObject().put("name",u.name).put(
         val password=remember {UUID.randomUUID().toString().replace("-","")};val id=remember {UUID.randomUUID().toString()}
         val roles=if(enhanced && manager) accountRoles.keys.toList() else listOf("deputy")
         FullEditor("کاربر جدید",working,{create=false},{call(JSONObject().put("action","create").put("id",id).put("name",name).put("username",username.trim().lowercase(java.util.Locale.ROOT)).put("role",role).put("password",password)) {credentials="${if(company.isNotEmpty()) "کد شرکت: $company\n" else ""}نام: $name\nنام کاربری: ${username.trim().lowercase(java.util.Locale.ROOT)}\nرمز ورود: $password";create=false}},canSave=name.isNotBlank() && username.trim().lowercase(java.util.Locale.ROOT).matches(Regex("[a-z0-9][a-z0-9_.-]{2,63}")),feedback=error,saveLabel="ساخت حساب") {
-            OutlinedTextField(name,{name=it},label={Text("نام و نام خانوادگی")},modifier=Modifier.fillMaxWidth())
+            VoiceTextField(name,{name=it},voiceLabel="نام و نام خانوادگی",label={Text("نام و نام خانوادگی")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(username,{username=it},label={Text("نام کاربری انگلیسی")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Ascii),modifier=Modifier.fillMaxWidth())
             AccountRolePicker(role,roles,!working){role=it}
             Text(when(role){"manager"->"مدیر به اطلاعات شرکت و مدیریت کاربران دسترسی دارد و انجام مصوبات را تأیید می‌کند.";"assistant"->"دستیار جلسات و مصوبات را ثبت و پیگیری می‌کند؛ تعیین نقش مدیر و دستیار با مدیر است.";else->"کاربر فقط مصوبات واگذارشده و دعوت‌های خودش را می‌بیند."},style=MaterialTheme.typography.bodySmall)
@@ -93,7 +94,7 @@ private fun accountSnapshot(u: CompanyUser)=JSONObject().put("name",u.name).put(
         val lastManager=u.active && u.role=="manager" && users.count{it.active && it.role=="manager"}<=1
         val roles=if(enhanced && manager && !lastManager) accountRoles.keys.toList() else listOf(u.role)
         FullEditor("ویرایش حساب",working,{editing=null},{call(JSONObject().put("action","update").put("id",u.id).put("name",name).put("username",username.trim().lowercase(java.util.Locale.ROOT)).put("role",role).put("active",u.active).put("expected",accountSnapshot(u))) {editing=null}},canSave=name.isNotBlank() && username.trim().lowercase(java.util.Locale.ROOT).matches(Regex("[a-z0-9][a-z0-9_.-]{2,63}")),feedback=error,saveLabel="ذخیرهٔ تغییرات") {
-            OutlinedTextField(name,{name=it},label={Text("نام و نام خانوادگی")},modifier=Modifier.fillMaxWidth())
+            VoiceTextField(name,{name=it},voiceLabel="نام و نام خانوادگی",label={Text("نام و نام خانوادگی")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(username,{username=it},label={Text("نام کاربری انگلیسی")},singleLine=true,enabled=enhanced,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Ascii),modifier=Modifier.fillMaxWidth())
             AccountRolePicker(role,roles,!working){role=it}
             if(enhanced) Text("تغییر نام کاربری یا نقش، ورود دوبارهٔ آن کاربر را الزامی می‌کند.",style=MaterialTheme.typography.bodySmall)

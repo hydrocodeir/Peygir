@@ -137,7 +137,7 @@ class BackupTest {
         val task=store.saveTask(Resolution(title="پیگیری",owner="احمدی"),emptyList())
         store.addFollowUp(task,"نتیجه");store.activateNotification(task,"SECRET-ACTION-TOKEN",emptyList())
         assertThrows(Exception::class.java) {Backup.read(context,archive({it.getJSONArray("followUps").getJSONObject(0).put("task",999)}).inputStream())}
-        ZipInputStream(export().inputStream()).use {z->z.nextEntry;val json=z.readBytes().toString(Charsets.UTF_8);assertFalse(json.contains("SECRET-ACTION-TOKEN"));assertEquals(4,JSONObject(json).getInt("version"))}
+        ZipInputStream(export().inputStream()).use {z->z.nextEntry;val json=z.readBytes().toString(Charsets.UTF_8);assertFalse(json.contains("SECRET-ACTION-TOKEN"));assertEquals(5,JSONObject(json).getInt("version"))}
         Backup.read(context,export().inputStream()).use {Backup.restore(context,it)}
         assertFalse(store.notificationAction(task,"SECRET-ACTION-TOKEN",false))
         assertEquals("نتیجه",store.snapshot().followUps.single().text)

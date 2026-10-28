@@ -22,18 +22,23 @@ internal object OrgAccess {
     fun statuses(context: Context,task: Resolution)=if(deputy(context)) {if(task.status==Status.DONE) emptyList() else listOf(Status.WAITING,Status.ACTIVE,Status.REVIEW)} else Status.entries.filter{it!=Status.DONE || task.assignee==null || (role(context)=="manager" && task.status==Status.REVIEW)}
 }
 internal object Organization {
+    val contacts=MutableStateFlow<List<String>>(emptyList())
     val members=MutableStateFlow<List<CompanyUser>>(emptyList())
     fun create(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS contacts(key TEXT PRIMARY KEY,name TEXT NOT NULL)")
         fun add(table: String,name: String,type: String) {
             val exists=db.rawQuery("PRAGMA table_info($table)",null).use{c->var found=false;while(c.moveToNext()) if(c.getString(1)==name) found=true;found}
             if(!exists) db.execSQL("ALTER TABLE $table ADD COLUMN $name $type")
         }
-        for((key,type) in mapOf("start" to "INTEGER","end" to "INTEGER","location" to "TEXT NOT NULL DEFAULT ''","attendees" to "TEXT NOT NULL DEFAULT '[]'","repeat_rule" to "TEXT NOT NULL DEFAULT 'NONE'","repeat_until" to "INTEGER","series" to "TEXT")) add("meetings",key,type)
+        for((key,type) in mapOf("start" to "INTEGER","end" to "INTEGER","location" to "TEXT NOT NULL DEFAULT ''","attendees" to "TEXT NOT NULL DEFAULT '[]'","repeat_rule" to "TEXT NOT NULL DEFAULT 'NONE'","repeat_until" to "INTEGER","series" to "TEXT","guests" to "TEXT NOT NULL DEFAULT '[]'")) add("meetings",key,type)
         for((key,type) in mapOf("assignee" to "TEXT","submitted" to "INTEGER NOT NULL DEFAULT 0","approved" to "INTEGER NOT NULL DEFAULT 0","approved_by" to "TEXT")) add("tasks",key,type)
         add("sync_objects","view","TEXT NOT NULL DEFAULT ''")
         // A v2 in-flight request has the old payload shape; rebuild it once with the new fields.
         db.execSQL("UPDATE sync_dirty SET operation=NULL,payload=NULL,base_revision=NULL")
     }
+    fun contactNames(store: Store): List<String> = store.syncDb {db->db.rawQuery("SELECT name FROM contacts ORDER BY name",null).use{c->buildList{while(c.moveToNext()) add(c.getString(0))}}}
+    fun rememberContacts(db: SQLiteDatabase,names: List<String>) {names.map{it.trim()}.filter{it.isNotBlank() && it.length<=200 && Owners.key(it).isNotBlank()}.distinctBy{Owners.key(it)}.forEach{name->db.execSQL("INSERT OR IGNORE INTO contacts(key,name) VALUES(?,?)",arrayOf(Owners.key(name),name))}}
+    fun receiveContacts(store: Store,a: JSONArray) {store.syncDb{rememberContacts(it,a.strings())};contacts.value=contactNames(store)}
     fun users(store: Store): List<CompanyUser> = store.syncDb {db->db.rawQuery("SELECT value FROM sync_meta WHERE key='directory'",null).use {if(it.moveToFirst()) parseUsers(JSONArray(it.getString(0))) else emptyList()}}
     fun parseUsers(a: JSONArray)=(0 until a.length()).map{a.getJSONObject(it).let {p->CompanyUser(p.getString("id"),p.getString("name"),p.getString("role"),p.optInt("active",1)==1,p.optString("username"))}}
     fun receiveUsers(store: Store,a: JSONArray) {store.syncDb{it.execSQL("INSERT OR REPLACE INTO sync_meta(key,value) VALUES('directory',?)",arrayOf(a.toString()))};members.value=parseUsers(a)}
@@ -48,16 +53,16 @@ internal object Organization {
 private fun Cursor.nullInt(key: String)=getColumnIndexOrThrow(key).let{if(isNull(it)) null else getInt(it)}
 private fun Cursor.nullLong(key: String)=getColumnIndexOrThrow(key).let{if(isNull(it)) null else getLong(it)}
 private fun Cursor.nullString(key: String)=getColumnIndexOrThrow(key).let{if(isNull(it)) null else getString(it)}
-internal fun Meeting.withOrganization(c: Cursor)=copy(start=c.nullInt("start"),end=c.nullInt("end"),location=c.nullString("location").orEmpty(),attendees=JSONArray(c.nullString("attendees") ?: "[]").strings(),repeat=c.nullString("repeat_rule") ?: "NONE",until=c.nullLong("repeat_until"),series=c.nullString("series"))
+internal fun Meeting.withOrganization(c: Cursor)=copy(start=c.nullInt("start"),end=c.nullInt("end"),location=c.nullString("location").orEmpty(),attendees=JSONArray(c.nullString("attendees") ?: "[]").strings(),repeat=c.nullString("repeat_rule") ?: "NONE",until=c.nullLong("repeat_until"),series=c.nullString("series"),guests=JSONArray(c.nullString("guests") ?: "[]").strings())
 internal fun Resolution.withOrganization(c: Cursor)=copy(assignee=c.nullString("assignee"),submitted=c.nullLong("submitted") ?: 0,approved=c.nullLong("approved") ?: 0,approvedBy=c.nullString("approved_by"))
 internal fun JSONArray.strings()=(0 until length()).map{getString(it)}
-internal fun ContentValues.meetingOrganization(m: Meeting) {put("start",m.start);put("end",m.end);put("location",m.location);put("attendees",JSONArray(m.attendees).toString());put("repeat_rule",m.repeat);put("repeat_until",m.until);put("series",m.series)}
+internal fun ContentValues.meetingOrganization(m: Meeting) {put("start",m.start);put("end",m.end);put("location",m.location);put("attendees",JSONArray(m.attendees).toString());put("repeat_rule",m.repeat);put("repeat_until",m.until);put("series",m.series);put("guests",JSONArray(m.guests).toString())}
 internal fun ContentValues.taskOrganization(t: Resolution) {put("assignee",t.assignee);put("submitted",t.submitted);put("approved",t.approved);put("approved_by",t.approvedBy)}
-internal fun JSONObject.meetingOrganization(m: Meeting): JSONObject = put("start",m.start ?: JSONObject.NULL).put("end",m.end ?: JSONObject.NULL).put("location",m.location).put("attendees",JSONArray(m.attendees)).put("repeat",m.repeat).put("until",m.until ?: JSONObject.NULL).put("series",m.series ?: JSONObject.NULL)
+internal fun JSONObject.meetingOrganization(m: Meeting): JSONObject = put("start",m.start ?: JSONObject.NULL).put("end",m.end ?: JSONObject.NULL).put("location",m.location).put("attendees",JSONArray(m.attendees)).put("repeat",m.repeat).put("until",m.until ?: JSONObject.NULL).put("series",m.series ?: JSONObject.NULL).put("guests",JSONArray(m.guests))
 internal fun JSONObject.taskOrganization(t: Resolution): JSONObject = put("assignee",t.assignee ?: JSONObject.NULL).put("submitted",t.submitted).put("approved",t.approved).put("approvedBy",t.approvedBy ?: JSONObject.NULL)
 internal fun JSONObject.nullableString(key: String)=if(isNull(key) || !has(key)) null else getString(key)
 internal fun JSONObject.nullableLong(key: String)=if(isNull(key) || !has(key)) null else getLong(key)
-internal fun Meeting.fromOrganization(p: JSONObject)=copy(start=p.nullableLong("start")?.toInt(),end=p.nullableLong("end")?.toInt(),location=p.optString("location"),attendees=p.optJSONArray("attendees")?.strings().orEmpty(),repeat=p.optString("repeat","NONE"),until=p.nullableLong("until"),series=p.nullableString("series"))
+internal fun Meeting.fromOrganization(p: JSONObject)=copy(start=p.nullableLong("start")?.toInt(),end=p.nullableLong("end")?.toInt(),location=p.optString("location"),attendees=p.optJSONArray("attendees")?.strings().orEmpty(),repeat=p.optString("repeat","NONE"),until=p.nullableLong("until"),series=p.nullableString("series"),guests=p.optJSONArray("guests")?.strings().orEmpty())
 internal fun Resolution.fromOrganization(p: JSONObject)=copy(assignee=p.nullableString("assignee"),submitted=p.optLong("submitted"),approved=p.optLong("approved"),approvedBy=p.nullableString("approvedBy"))
 internal object MeetingRecurrence {
     val labels=linkedMapOf("NONE" to "بدون تکرار","DAILY" to "هر روز","WEEKLY" to "هر هفته","MONTHLY" to "هر ماه شمسی")

@@ -97,6 +97,7 @@ internal object SyncEngine {
                 shared.receive(result.getJSONObject("record"),item,result.getBoolean("ok"));count++
             }
             response.optJSONArray("users")?.let {shared.receiveDirectory(it)}
+            response.optJSONArray("contacts")?.let {shared.receiveContacts(it)}
             val changes=response.getJSONArray("changes")
             for(i in 0 until changes.length()) {shared.receive(changes.getJSONObject(i));count++}
             val cursor=response.getLong("cursor");if(response.optInt("protocol")==2) shared.cursor(0) else {check(cursor>=shared.cursor());shared.cursor(cursor)}
@@ -127,7 +128,7 @@ internal object SharedSync {
     @Synchronized fun disconnect(context: Context,detach: Boolean=false) {
         val credentials=SharedCredentials(context);val session=runCatching{credentials.read()}.getOrNull()
         if(session?.userId?.isNotBlank()==true) {
-            SharedStore(Store.get(context)).clearScopedData(detachBinding=true);Organization.members.value=emptyList()
+            SharedStore(Store.get(context)).clearScopedData(detachBinding=true);Organization.members.value=emptyList();Organization.contacts.value=emptyList()
             context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
         }
         credentials.clear();OrgAccess.set(context,null);SharedJobs.cancel(context)
@@ -155,7 +156,7 @@ internal object SharedSync {
                 }
                 if(session.userId.isNotBlank()) shared.principal(session.userId)
             }
-            Organization.members.value=Organization.users(store)
+            Organization.members.value=Organization.users(store);Organization.contacts.value=Organization.contactNames(store)
             PushRegistration.register(context,session)
             val after=store.snapshot().tasks.associateBy{it.id}
             before.forEach{(id,old)->val current=after[id];if(current==null || current.due!=old.due || current.status==Status.DONE) context.getSystemService(android.app.NotificationManager::class.java).cancel(id.toInt())}
@@ -163,7 +164,7 @@ internal object SharedSync {
             store.externalChanges.value++;Reminders.process(context);ReviewWidget.updateAll(context);true
         } catch(e:Exception) {
             if(e is SharedHttpError && e.code==401 && OrgAccess.id(context).isNotBlank()) {
-                SharedStore(Store.get(context)).clearScopedData();Organization.members.value=emptyList();context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
+                SharedStore(Store.get(context)).clearScopedData();Organization.members.value=emptyList();Organization.contacts.value=emptyList();context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Store.get(context).externalChanges.value++;ReviewWidget.updateAll(context)
             }
             val message=if(e is SharedHttpError) e.message else e.message?.takeIf{it.any{c->c in 'آ'..'ی'}} ?: "اتصال برقرار نشد؛ تغییرات روی گوشی محفوظ‌اند و دوباره ارسال می‌شوند."
             prefs.edit().putString("error",message).putBoolean("auth_expired",e is SharedHttpError && e.code==401).apply();false

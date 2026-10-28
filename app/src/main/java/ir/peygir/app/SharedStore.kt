@@ -36,13 +36,14 @@ internal class SharedStore(private val store: Store) {
     data class Conflict(val kind: String,val localId: Long,val title: String,val local: JSONObject?,val remote: JSONObject)
     private val tables=linkedMapOf("meeting" to "meetings","task" to "tasks","followup" to "follow_ups","history" to "due_changes")
     fun binding()=store.syncDb{db->meta(db,"binding")}
+    fun receiveContacts(a: JSONArray)=Organization.receiveContacts(store,a)
     fun receiveDirectory(a: JSONArray)=Organization.receiveUsers(store,a)
     fun inventory()=store.syncDb {db->JSONArray().also {a->db.rawQuery("SELECT kind,remote_id,revision,view FROM sync_objects WHERE revision>0",null).use {c->while(c.moveToNext()) a.put(JSONObject().put("kind",c.getString(0)).put("id",c.getString(1)).put("revision",c.getLong(2)).put("view",c.getString(3)))}}}
     fun remoteLocalId(remote: String): Pair<String,Long>?=store.syncDb{db->db.rawQuery("SELECT kind,local_id FROM sync_objects WHERE remote_id=? AND deleted=0",arrayOf(remote)).use{if(it.moveToFirst()) it.getString(0) to it.getLong(1) else null}}
     fun principal()=store.syncDb{meta(it,"principal")}
     fun principal(value: String)=store.syncDb{setMeta(it,"principal",value)}
     fun clearScopedData(detachBinding: Boolean=false)=store.syncDb {db->transaction(db) {
-        listOf("recordings","backlog","notification_tokens","follow_ups","due_changes","reminders","tasks","meetings","sync_dirty","sync_objects").forEach{db.delete(it,null,null)}
+        listOf("recordings","backlog","notification_tokens","follow_ups","due_changes","reminders","tasks","meetings","sync_dirty","sync_objects","contacts").forEach{db.delete(it,null,null)}
         if(detachBinding) db.delete("sync_meta",null,null) else db.delete("sync_meta","key IN ('directory','principal')",null)
     }}
     fun cursor()=store.syncDb{db->meta(db,"cursor").toLongOrNull() ?: 0L}
@@ -71,7 +72,7 @@ internal class SharedStore(private val store: Store) {
             fun num(key: String)=c.getLong(c.getColumnIndexOrThrow(key))
             val p=JSONObject()
             when(kind) {
-                "meeting"->{p.put("title",str("title"));p.put("date",num("date"));p.put("notes",str("notes"));p.put("start",if(c.isNull(c.getColumnIndexOrThrow("start"))) JSONObject.NULL else num("start"));p.put("end",if(c.isNull(c.getColumnIndexOrThrow("end"))) JSONObject.NULL else num("end"));p.put("location",str("location"));p.put("attendees",JSONArray(str("attendees")));p.put("repeat",str("repeat_rule"));p.put("until",if(c.isNull(c.getColumnIndexOrThrow("repeat_until"))) JSONObject.NULL else num("repeat_until"));p.put("series",str("series") ?: JSONObject.NULL)}
+                "meeting"->{p.put("title",str("title"));p.put("date",num("date"));p.put("notes",str("notes"));p.put("start",if(c.isNull(c.getColumnIndexOrThrow("start"))) JSONObject.NULL else num("start"));p.put("end",if(c.isNull(c.getColumnIndexOrThrow("end"))) JSONObject.NULL else num("end"));p.put("location",str("location"));p.put("attendees",JSONArray(str("attendees")));p.put("guests",JSONArray(str("guests")));p.put("repeat",str("repeat_rule"));p.put("until",if(c.isNull(c.getColumnIndexOrThrow("repeat_until"))) JSONObject.NULL else num("repeat_until"));p.put("series",str("series") ?: JSONObject.NULL)}
                 "task"->{
                     listOf("title","description","owner","priority","status").forEach {p.put(it,str(it))};p.put("due",num("due"))
                     p.put("meeting",if(c.isNull(c.getColumnIndexOrThrow("meeting_id"))) JSONObject.NULL else identity(db,"meeting",num("meeting_id")))

@@ -22,6 +22,26 @@ import java.time.LocalDate
 class VisualTest {
     @get:Rule val compose=createAndroidComposeRule<ComponentActivity>()
     @Test @Config(qualifiers="fa-rIR-w360dp-h740dp-mdpi")
+    fun voiceFormsRemainReadableInBothThemesWithLargeText() {
+        val theme=androidx.compose.runtime.mutableStateOf("light")
+        val meeting=androidx.compose.runtime.mutableStateOf(false)
+        val person=CompanyUser("a","علی احمدی","deputy",username="ahmadi")
+        Organization.members.value=listOf(person);Organization.contacts.value=listOf("سارا کاظمی")
+        val config=android.content.res.Configuration(compose.activity.resources.configuration).apply{fontScale=1.5f}
+        @Suppress("DEPRECATION")
+        compose.activity.resources.updateConfiguration(config,compose.activity.resources.displayMetrics)
+        compose.setContent{PeygirTheme(theme.value){if(meeting.value) MeetingEditor(Meeting(id=1,title="مرور برنامهٔ شرکت",attendees=listOf("a"),guests=listOf("سارا کاظمی")),false,{}, {}) else TaskEditor(Resolution(title="مرور گزارش فروش"),emptyList(),emptyList(),false,{},{_,_->},null)}}
+        compose.onNodeWithText("مسئول انجام *").performTextInput("احمدی")
+        compose.onNodeWithTag("person_suggestion_a").performScrollTo().assertIsDisplayed()
+        capture("voice-fields-task-light-large")
+        compose.runOnIdle{theme.value="dark"};capture("voice-fields-task-dark-large")
+        compose.runOnIdle{meeting.value=true;theme.value="light"}
+        compose.onNodeWithText("سارا کاظمی",substring=false).performScrollTo().assertIsDisplayed()
+        capture("voice-fields-meeting-light-large")
+        compose.runOnIdle{theme.value="dark"};capture("voice-fields-meeting-dark-large")
+        Organization.members.value=emptyList();Organization.contacts.value=emptyList()
+    }
+    @Test @Config(qualifiers="fa-rIR-w360dp-h740dp-mdpi")
     fun rendersSimpleExecutiveInterfaceWithLargeFont() {
         val c=RuntimeEnvironment.getApplication()
         c.getSharedPreferences("shared_private",0).edit().clear().commit()
@@ -96,7 +116,7 @@ class VisualTest {
         ))
         val theme=androidx.compose.runtime.mutableStateOf("light")
         compose.setContent{PeygirTheme(theme.value){androidx.compose.material3.Surface{MeetingCalendarScreen(data,{},{},initialDay=day)}}}
-        compose.onNodeWithTag("meeting_mode_WEEK").assertIsSelected()
+        compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected();compose.onNodeWithTag("meeting_mode_WEEK").performClick()
         capture("meeting-timetable-week-light")
         compose.onNodeWithTag("meeting_mode_DAY").performClick()
         val bounds=(21L..23L).map{compose.onNodeWithTag("meeting_card_$it").fetchSemanticsNode().boundsInRoot}
@@ -266,9 +286,7 @@ class VisualTest {
         capture("editor-light")
         compose.onNodeWithText("مسئول انجام *").performTextInput("احمد")
         capture("owner-suggestions-light")
-        compose.onNodeWithTag("input_voice").performClick()
-        capture("input-voice")
-        compose.onNodeWithTag("input_write").performClick()
+        compose.onNodeWithTag("input_voice").assertDoesNotExist()
         compose.onNodeWithText("سررسید - ${Solar.label(LocalDate.now().plusDays(1))}").performClick()
         compose.onNodeWithText("انتخاب تاریخ شمسی").assertIsDisplayed()
         capture("solar-picker")
@@ -340,7 +358,7 @@ class VisualTest {
     private fun capture(name: String) {
         compose.waitForIdle()
         compose.runOnIdle {
-            val view=if(name.startsWith("simple-task-") || name.startsWith("meeting-tools-") || name.startsWith("calendar-create-") || name.startsWith("company-calendar-search") || name=="tasks-search-small" || name=="first-run-login" || name in listOf("editor-light","solar-picker","input-voice","reschedule-light","due-history-light","meeting-delete-light","task-tools-light","follow-ups-light","owner-tasks-light","owner-suggestions-light","shared-login")) ShadowDialog.getShownDialogs().last{it.isShowing}.window!!.decorView else compose.activity.window.decorView
+            val view=if(name.startsWith("voice-fields-") || name.startsWith("simple-task-") || name.startsWith("meeting-tools-") || name.startsWith("calendar-create-") || name.startsWith("company-calendar-search") || name=="tasks-search-small" || name=="first-run-login" || name in listOf("editor-light","solar-picker","input-voice","reschedule-light","due-history-light","meeting-delete-light","task-tools-light","follow-ups-light","owner-tasks-light","owner-suggestions-light","shared-login")) ShadowDialog.getShownDialogs().last{it.isShowing}.window!!.decorView else compose.activity.window.decorView
             if(view.width==0 || view.height==0) {
                 val dm=compose.activity.resources.displayMetrics
                 view.measure(android.view.View.MeasureSpec.makeMeasureSpec(dm.widthPixels,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(dm.heightPixels,android.view.View.MeasureSpec.EXACTLY))

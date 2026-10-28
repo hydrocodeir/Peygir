@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
     var filter by rememberSaveable {mutableStateOf("open")}
     var calendarDay by rememberSaveable {mutableLongStateOf(LocalDate.now().toEpochDay())}
     var calendarVersion by rememberSaveable {mutableIntStateOf(0)}
-    var calendarMode by rememberSaveable {mutableStateOf("WEEK")}
+    var calendarMode by rememberSaveable {mutableStateOf("DAY")}
     var selectedMeeting by rememberSaveable {mutableLongStateOf(0)}
     var editTask by rememberSaveable {mutableStateOf<String?>(null)}
     var taskEditing by rememberSaveable {mutableStateOf(false)}
@@ -137,7 +137,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     LaunchedEffect(revision) {
-        try {data=withContext(Dispatchers.IO) {if(!draftsCleaned) {store.discardDraftRecordings(except=if(editTask!=null) draftSession else null);draftsCleaned=true};Organization.members.value=Organization.users(store);store.snapshot()};loadError=false;loading=false}
+        try {data=withContext(Dispatchers.IO) {if(!draftsCleaned) {store.discardDraftRecordings(except=if(editTask!=null) draftSession else null);draftsCleaned=true};Organization.members.value=Organization.users(store);Organization.contacts.value=Organization.contactNames(store);store.snapshot()};loadError=false;loading=false}
         catch(e:CancellationException) {throw e}
         catch(e:Exception) {loadError=true;loading=false;android.util.Log.e("Peygir","Snapshot load failed",e);message("خواندن اطلاعات ناموفق بود؛ دوباره تلاش کنید.")}
     }
@@ -321,7 +321,7 @@ class MainActivity : ComponentActivity() {
     val m=data.meetings.find{it.id==id} ?: return
     val tasks=data.tasks.filter{it.meetingId==id}.sortedWith(Presentation.order(today,role))
     var more by rememberSaveable(id){mutableStateOf(false)}
-    val names=people.filter{it.id in m.attendees}.map{it.name}
+    val names=people.filter{it.id in m.attendees}.map{it.name}+m.guests
     val summary=names.take(2).joinToString("، ")
     LazyColumn(contentPadding=PaddingValues(16.dp,8.dp,16.dp,24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -331,7 +331,7 @@ class MainActivity : ComponentActivity() {
                 if(!deputy && delete!=null) add(PageAction("حذف جلسه",delete,"meeting_delete",true))
             })}
             Text("${Solar.label(LocalDate.ofEpochDay(m.date))} - ${m.clockLabel()}",style=MaterialTheme.typography.bodyMedium)
-            if(m.attendees.isNotEmpty()) {CountLabel("شرکت‌کنندگان",m.attendees.size);if(summary.isNotBlank()) Text(summary,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
+            if(m.attendees.isNotEmpty() || m.guests.isNotEmpty()) {CountLabel("شرکت‌کنندگان",m.attendees.size+m.guests.size);if(summary.isNotBlank()) Text(summary,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
             if(!deputy) Button(onClick=add,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Add,null);Spacer(Modifier.width(6.dp));Text("ثبت مصوبه")}
             MoreDetails(more,{more=!more},"meeting_detail_more")
             if(more) {

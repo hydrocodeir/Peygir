@@ -186,6 +186,7 @@ class UiFlowTest {
         compose.onNodeWithText("عنوان جلسه *").assertDoesNotExist()
     }
     private fun enterProposalText(text: String) {
+        compose.onNodeWithContentDescription("گزینه‌های فرم").performClick();compose.onNodeWithText("ورود چند مصوبه از متن",substring=false).performClick()
         compose.onNodeWithText("ورود چند مصوبه از متن").performClick()
         compose.onNodeWithText("متن ورودی",substring=false).performTextReplacement(text)
         compose.onNodeWithText("استخراج مصوبات",substring=false).performScrollTo().performClick()
@@ -210,8 +211,8 @@ class UiFlowTest {
     }
     @Test fun registrationStartsEmptyAfterCancellingEachInputMode() {
         start()
-        listOf("input_write","input_voice").forEach {mode->
-            compose.onNodeWithText("ثبت مصوبه").performClick();compose.onNodeWithTag(mode).performClick()
+        repeat(2) {
+            compose.onNodeWithText("ثبت مصوبه").performClick()
             compose.onNodeWithText("عنوان مصوبه *").performTextReplacement("عنوان موقت")
             compose.onNodeWithText("مسئول انجام *").performTextReplacement("مسئول موقت")
             compose.onNodeWithContentDescription("بستن").performClick()
@@ -228,17 +229,16 @@ class UiFlowTest {
     }
     @Test fun inputMethodsShareTheSameTaskForm() {
         start();compose.onNodeWithText("ثبت مصوبه").performClick()
-        compose.onNodeWithTag("input_voice").performClick()
-        compose.onNodeWithText("ضبط مصوبه").assertIsDisplayed()
-        compose.onNodeWithText("ورود چند مصوبه از متن").assertDoesNotExist()
-        compose.onNodeWithText("راهنمای گفتار").performClick();compose.onNodeWithText("ابتدا عنوان",substring=true).assertExists()
+        compose.onNodeWithTag("input_write").assertDoesNotExist()
+        compose.onNodeWithTag("input_voice").assertDoesNotExist()
+        compose.onNodeWithContentDescription("ورود صوتی - عنوان مصوبه").assertIsDisplayed()
+        compose.onNodeWithContentDescription("ورود صوتی - مسئول انجام").assertIsDisplayed()
         compose.onNodeWithText("عنوان مصوبه *").assertExists()
         compose.onNodeWithTag("input_photo").assertDoesNotExist()
         compose.onNodeWithText("گرفتن عکس").assertDoesNotExist()
         compose.onNodeWithText("انتخاب عکس").assertDoesNotExist()
         compose.onNodeWithText("Mistral آنلاین").assertDoesNotExist()
         compose.onNodeWithText("مسئول انجام *").assertExists()
-        compose.onNodeWithTag("input_write").performClick()
         compose.onNodeWithText("اولویت",substring=false).assertDoesNotExist()
         compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
         compose.onNodeWithText("فوری",substring=false).assertExists()
@@ -283,7 +283,7 @@ class UiFlowTest {
         compose.onNodeWithText("یادداشت صوتی",substring=false).assertDoesNotExist()
         compose.onNodeWithText("پیگیری",useUnmergedTree=true).performClick()
         compose.onNodeWithText("ثبت مصوبه",substring=false).performClick()
-        compose.onNodeWithTag("input_voice").performClick()
+        compose.onNodeWithContentDescription("گزینه‌های فرم").performClick();compose.onNodeWithText("صداهای ذخیره‌شده",substring=false).performClick()
         compose.onNodeWithText("صداهای ذخیره‌شده").performScrollTo().performClick()
         compose.onNodeWithContentDescription("پخش صدا").assertExists()
         compose.onNodeWithText("تبدیل به متن",substring=false).assertExists()
@@ -358,7 +358,7 @@ class UiFlowTest {
         val request=androidx.compose.runtime.mutableStateOf<WidgetLaunch?>(WidgetLaunch(WidgetLaunch.NEW_TASK,LocalDate.now().toEpochDay()))
         compose.setContent {PeygirApp(widgetLaunch=request.value,consume={request.value=null})}
         compose.waitUntil(15000){compose.onAllNodesWithText("عنوان مصوبه *").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithTag("input_voice").performClick()
+        compose.onNodeWithContentDescription("گزینه‌های فرم").performClick();compose.onNodeWithText("صداهای ذخیره‌شده",substring=false).performClick()
         compose.onNodeWithText("صداهای ذخیره‌شده").performScrollTo().performClick()
         compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
         compose.onNodeWithText("مهم",substring=false).performScrollTo().performClick()

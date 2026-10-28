@@ -5,8 +5,9 @@ const admin = u => u.role === 'assistant' || u.role === 'manager';
 const ref = v => v === null || (typeof v === 'string' && ID.test(v));
 const day = v => integer(v,-100000,100000);
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+function contactKey(name) {return name.normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u064b-\u065f\u0670ـ]/g,'').replace(/^(?:(?:آقا|آقای|خانم|جناب|سرکار|دکتر|مهندس)\s+)+/,'').replace(/[\s\u200c\p{P}]/gu,'').toLowerCase();}
 export function normalize(kind,value) {
-  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],repeat:'NONE',until:null,series:null,...value};
+  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,...value};
   if(kind==='task') return {assignee:null,submitted:0,approved:0,approvedBy:null,...value};
   return {...value};
 }
@@ -15,9 +16,10 @@ function validate(op) {
   if(op.kind==='meeting') {
     requireValue((op.deleted && p.start===null && p.end===null) || (integer(p.start,0,1438) && integer(p.end,p.start+1,1439)),'ساعت پایان باید بعد از شروع و در همان روز باشد.');
     requireValue(text(p.location,2000) && Array.isArray(p.attendees) && p.attendees.length<=200 && p.attendees.every(x=>typeof x==='string' && ID.test(x)) && new Set(p.attendees).size===p.attendees.length);
+    requireValue(p.guests===undefined || Array.isArray(p.guests) && p.guests.length<=200 && p.guests.every(n=>text(n,200,true) && contactKey(n).length>0) && new Set(p.guests.map(contactKey)).size===p.guests.length);
     requireValue(['NONE','DAILY','WEEKLY','MONTHLY'].includes(p.repeat) && ref(p.series) && (p.until===null || day(p.until)));
     requireValue(p.repeat==='NONE' || (p.series!==null && p.until>=p.date && p.until-p.date<=366));
-    for(const k of ['start','end','location','attendees','repeat','until','series']) delete core[k];
+    for(const k of ['start','end','location','attendees','guests','repeat','until','series']) delete core[k];
   } else if(op.kind==='task') {
     requireValue(ref(p.assignee) && integer(p.submitted) && integer(p.approved) && ref(p.approvedBy));
     for(const k of ['assignee','submitted','approved','approvedBy']) delete core[k];
@@ -68,6 +70,7 @@ async function mutate(env,user,op) {
   }
   if((previous?.revision||0)!==op.baseRevision || previous && previous.kind!==op.kind) return {opId:op.id,ok:false,record:previous?await projected(env,user,previous):revoked(op)};
   let p={...op.payload};
+  if(op.kind==='meeting' && !Object.hasOwn(p,'guests')) p.guests=previous?.payload.guests || [];
   if(!admin(user)) {
     requireValue(!op.deleted,'معاون اجازهٔ حذف ندارد.');
     if(op.kind==='task') {
@@ -116,6 +119,10 @@ async function mutate(env,user,op) {
   const committed="EXISTS(SELECT 1 FROM records WHERE workspace=? AND id=? AND operation=?)";
   if(op.deleted && op.kind==='task') statements.push(env.DB.prepare(`UPDATE records SET revision=revision+1,deleted=1,actor=?,changed=?,operation=? WHERE workspace=? AND kind IN ('followup','history') AND deleted=0 AND json_extract(payload,'$.task')=? AND ${committed}`).bind(user.name,now,op.id+'-cascade',user.workspace,op.recordId,user.workspace,op.recordId,op.id));
   if(op.deleted && op.kind==='meeting') statements.push(env.DB.prepare(`UPDATE records SET revision=revision+1,payload=json_set(payload,'$.meeting',NULL),actor=?,changed=?,operation=? WHERE workspace=? AND kind='task' AND deleted=0 AND json_extract(payload,'$.meeting')=? AND ${committed}`).bind(user.name,now,op.id+'-detach',user.workspace,op.recordId,user.workspace,op.recordId,op.id));
+  if(env.CONTACTS_ENABLED && admin(user) && !op.deleted) {
+    const names=op.kind==='meeting'?p.guests:op.kind==='task' && !p.assignee?[p.owner]:[];
+    for(const name of names.filter(n=>text(n,200,true) && contactKey(n))) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO contacts(workspace,key,name) SELECT ?,?,? WHERE ${committed}`).bind(user.workspace,contactKey(name),name.trim(),user.workspace,op.recordId,op.id));
+  }
   // Durable, transactional outbox: a crash after committing cannot lose the push event.
   let taskRecord=op.kind==='task'?result.record:['followup','history'].includes(op.kind)?await getRecord(env,user.workspace,p.task):null;
   const recipients=new Set();
@@ -154,7 +161,7 @@ async function sync(request,env,user,ctx) {
   // Return only generic revocations for IDs the caller already knows. Never historical private payloads.
   for(const [id,i] of inventory) if(!allowed.has(id)) changes.unshift(revoked({recordId:id,kind:i.kind,baseRevision:i.revision}));
   ctx?.waitUntil(flushPush(env));
-  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),userId:user.id,role:user.role,name:user.name,workspaceName:user.workspace_name,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),contacts:env.CONTACTS_ENABLED && admin(user)?(await env.DB.prepare('SELECT name FROM contacts WHERE workspace=? ORDER BY name LIMIT 10000').bind(user.workspace).all()).results.map(r=>r.name):[],userId:user.id,role:user.role,name:user.name,workspaceName:user.workspace_name,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
 }
 /** Account mutations use one transactional authorization decision, including the last-manager check. */
 async function manageAccounts(request,env,user) {

@@ -158,3 +158,47 @@ test('platform recovery selects another active manager after the original manage
   assert.equal((await request(app,'/v2/users',{company:'company-a',token:b.token,body:{action:'delete',id:a.userId}})).status,200);
   const owner=await admin(app),reset=await request(app,`/admin/api/companies/${c.company.id}/reset-manager`,{...owner,body:{}});assert.equal(reset.status,200);assert.equal(reset.data.credentials.username,'replacement-manager');await login(app,'company-a',reset.data.credentials.username,reset.data.credentials.password);
 });
+
+
+test('company contacts persist after record deletion without login, invitations or cross-company disclosure',async t=>{
+  const {app}=await setup(t);const aCompany=await company(app,'company-a');await company(app,'company-b');
+  const a=await login(app,'company-a'),b=await login(app,'company-b');
+  const deputyId=await user(app,'company-a',a.token,'deputy','ahmadi');
+  const deputy=await login(app,'company-a','ahmadi','account-password-123456');
+  const meeting={title:'جلسه مهمان',date:20000,notes:'',start:540,end:600,location:'سالن',attendees:[deputyId],guests:['سارا کاظمی'],repeat:'NONE',until:null,series:null};
+  const op=operation('meeting',meeting);const saved=await sync(app,'company-a',a.token,[op]);assert.equal(saved.status,200,saved.text);assert.equal(saved.data.results[0].ok,true);
+  assert.deepEqual(saved.data.contacts,['سارا کاظمی']);assert.ok(!saved.data.users.some(u=>u.name==='سارا کاظمی'));
+  assert.ok(!(await sync(app,'company-b',b.token)).text.includes('کاظمی'));
+  const visible=await sync(app,'company-a',deputy.token);assert.equal(visible.data.changes.length,1);assert.deepEqual(visible.data.contacts,[]);
+  const lease=app.registry.lease(aCompany.company);try {
+    assert.equal(lease.db.prepare('SELECT count(*) n FROM users').get().n,2);
+    assert.deepEqual(lease.db.prepare('SELECT user_id FROM push_outbox').all().map(r=>r.user_id),[deputyId]);
+  }finally{lease.release();}
+  const olderClient={...meeting};delete olderClient.guests;
+  const updated=await sync(app,'company-a',a.token,[operation('meeting',olderClient,op.recordId,randomUUID(),1)]);assert.deepEqual(updated.data.results[0].record.payload.guests,['سارا کاظمی']);
+  const remove={...operation('meeting',meeting,op.recordId,randomUUID(),2),deleted:true};
+  assert.equal((await sync(app,'company-a',a.token,[remove])).data.results[0].ok,true);
+  assert.deepEqual((await sync(app,'company-a',a.token)).data.contacts,['سارا کاظمی']);
+});
+
+test('contacts cannot grant task access, cannot be forged by regular users and reject invalid guest lists',async t=>{
+  const {app}=await setup(t);await company(app,'company-a');const a=await login(app,'company-a');
+  const person=await user(app,'company-a',a.token,'deputy','ordinary'),d=await login(app,'company-a','ordinary','account-password-123456');
+  const work=task('CONTACT TASK');work.owner='نام ordinary';
+  const saved=await sync(app,'company-a',a.token,[operation('task',work)]);assert.deepEqual(saved.data.contacts,['نام ordinary']);
+  assert.equal((await sync(app,'company-a',d.token)).data.changes.length,0);
+  const bad=await sync(app,'company-a',d.token,[operation('task',{...work,assignee:person})]);assert.equal(bad.data.results[0].denied,true);
+  const meeting={title:'bad',date:20000,notes:'',start:540,end:600,location:'',attendees:[],guests:['رضا','رضا'],repeat:'NONE',until:null,series:null};
+  assert.equal((await sync(app,'company-a',a.token,[operation('meeting',meeting)])).status,400);
+  const assigned=await sync(app,'company-a',a.token,[operation('task',task('ASSIGNED',person))]);assert.equal(assigned.data.results[0].ok,true);
+  assert.equal((await sync(app,'company-a',d.token)).data.changes.length,1);
+});
+
+test('existing tenant databases acquire contacts schema on reopen without losing data',async t=>{
+  const {app,dir,close}=await setup(t);const c=await company(app,'company-a'),a=await login(app,'company-a');
+  await sync(app,'company-a',a.token,[operation('task',task('MIGRATED'))]);
+  const lease=app.registry.lease(c.company);lease.db.exec('DROP TABLE contacts');lease.release();await close();
+  const fresh=await createApp({dataDir:dir,publicOrigin:origin});try {
+    const r=await sync(fresh,'company-a',a.token);assert.equal(r.status,200,r.text);assert.ok(r.text.includes('MIGRATED'));assert.deepEqual(r.data.contacts,[]);
+  }finally{await fresh.close();}
+});

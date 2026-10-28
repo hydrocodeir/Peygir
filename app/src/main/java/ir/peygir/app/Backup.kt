@@ -44,8 +44,9 @@ object Backup {
             r.id to file
         }
         val p=settings(context)
-        val json=obj("format" to "peygir-backup","version" to 4,"createdAt" to System.currentTimeMillis(),
+        val json=obj("format" to "peygir-backup","version" to 5,"createdAt" to System.currentTimeMillis(),
             "settings" to obj("theme" to p.theme,"dynamic" to p.dynamic,"daily" to p.daily,"times" to p.times),
+            "contacts" to JSONArray(data.contacts),
             "meetings" to array(data.meetings) {obj("id" to it.id,"title" to it.title,"date" to it.date,"notes" to it.notes).meetingOrganization(it)},
             "tasks" to array(data.tasks) {obj("id" to it.id,"meeting" to it.meetingId,"title" to it.title,"description" to it.description,"owner" to it.owner,"due" to it.due,"priority" to it.priority.name,"status" to it.status.name).taskOrganization(it)},
             "reminders" to array(data.reminders) {obj("id" to it.id,"task" to it.taskId,"at" to it.at,"delivered" to it.delivered)},
@@ -82,13 +83,14 @@ object Backup {
             }
             require("peygir.json" in names) {"این فایل پشتیبان پیگیر نیست."}
             val root=JSONObject(File(directory,"peygir.json").readText(Charsets.UTF_8))
-            require(root.getString("format")=="peygir-backup" && root.getInt("version") in 1..4) {"نسخهٔ پشتیبان پشتیبانی نمی‌شود."}
+            require(root.getString("format")=="peygir-backup" && root.getInt("version") in 1..5) {"نسخهٔ پشتیبان پشتیبانی نمی‌شود."}
             fun <T> list(key: String, parse: (JSONObject)->T): List<T> {
                 val a=root.getJSONArray(key);require(a.length()<=100000) {"تعداد داده‌های پشتیبان بیش از حد مجاز است."}
                 return (0 until a.length()).map {parse(a.getJSONObject(it))}
             }
             fun JSONObject.ref(key: String): Long?=if(isNull(key)) null else getLong(key)
             fun JSONObject.text(key: String)=getString(key).also {require(it.length<=200000)}
+            val contacts=root.optJSONArray("contacts")?.strings().orEmpty();require(contacts.size<=100000 && contacts.all{it.isNotBlank() && it.length<=200})
             val meetings=list("meetings") {Meeting(it.getLong("id"),it.text("title"),it.getLong("date"),it.text("notes")).fromOrganization(it)}
             val tasks=list("tasks") {Resolution(it.getLong("id"),it.ref("meeting"),it.text("title"),it.text("description"),it.text("owner"),it.getLong("due"),Priority.valueOf(it.getString("priority")),Status.valueOf(it.getString("status"))).fromOrganization(it)}
             val reminders=list("reminders") {Reminder(it.getLong("id"),it.getLong("task"),it.getLong("at"),it.getBoolean("delivered"))}
@@ -108,7 +110,7 @@ object Backup {
             fun day(d: Long)=d in WidgetDays.min..WidgetDays.max
             require(meetings.all {it.title.isNotBlank() && day(it.date) && runCatching{MeetingRecurrence.expand(it)}.isSuccess})
             fun accountRef(value: String?)=value==null || Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").matches(value)
-            require(meetings.all {it.attendees.size<=200 && it.attendees.distinct().size==it.attendees.size && it.attendees.all {id->accountRef(id)} && accountRef(it.series) && (it.repeat=="NONE" || (it.series!=null && it.until!=null && it.until in it.date..it.date+366))})
+            require(meetings.all {it.guests.size<=200 && it.guests.all{n->n.isNotBlank() && n.length<=200} && it.guests.distinctBy{n->Owners.key(n)}.size==it.guests.size && it.attendees.size<=200 && it.attendees.distinct().size==it.attendees.size && it.attendees.all {id->accountRef(id)} && accountRef(it.series) && (it.repeat=="NONE" || (it.series!=null && it.until!=null && it.until in it.date..it.date+366))})
             require(tasks.all {accountRef(it.assignee) && accountRef(it.approvedBy) && it.submitted>=0 && it.approved>=0})
             require(tasks.all {it.title.isNotBlank() && it.owner.isNotBlank() && day(it.due) && (it.meetingId==null || it.meetingId in meetingIds)})
             require(reminders.all {it.taskId in taskIds && it.at>0} && reminders.map{it.taskId to it.at}.distinct().size==reminders.size)
@@ -119,7 +121,7 @@ object Backup {
             val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"))
             require(settings.theme in setOf("system","light","dark") && settings.times.length<10000)
             require(settings.times.isEmpty() || settings.times.split(',').all {runCatching {LocalTime.parse(it)}.isSuccess})
-            return Prepared(Snapshot(meetings,tasks,reminders,recordings,history,followUps=followUps,backlog=backlog),settings,directory)
+            return Prepared(Snapshot(meetings,tasks,reminders,recordings,history,followUps=followUps,backlog=backlog,contacts=contacts),settings,directory)
         } catch(e:Exception) {directory.deleteRecursively();throw e}
     }
     /** Stage new files first; failed database/settings writes retain the current data and audio. */

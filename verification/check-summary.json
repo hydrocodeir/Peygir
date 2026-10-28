@@ -1,10 +1,10 @@
 {
-  "checkedAtTehran": "2026-10-28T00:05:32.133876+03:30",
-  "tests": 209,
+  "checkedAtTehran": "2026-10-28T16:48:57.066389+03:30",
+  "tests": 218,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
-  "lintWarnings": 78,
+  "lintWarnings": 79,
   "lintWarningIds": [
     "ApplySharedPref",
     "ApplySharedPref",
@@ -40,6 +40,7 @@
     "UseOfNonLambdaOffsetOverload",
     "SmallSp",
     "SmallSp",
+    "UseKtx",
     "UseKtx",
     "UseKtx",
     "UseKtx",
@@ -200,7 +201,7 @@
     },
     {
       "name": "ir.peygir.app.VisualTest",
-      "tests": 13
+      "tests": 14
     },
     {
       "name": "ir.peygir.app.VoiceCommandsTest",
@@ -209,6 +210,10 @@
     {
       "name": "ir.peygir.app.VoiceInputFlowTest",
       "tests": 1
+    },
+    {
+      "name": "ir.peygir.app.VoicePeopleTest",
+      "tests": 8
     },
     {
       "name": "ir.peygir.app.WidgetTest",
