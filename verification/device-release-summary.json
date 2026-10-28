@@ -1,17 +1,17 @@
 {
-  "version": "4.4.0",
-  "versionCode": 33,
+  "version": "4.4.1",
+  "versionCode": 34,
   "databaseVersion": 8,
   "backupVersion": 5,
   "protocol": 2,
-  "apkSha256": "bb1933e1c467778b716569abd51d6c303e71ac75d98292a982b24feda9bdc5b3",
+  "apkSha256": "7b584886baedf4b49a227ff1d535f052b68c64662bcacc08445326bd8d874bd4",
   "deviceTests": 0,
   "connectedDevice": false,
   "userDeferredDeviceTest": true,
   "serverLiveTested": true,
   "fcmAuthAndApiVerified": true,
   "fcmRealPhoneDeliveryTested": false,
-  "localTests": 255,
+  "localTests": 257,
   "localFailures": 0,
   "lintErrors": 0,
   "lintWarnings": 94,
@@ -120,5 +120,10 @@
   "textSizeChoice": true,
   "personalOptionsBackupCompatibility": true,
   "schemaSevenToEightPreservesPendingSync": true,
-  "personalOptionsPhysicalDeviceTested": false
+  "personalOptionsPhysicalDeviceTested": false,
+  "dictationDefault": "hold",
+  "dictationBorderInsetDp": 8,
+  "dictationSelectionControlsRemoved": true,
+  "keyboardAccessoryResearchedOnly": true,
+  "physicalDeviceConnected": false
 }

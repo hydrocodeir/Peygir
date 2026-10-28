@@ -44,16 +44,10 @@ internal val LocalDictationHandler=staticCompositionLocalOf<((String,(String)->U
 }
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun VoiceChoiceRow(choices: Map<String,String>,selected: String,label: String,choose: (String)->Unit) {
-    var query by remember{mutableStateOf("")}
-    val matches=choices.filterValues{PeopleSuggestions.matches(it,query)}
-    Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-        DictationButton(label){query=it}
-        androidx.compose.foundation.layout.FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.weight(1f)) {
-            matches.forEach{(key,text)->FilterChip(selected==key,{query="";choose(key)},label={Text(text)},modifier=Modifier.then(if(label=="وضعیت مصوبه") Modifier.testTag("task_status_$key") else Modifier))}
-        }
+@Composable internal fun ChoiceRow(choices: Map<String,String>,selected: String,label: String,choose: (String)->Unit) {
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth().testTag("choice_$label")) {
+        choices.forEach{(key,text)->FilterChip(selected==key,{choose(key)},label={Text(text)},modifier=Modifier.then(if(label=="وضعیت مصوبه") Modifier.testTag("task_status_$key") else Modifier))}
     }
-    if(query.isNotBlank()) TextButton(onClick={query=""}){Text(if(matches.isEmpty()) "گزینه‌ای پیدا نشد - نمایش همه" else "نمایش همهٔ گزینه‌ها")}
 }
 
 internal fun insertDictation(value: TextFieldValue,words: String): TextFieldValue {
@@ -77,7 +71,7 @@ internal fun insertDictation(value: TextFieldValue,words: String): TextFieldValu
     fun insert(words: String) {val updated=insertDictation(editing,words);editing=updated;latestChange(updated.text)}
     OutlinedTextField(editing,{editing=it;onValueChange(it.text)},modifier=modifier,label=label,placeholder=placeholder,
         enabled=enabled,isError=isError,singleLine=singleLine,minLines=minLines,maxLines=maxLines,leadingIcon=leadingIcon,
-        trailingIcon={Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {trailingIcon?.invoke();DictationButton(voiceLabel,enabled,::insert)}},shape=shape,textStyle=textStyle)
+        trailingIcon={Row(Modifier.padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {trailingIcon?.invoke();DictationButton(voiceLabel,enabled,::insert)}},shape=shape,textStyle=textStyle)
 }
 
 /** Consume only this button's touch stream; IconButton keeps keyboard and TalkBack actions. */

@@ -112,9 +112,11 @@ class BackupTest {
         assertThrows(Exception::class.java) {store.replaceAll(Snapshot()) {error("simulated failure")}}
         assertEquals(before,store.snapshot())
     }
-    @Test fun oldBackupsDefaultToTapAndInvalidDictationSettingsAreRejected() {
+    @Test fun oldBackupsDefaultToHoldAndInvalidDictationSettingsAreRejected() {
         val old=archive({it.getJSONObject("settings").remove("dictation")})
-        Backup.read(context,old.inputStream()).use{assertEquals("tap",it.settings.dictation)}
+        Backup.read(context,old.inputStream()).use{assertEquals("hold",it.settings.dictation)}
+        val explicit=archive({it.getJSONObject("settings").put("dictation","tap")})
+        Backup.read(context,explicit.inputStream()).use{assertEquals("tap",it.settings.dictation)}
         val invalid=archive({it.getJSONObject("settings").put("dictation","unexpected")})
         assertThrows(Exception::class.java){Backup.read(context,invalid.inputStream())}
     }

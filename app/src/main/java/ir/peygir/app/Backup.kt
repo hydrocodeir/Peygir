@@ -15,7 +15,7 @@ import java.util.zip.ZipOutputStream
 object Backup {
     private const val MAX_BYTES=512L*1024*1024
     private const val MAX_JSON=16L*1024*1024
-    data class Preferences(val theme: String, val dynamic: Boolean, val daily: Boolean, val times: String,val dictation: String="tap",val options: UserOptions=UserOptions())
+    data class Preferences(val theme: String, val dynamic: Boolean, val daily: Boolean, val times: String,val dictation: String="hold",val options: UserOptions=UserOptions())
     class Prepared internal constructor(val data: Snapshot, val settings: Preferences, internal val directory: File): Closeable {
         override fun close() {directory.deleteRecursively()}
     }
@@ -120,7 +120,7 @@ object Backup {
             require(recordings.all {(it.meetingId==null || it.meetingId in meetingIds) && it.created>0 && it.seconds>=0})
             val p=root.getJSONObject("settings")
             require(!p.has("options") || p.isNull("options") || p.get("options") is JSONObject) {"قالب تنظیمات راحتی استفاده معتبر نیست."}
-            val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"),p.optString("dictation","tap"),UserOptions.from(p.optJSONObject("options")))
+            val settings=Preferences(p.getString("theme"),p.getBoolean("dynamic"),p.getBoolean("daily"),p.getString("times"),p.optString("dictation","hold"),UserOptions.from(p.optJSONObject("options")))
             require(DictationMode.entries.any{it.key==settings.dictation}) {"روش ورود صوتی پشتیبان معتبر نیست."}
             require(settings.theme in setOf("system","light","dark") && settings.times.length<10000)
             require(settings.times.isEmpty() || settings.times.split(',').all {runCatching {LocalTime.parse(it)}.isSuccess})

@@ -54,7 +54,9 @@ class HoldDictationTest {
         }}}
         mic().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
         val field=compose.onNodeWithTag("voice_field").fetchSemanticsNode().boundsInRoot
-        assertTrue(mic().fetchSemanticsNode().boundsInRoot.center.x<field.center.x)
+        val micBounds=mic().fetchSemanticsNode().boundsInRoot
+        assertTrue(micBounds.center.x<field.center.x)
+        assertTrue("Microphone must be inset from the RTL field border",micBounds.left-field.left>=8f)
         mic().performTouchInput{down(center)}
         compose.runOnIdle{assertEquals(1,speech.starts);assertTrue(speech.active);assertEquals("",value.value)}
         compose.onNodeWithText("پایان",substring=false).assertDoesNotExist()
@@ -129,12 +131,12 @@ class HoldDictationTest {
     }
     @Test fun settingsSelectsAndPersistsModeWithoutASeparateSaveStep() {
         app.getSharedPreferences("settings",0).edit().remove(DictationMode.PREFERENCE).commit()
-        assertEquals(DictationMode.TAP,DictationMode.read(app))
+        assertEquals(DictationMode.HOLD,DictationMode.read(app))
         compose.setContent{PeygirTheme("light"){SettingsScreen("light",{},{})}}
         compose.onNodeWithTag("settings_voice").performScrollTo().performClick()
-        compose.onNodeWithTag("dictation_mode_tap").assertIsSelected()
-        compose.onNodeWithTag("dictation_mode_hold").performScrollTo().performClick().assertIsSelected()
-        compose.runOnIdle{assertEquals(DictationMode.HOLD,DictationMode.read(app))}
+        compose.onNodeWithTag("dictation_mode_hold").assertIsSelected()
+        compose.onNodeWithTag("dictation_mode_tap").performScrollTo().performClick().assertIsSelected()
+        compose.runOnIdle{assertEquals(DictationMode.TAP,DictationMode.read(app))}
     }
     @Test fun permissionApprovalNeverStartsARecordingAfterTheFingerHasBeenReleased() {
         shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(Manifest.permission.RECORD_AUDIO)

@@ -174,7 +174,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             val locations=allMeetings.map{it.location}.filter{it.isNotBlank() && it!=location && PeopleSuggestions.matches(it,location)}.distinct().take(4)
             if(locations.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){locations.forEach{place->SuggestionChip(onClick={location=place},label={Text(place)})}}
             if(meeting.id==0L) {
-                VoiceChoiceRow(MeetingRecurrence.labels,repeat,"تکرار جلسه"){repeat=it;validation=""}
+                ChoiceRow(MeetingRecurrence.labels,repeat,"تکرار جلسه"){repeat=it;validation=""}
                 if(repeat!="NONE") {OutlinedButton(onClick={untilPicker=true},modifier=Modifier.fillMaxWidth()){Text("پایان تکرار: ${Solar.label(LocalDate.ofEpochDay(until))}")};Text("هر نوبت، جلسه و مصوبات جداگانه دارد. حداکثر تا یک سال.",style=MaterialTheme.typography.bodySmall)}
             } else if(meeting.series!=null) Text("ویرایش فقط روی این نوبت جلسه اعمال می‌شود.",style=MaterialTheme.typography.bodySmall)
             VoiceTextField(notes,{notes=it},voiceLabel="یادداشت جلسه",label={Text("یادداشت جلسه")},minLines=3,modifier=Modifier.fillMaxWidth())
@@ -270,10 +270,10 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         MoreDetails(more,{more=!more},"task_editor_more")
         if(more) {
             if(task.id>0) TextButton(onClick={focus.clearFocus();ownerDetails=owner.trim()},enabled=owner.isNotBlank() && !busy,modifier=Modifier.testTag("owner_open_tasks")){Icon(Icons.Outlined.PersonOutline,null);Spacer(Modifier.width(6.dp));Text("مصوبات باز مسئول")}
-            Box {Row(verticalAlignment=Alignment.CenterVertically) {DictationButton("جلسهٔ مرتبط"){meetingQuery=it;meetingMenu=true};TextButton(onClick={meetingQuery="";meetingMenu=true}){Icon(Icons.Outlined.Groups,null);Spacer(Modifier.width(6.dp));Text(meetings.find{it.id==meetingId}?.title ?: "جلسه (اختیاری)");Icon(Icons.Outlined.ExpandMore,null)}}
+            Box {Row(verticalAlignment=Alignment.CenterVertically) {TextButton(onClick={meetingQuery="";meetingMenu=true}){Icon(Icons.Outlined.Groups,null);Spacer(Modifier.width(6.dp));Text(meetings.find{it.id==meetingId}?.title ?: "جلسه (اختیاری)");Icon(Icons.Outlined.ExpandMore,null)}}
                 DropdownMenu(meetingMenu,{meetingMenu=false}){VoiceTextField(meetingQuery,{meetingQuery=it},voiceLabel="جست‌وجوی جلسهٔ مرتبط",label={Text("جست‌وجوی جلسه")},singleLine=true,modifier=Modifier.width(260.dp).padding(8.dp));DropdownMenuItem(text={Text("بدون جلسه")},onClick={meetingId=0;meetingMenu=false});meetings.filter{PeopleSuggestions.matches(it.title,meetingQuery)}.forEach{m->DropdownMenuItem(text={Text(m.title)},onClick={meetingId=m.id;meetingMenu=false})}}}
-            VoiceChoiceRow(Priority.entries.associate{it.name to it.label},priority,"اولویت مصوبه"){priority=it}
-            VoiceChoiceRow(OrgAccess.statuses(context,task.copy(assignee=assignee)).associate{it.name to it.label},status,"وضعیت مصوبه"){status=it}
+            ChoiceRow(Priority.entries.associate{it.name to it.label},priority,"اولویت مصوبه"){priority=it}
+            ChoiceRow(OrgAccess.statuses(context,task.copy(assignee=assignee)).associate{it.name to it.label},status,"وضعیت مصوبه"){status=it}
             VoiceTextField(description,{description=it},voiceLabel="شرح کار و توضیحات",label={Text("شرح کار و توضیحات")},minLines=2,modifier=Modifier.fillMaxWidth())
             if(task.approved>0) Text("تأیید نهایی: ${Solar.label(Instant.ofEpochMilli(task.approved).atZone(ZoneId.systemDefault()).toLocalDate())}",style=MaterialTheme.typography.bodySmall)
             if(history.isNotEmpty()){TextButton(onClick={showHistory=!showHistory}){CountLabel(if(showHistory) "بستن تاریخچه" else "تاریخچهٔ موعد",history.size,color=LocalContentColor.current)};if(showHistory) DueHistoryList(history)}

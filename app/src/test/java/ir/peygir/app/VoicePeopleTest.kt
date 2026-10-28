@@ -82,6 +82,28 @@ class VoicePeopleTest {
         compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected()
         assertTrue(meetingSearch(Meeting(title="بودجه",guests=listOf("سارا کاظمی")),emptyList(),"کاظمی"))
     }
+    @Test fun taskSelectionControlsHaveNoMicrophonesAndStillSaveSelectedValues() {
+        var saved: Resolution?=null
+        compose.setContent{PeygirTheme("light"){TaskEditor(Resolution(title="گزارش",owner="احمدی"),listOf(Meeting(id=1,title="جلسهٔ فروش")),emptyList(),false,{},{t,_->saved=t},null)}}
+        compose.onNodeWithTag("task_editor_more").performScrollTo().performClick()
+        listOf("جلسهٔ مرتبط","اولویت مصوبه","وضعیت مصوبه").forEach{compose.onNodeWithContentDescription("ورود صوتی - $it").assertDoesNotExist()}
+        compose.onNodeWithContentDescription("ورود صوتی - عنوان مصوبه").assertExists()
+        compose.onNodeWithText("فوری",substring=false).performScrollTo().performClick()
+        compose.onNodeWithTag("task_status_ACTIVE").performScrollTo().performClick()
+        compose.onNodeWithText("جلسه (اختیاری)",substring=false).performScrollTo().performClick()
+        compose.onNodeWithText("جلسهٔ فروش",substring=false).performClick()
+        compose.onNodeWithText("ذخیره",substring=false).performClick()
+        compose.runOnIdle{assertEquals(Priority.URGENT,saved!!.priority);assertEquals(Status.ACTIVE,saved!!.status);assertEquals(1L,saved!!.meetingId)}
+    }
+    @Test fun meetingRecurrenceIsTouchOnlyAndKeepsItsSelectedValue() {
+        var saved: Meeting?=null
+        compose.setContent{PeygirTheme("light"){MeetingEditor(Meeting(title="جلسه"),false,{},{saved=it},initialStart=540)}}
+        compose.onNodeWithTag("meeting_more_details").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("ورود صوتی - تکرار جلسه").assertDoesNotExist()
+        compose.onNodeWithText("هر هفته",substring=false).performScrollTo().performClick()
+        compose.onNodeWithText("ذخیره",substring=false).performClick()
+        compose.runOnIdle{assertEquals("WEEKLY",saved!!.repeat)}
+    }
     @Test fun voiceFiltersFixedRolesAndRequiresAnExplicitSelection() {
         var role="deputy"
         compose.setContent{CompositionLocalProvider(LocalDictationHandler provides {_,done->done("مدیر")}){PeygirTheme("light"){AccountRolePicker(role,listOf("manager","assistant","deputy")){role=it}}}}

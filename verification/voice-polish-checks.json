@@ -1,0 +1,26 @@
+{
+  "version": "4.4.1",
+  "versionCode": 34,
+  "tests": 257,
+  "failures": 0,
+  "skipped": 0,
+  "lintErrors": 0,
+  "lintWarnings": 94,
+  "checkedAtTehran": "2026-10-28T23:05:43.481526+03:30",
+  "apkSha256": "7b584886baedf4b49a227ff1d535f052b68c64662bcacc08445326bd8d874bd4",
+  "microphoneFieldInsetDp": 8,
+  "microphoneTouchTargetDp": 48,
+  "defaultDictation": "hold",
+  "explicitTapPreferencePreserved": true,
+  "removedMicrophones": [
+    "meeting recurrence",
+    "related meeting selector",
+    "task priority",
+    "task status"
+  ],
+  "textAndSearchDictationRetained": true,
+  "keyboardFeatureImplemented": false,
+  "keyboardRecommendation": "Peygir hold-to-talk accessory above the user-selected phone keyboard",
+  "serverChanged": false,
+  "physicalDeviceTested": false
+}

@@ -16,7 +16,7 @@ internal enum class DictationMode(val key: String,val title: String,val help: St
     companion object {
         const val PREFERENCE="dictation_mode"
         fun read(context: Context)=from(context.getSharedPreferences("settings",0).getString(PREFERENCE,null))
-        fun from(key: String?)=entries.firstOrNull{it.key==key} ?: TAP
+        fun from(key: String?)=entries.firstOrNull{it.key==key} ?: HOLD
     }
 }
 
