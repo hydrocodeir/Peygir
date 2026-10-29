@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -32,6 +34,10 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 data class MeetingPlacement(val meeting: Meeting,val lane: Int,val lanes: Int)
+internal data class DenseMeetingGroup(val meetings: List<Meeting>) {
+    val start get()=meetings.minOf{it.start!!}
+    val end get()=meetings.maxOf{it.end!!}
+}
 object MeetingTimeline {
     fun initialHour(minute: Int)=((minute.coerceIn(0,1439)/60f)-0.5f).coerceAtLeast(0f)
     fun weekStart(day: Long)=day-((LocalDate.ofEpochDay(day).dayOfWeek.value+1)%7)
@@ -55,6 +61,17 @@ object MeetingTimeline {
         if(cluster.isNotEmpty()) flush()
         return result
     }
+    /** Collapse only dense connected overlap groups; every meeting remains in the day list. */
+    internal fun denseGroups(placements: List<MeetingPlacement>,limit: Int): List<DenseMeetingGroup> {
+        val result=mutableListOf<DenseMeetingGroup>();val group=mutableListOf<MeetingPlacement>();var until=-1
+        fun flush() {if(group.any{it.lanes>limit}) result+=DenseMeetingGroup(group.map{it.meeting});group.clear()}
+        placements.forEach {p->
+            if(group.isNotEmpty() && p.meeting.start!!>=until) flush()
+            until=if(group.isEmpty()) p.meeting.end!! else maxOf(until,p.meeting.end!!)
+            group+=p
+        }
+        flush();return result
+    }
 }
 
 @Composable internal fun MeetingTimePages(data: Snapshot,mode: String,selectedDay: Long,navigation: Int,onPage: (Long)->Unit,choose: (Long)->Unit,open: (Long)->Unit,create: ((Long,Int)->Unit)?=null,pickTime: ((Long)->Unit)?=null,active: Boolean=true,focusVersion: Int=0,clock: ()->LocalDateTime = {LocalDateTime.now()}) {
@@ -62,6 +79,7 @@ object MeetingTimeline {
     val first=if(weekly) MeetingTimeline.weekStart(WidgetDays.min) else WidgetDays.min
     val pager=rememberPagerState(initialPage=((selectedDay-first)/step).toInt(),pageCount={((WidgetDays.max-first)/step+1).toInt()})
     val latestDay by rememberUpdatedState(selectedDay)
+    val byDay=remember(data.meetings){data.meetings.groupBy{it.date}}
     LaunchedEffect(navigation) {val target=((selectedDay-first)/step).toInt();if(target!=pager.currentPage) pager.animateScrollToPage(target)}
     LaunchedEffect(pager.settledPage) {
         val anchor=first+pager.settledPage*step
@@ -95,7 +113,7 @@ object MeetingTimeline {
                         }
                     }
                 }
-                val untimed=data.meetings.filter{it.date in days && (it.start==null || it.end==null)}
+                val untimed=days.flatMap{byDay[it].orEmpty()}.filter{it.start==null || it.end==null}
                 if(untimed.isNotEmpty()) UntimedMeetings(days,untimed,open,gutter)
                 HorizontalDivider()
                 Row(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).testTag("meeting_timeline_scroll")) {
@@ -103,7 +121,7 @@ object MeetingTimeline {
                         repeat(24) {hour->Text("${hour.fa().padStart(2,'۰')}:۰۰",Modifier.fillMaxWidth().offset(y=hourHeight*hour).padding(end=4.dp),fontSize=11.sp,lineHeight=16.sp,maxLines=1,textAlign=TextAlign.End,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                     }
                     days.forEach {day->
-                        val meetings=remember(data.meetings,day){MeetingTimeline.place(data.meetings.filter{it.date==day})}
+                        val meetings=remember(byDay,day){MeetingTimeline.place(byDay[day].orEmpty())}
                         DayTimeColumn(day,meetings,weekly,hourHeight,open,Modifier.weight(1f),create?.takeIf{day in WidgetDays.min..WidgetDays.max},pickTime)
                     }
                 }
@@ -133,6 +151,9 @@ object MeetingTimeline {
     val expanded=rememberUserOptions().cards=="full"
     var now by remember {mutableStateOf(LocalDateTime.now())}
     val latestCreate by rememberUpdatedState(create)
+    val dense=remember(meetings,weekly){MeetingTimeline.denseGroups(meetings,if(weekly) 2 else 3)}
+    val hidden=remember(dense){dense.flatMap{it.meetings}.map{it.id}.toSet()}
+    var show by remember(day){mutableStateOf<DenseMeetingGroup?>(null)}
     LaunchedEffect(Unit) {while(true) {now=LocalDateTime.now();delay(60_000)}}
     BoxWithConstraints(modifier.height(hourHeight*24).background(scheme.surfaceContainerLowest).testTag("meeting_time_column_$day")) {
         val width=maxWidth
@@ -147,7 +168,7 @@ object MeetingTimeline {
             repeat(25){i->val y=size.height*i/24f;drawLine(scheme.outlineVariant.copy(alpha=.6f),Offset(0f,y),Offset(size.width,y))}
             drawLine(scheme.outlineVariant.copy(alpha=.6f),Offset.Zero,Offset(0f,size.height))
         }
-        meetings.forEach {placement->
+        meetings.filter{it.meeting.id !in hidden}.forEach {placement->
             val m=placement.meeting;val start=m.start!!;val end=m.end!!
             val column=width/placement.lanes;val height=hourHeight*((end-start)/60f)
             val palette=listOf(scheme.primaryContainer to scheme.onPrimaryContainer,scheme.secondaryContainer to scheme.onSecondaryContainer,scheme.tertiaryContainer to scheme.onTertiaryContainer)
@@ -164,6 +185,23 @@ object MeetingTimeline {
                 }
             }
         }
+        dense.forEach {group->
+            val groupHeight=hourHeight*((group.end-group.start)/60f)
+            Surface(onClick={show=group},shape=RoundedCornerShape(8.dp),color=scheme.secondaryContainer,contentColor=scheme.onSecondaryContainer,
+                modifier=Modifier.offset(y=hourHeight*(group.start/60f)).fillMaxWidth().height(groupHeight).padding(1.dp).testTag("meeting_dense_${day}_${group.meetings.first().id}").semantics{contentDescription="${group.meetings.size.fa()} جلسهٔ هم‌پوشان - برای مشاهده لمس کنید"}) {
+                Column(Modifier.padding(if(weekly) 3.dp else 8.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=if(weekly) Alignment.CenterHorizontally else Alignment.Start) {
+                    if(weekly) CountBadge(group.meetings.size,"جلسات هم‌پوشان") else CountLabel("جلسات هم‌پوشان",group.meetings.size)
+                    if(!weekly && groupHeight>80.dp) Text("مشاهده و انتخاب جلسه",style=MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
         if(now.toLocalDate().toEpochDay()==day) Box(Modifier.fillMaxWidth().height(2.dp).offset(y=hourHeight*((now.hour*60+now.minute)/60f)).background(scheme.error))
     }
+    show?.let {group->AlertDialog(onDismissRequest={show=null},title={Text(Solar.label(LocalDate.ofEpochDay(day)))},text={
+        LazyColumn(Modifier.heightIn(max=420.dp).testTag("dense_meeting_list"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            items(group.meetings,key={it.id}) {m->OutlinedCard(onClick={show=null;open(m.id)},modifier=Modifier.fillMaxWidth().testTag("dense_meeting_${m.id}")) {
+                Column(Modifier.padding(12.dp)) {Text(m.title,style=MaterialTheme.typography.titleSmall);Text(m.clockLabel(),style=MaterialTheme.typography.bodySmall)}
+            }}
+        }
+    },confirmButton={TextButton(onClick={show=null}){Text("بستن")}})}
 }

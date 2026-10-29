@@ -1,6 +1,6 @@
 {
-  "checkedAtTehran": "2026-10-28T23:50:53.686613+03:30",
-  "tests": 273,
+  "checkedAtTehran": "2026-10-29T14:37:22.608828+03:30",
+  "tests": 291,
   "failures": 0,
   "skipped": 0,
   "lintErrors": 0,
@@ -187,6 +187,10 @@
       "tests": 8
     },
     {
+      "name": "ir.peygir.app.PeopleReopenTest",
+      "tests": 5
+    },
+    {
       "name": "ir.peygir.app.PersonalOptionsTest",
       "tests": 9
     },
@@ -209,6 +213,18 @@
     {
       "name": "ir.peygir.app.ReviewNotificationTest",
       "tests": 5
+    },
+    {
+      "name": "ir.peygir.app.ScaleDataTest",
+      "tests": 4
+    },
+    {
+      "name": "ir.peygir.app.ScaleUiTest",
+      "tests": 6
+    },
+    {
+      "name": "ir.peygir.app.ScaleVisualTest",
+      "tests": 3
     },
     {
       "name": "ir.peygir.app.SettingsFlowTest",

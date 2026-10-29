@@ -3,6 +3,7 @@ package ir.peygir.app
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
@@ -43,6 +44,9 @@ internal data class KeyboardSpeechTarget(val owner: Any,val label: String,val in
 
 @Composable internal fun LinkedMeetingSearch(meetings: List<Meeting>,query: String,change: (String)->Unit,dismiss: ()->Unit,choose: (Long)->Unit) {
     val focus=remember{FocusRequester()}
+    val shown=remember(meetings,query){meetings.filter{PeopleSuggestions.matches(it.title,query)}.sortedWith(MeetingSchedule.order)}
+    val list=rememberLazyListState()
+    LaunchedEffect(query){list.scrollToItem(0)}
     Dialog(onDismissRequest=dismiss,properties=speechDialogProperties()) {
         KeyboardSpeechHost {
             Surface(Modifier.fillMaxSize()) {Column(Modifier.safeDrawingPadding().imePadding().testTag("linked_meeting_search")) {
@@ -53,8 +57,10 @@ internal data class KeyboardSpeechTarget(val owner: Any,val label: String,val in
                 VoiceTextField(query,change,voiceLabel="جست‌وجوی جلسهٔ مرتبط",label={Text("جست‌وجوی جلسه")},singleLine=true,
                     modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).focusRequester(focus).testTag("linked_meeting_query"))
                 TextButton(onClick={choose(0)},modifier=Modifier.padding(horizontal=8.dp)){Text("بدون جلسه")}
-                LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    items(meetings.filter{PeopleSuggestions.matches(it.title,query)}.sortedWith(MeetingSchedule.order),key={it.id}) {m->
+                CountLabel("جلسات",shown.size,Modifier.padding(horizontal=16.dp))
+                LazyColumn(Modifier.weight(1f).testTag("linked_meeting_results"),state=list,contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    if(shown.isEmpty()) item{Text("جلسه‌ای پیدا نشد.")}
+                    items(shown,key={it.id}) {m->
                         OutlinedCard(onClick={choose(m.id)},modifier=Modifier.fillMaxWidth().testTag("linked_meeting_${m.id}")){Text(m.title,Modifier.padding(16.dp))}
                     }
                 }

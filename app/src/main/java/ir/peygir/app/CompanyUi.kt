@@ -1,6 +1,8 @@
 package ir.peygir.app
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -55,6 +57,7 @@ private fun accountSnapshot(u: CompanyUser)=JSONObject().put("name",u.name).put(
     val scope=rememberCoroutineScope();val clipboard=LocalClipboardManager.current
     val company=OrgAccess.company(c);val enhanced=company.isNotEmpty();val manager=OrgAccess.role(c)=="manager"
     fun canManage(u: CompanyUser)=!enhanced || manager || u.role=="deputy"
+    var accountQuery by remember {mutableStateOf("")}
     var open by remember {mutableStateOf(false)};var create by remember {mutableStateOf(false)}
     var editing by remember {mutableStateOf<CompanyUser?>(null)}
     var working by remember {mutableStateOf(false)};var error by remember {mutableStateOf("")}
@@ -66,8 +69,12 @@ private fun accountSnapshot(u: CompanyUser)=JSONObject().put("name",u.name).put(
         Text("کاربر فقط مصوبات خودش و جلساتی را که دعوت شده می‌بیند.",style=MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick={open=true;call(JSONObject().put("action","list"))}){Text("مدیریت حساب‌ها")}
     }}
-    if(open) FullEditor("حساب‌های شرکت",working,{open=false},{error="";create=true},saveLabel="کاربر جدید",feedback=error) {
-        users.forEach {u->OutlinedCard(Modifier.fillMaxWidth().testTag("account_${u.id}")) {Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+    if(open) FullEditor("حساب‌های شرکت",working,{open=false},{error="";create=true},saveLabel="کاربر جدید",feedback=error,scrollable=false) {
+        VoiceTextField(accountQuery,{accountQuery=it},voiceLabel="جست‌وجوی حساب",label={Text("نام یا نام کاربری")},singleLine=true,modifier=Modifier.fillMaxWidth().testTag("account_search"))
+        val shown=remember(users,accountQuery){users.filter{PeopleSuggestions.matches(it.name+" "+it.username,accountQuery)}}
+        CountLabel("حساب‌ها",shown.size)
+        LazyColumn(Modifier.weight(1f).testTag("account_list"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        items(shown,key={it.id}) {u->OutlinedCard(Modifier.fillMaxWidth().testTag("account_${u.id}")) {Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {Text(u.name,style=MaterialTheme.typography.titleMedium);Text("${accountRoles[u.role] ?: u.role} - ${if(u.active) "فعال" else "غیرفعال"} - ${u.username}",style=MaterialTheme.typography.bodySmall)}
             if(canManage(u)) PageActions("گزینه‌های حساب ${u.name}",buildList {
                 add(PageAction("ویرایش حساب",{error="";editing=u},"account_edit_${u.id}"))
@@ -76,6 +83,8 @@ private fun accountSnapshot(u: CompanyUser)=JSONObject().put("name",u.name).put(
                 if(enhanced && u.id!=OrgAccess.id(c)) add(PageAction("حذف کاربر",{error="";confirm=u to "delete"},"account_delete_${u.id}",true))
             },enabled=!working)
         }}}
+        if(shown.isEmpty()) item{Text("حسابی پیدا نشد.")}
+        }
     }
     if(create) {
         var name by remember {mutableStateOf("")};var username by remember {mutableStateOf("")};var role by remember {mutableStateOf("deputy")}

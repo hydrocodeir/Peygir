@@ -43,6 +43,7 @@ object ReviewDays {
     val scope=rememberCoroutineScope()
     var picker by rememberSaveable {mutableStateOf(false)}
     var reminders by rememberSaveable {mutableStateOf(false)}
+    val meetings=remember(data.meetings){data.meetings.associateBy{it.id}}
     val day=min+pager.currentPage
     fun go(value: Long) {scope.launch {pager.animateScrollToPage((value.coerceIn(min,max)-min).toInt())}}
     LaunchedEffect(day) {select(day)}
@@ -83,7 +84,7 @@ object ReviewDays {
                 }
                 items(review.tasks,key={"task_${it.id}"}) {t->
                     Column {
-                        TaskCard(t,data.meetings.find{it.id==t.meetingId}?.title,today,{edit(t)}){status(t.id,it)}
+                        TaskCard(t,meetings[t.meetingId]?.title,today,{edit(t)}){status(t.id,it)}
                         if(reminders) {
                             val times=data.reminders.filter{it.taskId==t.id && Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()==at}
                             Text(times.joinToString(" - "){Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).toLocalTime().toString().fa()+if(it.delivered) " ✓" else ""},Modifier.padding(start=16.dp,top=2.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)

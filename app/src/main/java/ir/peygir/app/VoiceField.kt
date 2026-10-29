@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material.icons.Icons
@@ -69,7 +70,7 @@ internal fun insertDictation(value: TextFieldValue,words: String): TextFieldValu
     enabled: Boolean=true,isError: Boolean=false,singleLine: Boolean=false,minLines: Int=1,maxLines: Int=Int.MAX_VALUE,
     leadingIcon: @Composable (()->Unit)?=null,trailingIcon: @Composable (()->Unit)?=null,
     shape: androidx.compose.ui.graphics.Shape=MaterialTheme.shapes.extraSmall,textStyle: TextStyle=LocalTextStyle.current,
-    voiceLabel: String="این فیلد") {
+    voiceLabel: String="این فیلد",interactionSource: MutableInteractionSource?=null) {
     var editing by rememberSaveable(stateSaver=TextFieldValue.Saver){mutableStateOf(TextFieldValue(value,TextRange(value.length)))}
     if(editing.text!=value) editing=TextFieldValue(value,TextRange(value.length))
     val latestChange by rememberUpdatedState(onValueChange)
@@ -94,7 +95,7 @@ internal fun insertDictation(value: TextFieldValue,words: String): TextFieldValu
     val endIcon: (@Composable ()->Unit)?=if(bar) trailingIcon else ({Row(Modifier.padding(horizontal=8.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {trailingIcon?.invoke();DictationButton(voiceLabel,enabled,::insert)}})
     OutlinedTextField(editing,{editing=it;onValueChange(it.text)},modifier=fieldModifier,label=label,placeholder=placeholder,
         enabled=enabled,isError=isError,singleLine=singleLine,minLines=minLines,maxLines=maxLines,leadingIcon=leadingIcon,
-        trailingIcon=endIcon,shape=shape,textStyle=textStyle)
+        trailingIcon=endIcon,shape=shape,textStyle=textStyle,interactionSource=interactionSource)
 }
 
 /** Consume only this button's touch stream; IconButton keeps keyboard and TalkBack actions. */

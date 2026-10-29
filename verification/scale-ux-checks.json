@@ -1,0 +1,103 @@
+{
+  "version": "4.5.1",
+  "versionCode": 36,
+  "checkedAtTehran": "2026-10-29T14:37:22.608828+03:30",
+  "fixture": {
+    "meetings": 200,
+    "resolutions": 500,
+    "users": 50,
+    "resolutionsPerStatus": 125,
+    "day": "1405/08/07",
+    "todayMeetings": 20,
+    "simultaneousMeetings": 6,
+    "isolatedSQLite": true,
+    "productionDataChanged": false
+  },
+  "fullAndroidSuite": {
+    "tests": 291,
+    "failures": 0,
+    "skipped": 0,
+    "lintErrors": 0,
+    "lintWarnings": 94
+  },
+  "focusedSuites": [
+    {
+      "name": "PeopleReopenTest",
+      "tests": 5,
+      "failures": 0,
+      "cases": [
+        "repeatedTapWorksWithHoldSpeechAndAllFiftyPeopleCanBeBrowsed",
+        "repeatedTapWorksWithKeyboardSpeechPreference",
+        "repeatedTapWorksWithTapSpeech",
+        "fiftySelectedPeopleStartCompactAndEveryPersonCanStillBeRemoved",
+        "ownerCanBeChangedByTappingAgainWithoutErasingThePreviousName"
+      ]
+    },
+    {
+      "name": "ScaleDataTest",
+      "tests": 4,
+      "failures": 0,
+      "cases": [
+        "twoHundredMeetingsFiveHundredTasksFiftyPeopleSurviveSQLiteAndBackup",
+        "denseTimelineGroupsPreserveAllMeetingsWithoutDuplicateOrLostIds",
+        "reviewAndBothWidgetsRetainEveryRelevantRecordInOrder",
+        "everyStatusFilterAndPersianMultiwordSearchReturnsTheExpectedRecords"
+      ]
+    },
+    {
+      "name": "ScaleUiTest",
+      "tests": 6,
+      "failures": 0,
+      "cases": [
+        "monthAndMeetingSearchFindPastAndFutureMeetingsByParticipantOrTitle",
+        "fiveHundredTasksScrollLazilyFilterFromTheTopAndSearchAcrossTheWholeDataset",
+        "linkedMeetingChooserSearchesTwoHundredMeetingsInTheDefaultHoldMode",
+        "dailyReviewAndFollowupStayCompactAndEveryTodaysTaskIsReachable",
+        "denseDailyAndWeeklyMeetingsOpenAReadableListWithoutLosingAnyMeeting",
+        "accountsCanBrowseAndSearchAllFiftyPeopleWithoutBuildingAllCards"
+      ]
+    },
+    {
+      "name": "ScaleVisualTest",
+      "tests": 3,
+      "failures": 0,
+      "cases": [
+        "fiveHundredTasksAndFiftyPeopleKeepCompactFirstScreens",
+        "personSuggestionsUseABoundedListInSmallPortraitWindow",
+        "denseCalendarStaysReadableWithLargeTextInBothThemes"
+      ]
+    }
+  ],
+  "visuals": {
+    "renderer": "Robolectric Android native graphics",
+    "widthDp": 360,
+    "heightDp": 740,
+    "fontScale": 1.3,
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "screenshots": [
+      "scale-calendar-day-light.png",
+      "scale-calendar-overlap-dark.png",
+      "scale-calendar-week-dark.png",
+      "scale-calendar-week-light.png",
+      "scale-people-selected-light.png",
+      "scale-people-suggestions-light.png",
+      "scale-tasks-dark.png",
+      "scale-tasks-light.png"
+    ]
+  },
+  "limits": {
+    "physicalDeviceConnected": false,
+    "physicalPhoneTested": false,
+    "realImeTested": false,
+    "frameRateMeasured": false,
+    "fiftyConcurrentServerSessionsTested": false
+  },
+  "serverUnchanged": true,
+  "databaseVersion": 8,
+  "backupVersion": 5,
+  "protocol": 2,
+  "apkSha256": "98bc489937085e9b1992adfc10adbe76104bee9dccbe0401e5d4c06ef219c32a"
+}

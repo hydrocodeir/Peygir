@@ -4,6 +4,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,9 +37,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: String): Boolean {
-    fun clean(s: String)=s.replace('ي','ی').replace('ك','ک').replace('\u200c',' ').trim().lowercase()
-    val text=clean(listOf(meeting.title,meeting.location,meeting.guests.joinToString(" "),users.filter{it.id in meeting.attendees}.joinToString(" "){it.name}).joinToString(" "))
-    return clean(query).split(Regex("\\s+")).all{text.contains(it)}
+    return SearchText.matches(SearchText.meeting(meeting,users.associateBy{it.id}),SearchText.tokens(query))
 }
 @Composable internal fun MeetingCalendarScreen(data: Snapshot,open: (Long)->Unit,add: (Long)->Unit,delete: ((Long)->Unit)?=null,initialDay: Long=LocalDate.now().toEpochDay(),initialMode: String?=null,createAt: ((Long,Int)->Unit)?=null,active: Boolean=true,focusVersion: Int=0,clock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
     val c=LocalContext.current;val deputy=OrgAccess.deputy(c)
@@ -49,6 +48,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
     var day by rememberSaveable {mutableLongStateOf(initialDay.coerceIn(min,max))}
     var navigation by remember {mutableIntStateOf(0)}
     var query by rememberSaveable {mutableStateOf("")};var searchOpen by rememberSaveable {mutableStateOf(false)};var picker by remember {mutableStateOf(false)}
+    val counts=remember(data.meetings){data.meetings.groupingBy{it.date}.eachCount()}
     val date=LocalDate.ofEpochDay(day)
     val daily=mode!="MONTH"
     val monthCellHeight=with(LocalDensity.current){22.sp.toDp()+18.sp.toDp()+12.dp}.coerceAtLeast(60.dp)
@@ -105,7 +105,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
                         val leading=(pageMonth.dayOfWeek.value+1)%7;val length=ChronoUnit.DAYS.between(pageMonth,Solar.nextMonth(pageMonth)).toInt()
                         repeat((leading+length+6)/7) {r->Row {repeat(7) {col->val d=r*7+col-leading
                             Box(Modifier.weight(1f).height(monthCellHeight)) {if(d in 0 until length) {
-                                val epoch=pageMonth.plusDays(d.toLong()).toEpochDay();val count=data.meetings.count{it.date==epoch};val chosen=pageDay==epoch
+                                val epoch=pageMonth.plusDays(d.toLong()).toEpochDay();val count=counts[epoch] ?: 0;val chosen=pageDay==epoch
                                 val cellColor=when {chosen->MaterialTheme.colorScheme.primary;count>0->MaterialTheme.colorScheme.primaryContainer;else->MaterialTheme.colorScheme.surfaceContainerLow}
                                 val ink=when {chosen->MaterialTheme.colorScheme.onPrimary;count>0->MaterialTheme.colorScheme.onPrimaryContainer;else->MaterialTheme.colorScheme.onSurface}
                                 Surface(onClick={if(count==0 && creator!=null) pickStart(epoch) else go(epoch)},enabled=epoch in min..max,shape=RoundedCornerShape(12.dp),color=cellColor,contentColor=ink,modifier=Modifier.fillMaxSize().padding(1.dp).testTag("meeting_day_$epoch").semantics{selected=chosen;contentDescription="${Solar.label(LocalDate.ofEpochDay(epoch))}، ${count.fa()} جلسه"}) {
@@ -154,7 +154,11 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
 
 @Composable private fun MeetingSearchDialog(data: Snapshot,users: List<CompanyUser>,deputy: Boolean,query: String,change: (String)->Unit,dismiss: ()->Unit,open: (Long)->Unit,delete: ((Long)->Unit)?) {
     val focus=remember {FocusRequester()}
-    val shown=remember(data.meetings,users,query) {if(query.isBlank()) emptyList() else data.meetings.filter{meetingSearch(it,users,query)}.sortedWith(MeetingSchedule.order)}
+    val people=remember(users){users.associateBy{it.id}}
+    val index=remember(data.meetings,people){data.meetings.associate{it.id to SearchText.meeting(it,people)}}
+    val shown=remember(data.meetings,index,query) {val tokens=SearchText.tokens(query);if(tokens.isEmpty()) emptyList() else data.meetings.filter{SearchText.matches(index.getValue(it.id),tokens)}.sortedWith(MeetingSchedule.order)}
+    val list=rememberLazyListState()
+    LaunchedEffect(query){list.scrollToItem(0)}
     Dialog(onDismissRequest=dismiss,properties=speechDialogProperties()) {
         KeyboardSpeechHost {
         Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.surface) {
@@ -166,7 +170,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
                 VoiceTextField(query,change,voiceLabel="عنوان جلسه یا نام شرکت‌کننده",label={Text("عنوان جلسه یا نام شرکت‌کننده",maxLines=1)},leadingIcon={Icon(Icons.Outlined.Search,null)},trailingIcon={if(query.isNotEmpty()) IconButton(onClick={change("")}){Icon(Icons.Outlined.Close,"پاک کردن جست‌وجو")}},singleLine=true,modifier=Modifier.fillMaxWidth().padding(horizontal=16.dp).focusRequester(focus).testTag("meeting_search_field"),shape=RoundedCornerShape(16.dp))
                 if(query.isBlank()) Text("جست‌وجو در تمام تاریخ‌ها و جلسات قابل مشاهده",Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else CountLabel("نتایج در همهٔ تاریخ‌ها",shown.size,Modifier.padding(horizontal=16.dp,vertical=8.dp),style=MaterialTheme.typography.labelSmall)
-                LazyColumn(Modifier.weight(1f).testTag("meeting_search_results"),contentPadding=PaddingValues(12.dp,4.dp,12.dp,16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                LazyColumn(Modifier.weight(1f).testTag("meeting_search_results"),state=list,contentPadding=PaddingValues(12.dp,4.dp,12.dp,16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     if(query.isNotBlank() && shown.isEmpty()) item {Text("جلسه‌ای پیدا نشد؛ عنوان یا نام شرکت‌کننده را تغییر دهید.",Modifier.padding(12.dp),style=MaterialTheme.typography.bodyMedium)}
                     items(shown,key={it.id}) {MeetingCalendarCard(it,data,users,deputy,open,delete)}
                 }
