@@ -40,27 +40,28 @@ internal object MeetingAlerts {
         return plans(data,UserOptions.read(context).meetingLead).filter{it.at>now && delivered[it.meeting.id]!=it.key}.minOfOrNull{it.at}
     }
     private fun delivered(store: Store)=store.syncDb{db->db.rawQuery("SELECT meeting_id,delivered_key FROM meeting_alerts",null).use{c->buildMap<Long,String>{while(c.moveToNext()) put(c.getLong(0),c.getString(1))}}}
+    private fun tag(c: Context,id: Long)="meeting:${Accounts.id(c).takeIf{Accounts.notificationTag(c)!=null}?.let{it+":"}.orEmpty()}$id"
     fun process(context: Context,store: Store,data: Snapshot,now: Long) {
         val manager=context.getSystemService(NotificationManager::class.java)
         val plans=plans(data,UserOptions.read(context).meetingLead)
         val byId=plans.associateBy{it.meeting.id}
-        manager.activeNotifications.filter{it.tag?.startsWith("meeting:")==true}.forEach{n->
-            val id=n.tag.substringAfter(':').toLongOrNull();val current=byId[id]
+        manager.activeNotifications.filter{it.tag?.startsWith("meeting:")==true && (it.notification.extras.getString(Accounts.EXTRA).orEmpty()==Accounts.id(context) || Accounts.notificationTag(context)==null && !it.notification.extras.containsKey(Accounts.EXTRA))}.forEach{n->
+            val id=n.tag.substringAfterLast(':').toLongOrNull();val current=byId[id]
             if(current==null || current.end<=now || n.notification.extras.getString("peygir_meeting_key")!=current.key) manager.cancel(n.tag,n.id)
         }
         val sent=delivered(store)
         plans.filter{it.at<=now && now-it.at<=15*60_000 && it.end>now && sent[it.meeting.id]!=it.key}.forEach{p->
             if(!Reminders.allowed(context,CHANNEL)) return@forEach
             val m=p.meeting
-            val intent=Intent(context,MainActivity::class.java).putExtra("meeting_id",m.id).setData(Uri.parse("peygir://meeting-reminder/${m.id}"))
+            val intent=Accounts.intent(context,Intent(context,MainActivity::class.java)).putExtra("meeting_id",m.id).setData(Uri.parse("peygir://meeting-reminder/${Accounts.id(context)}/${m.id}"))
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             val open=PendingIntent.getActivity(context,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val n=NotificationCompat.Builder(context,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("یادآوری جلسه - ${m.title}")
+            val n=NotificationCompat.Builder(context,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle((Accounts.profile(context)?.label?.let{it+" - "} ?: "")+"یادآوری جلسه - ${m.title}")
                 .setContentText("${Solar.label(LocalDate.ofEpochDay(m.date))} - ${m.clockLabel()}").setContentIntent(open).setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER).setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-                .addExtras(android.os.Bundle().apply{putString("peygir_meeting_key",p.key)}).build()
+                .addExtras(android.os.Bundle().apply{putString("peygir_meeting_key",p.key);putString(Accounts.EXTRA,Accounts.id(context))}).build()
             runCatching {
-                manager.notify("meeting:${m.id}",0,n)
+                manager.notify(tag(context,m.id),0,n)
                 val valid=store.syncDb{db->
                     val exists=db.rawQuery("SELECT 1 FROM meetings WHERE id=? AND date=? AND start=?",arrayOf(m.id.toString(),m.date.toString(),m.start.toString())).use{it.moveToFirst()}
                     if(exists) {
@@ -68,7 +69,7 @@ internal object MeetingAlerts {
                         db.update("meeting_alerts",ContentValues().apply{put("delivered_key",p.key)},"meeting_id=?",arrayOf(m.id.toString()))
                     };exists
                 }
-                if(!valid) manager.cancel("meeting:${m.id}",0)
+                if(!valid) manager.cancel(tag(context,m.id),0)
             }
         }
     }

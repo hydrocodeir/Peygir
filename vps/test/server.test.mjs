@@ -7,6 +7,7 @@ import {createApp} from '../src/app.mjs';
 import {makeBackup,restoreBackup} from '../src/maintenance.mjs';
 import {importD1} from '../src/import-d1.mjs';
 import {passwordHash} from '../../cloudflare/src/worker.mjs';
+import {flushPush} from '../../cloudflare/src/organization.mjs';
 
 const testRoot=resolve(import.meta.dirname,'../../.local-build/vps-tests');mkdirSync(testRoot,{recursive:true});
 const owner={username:'owner',password:'owner-test-passphrase-12345'};
@@ -224,4 +225,53 @@ test('new invitations and assignments target their recipient while ordinary edit
     assert.equal(rows.filter(r=>r.id===invitation.id+'|'+first).length,1);
     assert.ok(!JSON.stringify(rows).includes('PRIVATE'));
   }finally{lease.release();}
+});
+
+
+test('one phone registers independent account routes and disabling or logging out one does not remove the other',async t=>{
+  const {app}=await setup(t);const a=await company(app,'multi-a'),b=await company(app,'multi-b');
+  const x=await login(app,'multi-a'),y=await login(app,'multi-b');
+  const routeX=randomUUID(),routeY=randomUUID(),phone='same-phone-fcm-token';
+  for(const [code,session,route] of [['multi-a',x,routeX],['multi-b',y,routeY]]) {
+    const response=await request(app,'/v2/device',{company:code,token:session.token,body:{token:phone,enabled:true,accountRoute:route}});
+    assert.equal(response.status,200);assert.equal(response.data.accountRoute,route);
+    const config=await request(app,'/v2/config',{company:code,token:session.token,body:{}});assert.equal(config.data.accountRouting,1);
+  }
+  assert.equal((await request(app,'/v2/device',{company:'multi-a',token:x.token,body:{token:phone,enabled:false,accountRoute:routeX}})).status,200);
+  let lease=app.registry.lease(a.company);try{assert.equal(lease.db.prepare('SELECT enabled FROM push_accounts WHERE route=?').get(routeX).enabled,0);}finally{lease.release();}
+  lease=app.registry.lease(b.company);try{assert.equal(lease.db.prepare('SELECT enabled FROM push_accounts WHERE route=?').get(routeY).enabled,1);}finally{lease.release();}
+  assert.equal((await request(app,'/v1/logout',{company:'multi-a',token:x.token,body:{}})).status,200);
+  lease=app.registry.lease(a.company);try{assert.equal(lease.db.prepare('SELECT count(*) n FROM push_accounts WHERE route=?').get(routeX).n,0);}finally{lease.release();}
+  assert.equal((await sync(app,'multi-b',y.token)).status,200);
+});
+
+test('two users in the same company keep one shared phone token under different routes and cannot claim each others route',async t=>{
+  const {app}=await setup(t);const c=await company(app,'multi-a'),chief=await login(app,'multi-a');
+  await user(app,'multi-a',chief.token,'deputy','person');const person=await login(app,'multi-a','person','account-password-123456');
+  const one=randomUUID(),two=randomUUID();
+  for(const [session,route] of [[chief,one],[person,two]]) assert.equal((await request(app,'/v2/device',{company:'multi-a',token:session.token,body:{token:'phone-token',enabled:true,accountRoute:route}})).status,200);
+  assert.equal((await request(app,'/v2/device',{company:'multi-a',token:person.token,body:{token:'replacement',enabled:true,accountRoute:one}})).status,400);
+  const lease=app.registry.lease(c.company);try{const rows=lease.db.prepare('SELECT route,user_id,token FROM push_accounts').all();assert.equal(rows.length,2);assert.equal(rows.find(r=>r.route===one).user_id,chief.userId);assert.ok(rows.every(r=>r.token==='phone-token'));}finally{lease.release();}
+});
+
+test('push account migration upgrades an existing tenant without modifying records or legacy devices',async t=>{
+  const {app}=await setup(t);const c=await company(app,'multi-a'),session=await login(app,'multi-a');
+  await sync(app,'multi-a',session.token,[operation('task',task('retained'))]);
+  await request(app,'/v2/device',{company:'multi-a',token:session.token,body:{token:'legacy-phone',enabled:true}});
+  const entry=app.registry.pool.get(c.company.id);entry.db.exec('DROP TABLE push_accounts');entry.db.close();app.registry.pool.delete(c.company.id);
+  const lease=app.registry.lease(c.company);try{assert.equal(lease.db.prepare('SELECT count(*) n FROM records').get().n,1);assert.equal(lease.db.prepare('SELECT count(*) n FROM push_devices').get().n,1);assert.equal(lease.db.prepare('SELECT count(*) n FROM push_accounts').get().n,0);}finally{lease.release();}
+});
+
+
+test('push dispatch includes each account route and never sends private titles in the delivery payload',async t=>{
+  const {app}=await setup(t);const c=await company(app,'multi-a'),chief=await login(app,'multi-a');
+  const first=await user(app,'multi-a',chief.token,'deputy','first');const second=await user(app,'multi-a',chief.token,'deputy','second');
+  const a=await login(app,'multi-a','first','account-password-123456'),b=await login(app,'multi-a','second','account-password-123456');
+  const routes=[randomUUID(),randomUUID()];
+  for(const [i,session] of [a,b].entries()) assert.equal((await request(app,'/v2/device',{company:'multi-a',token:session.token,body:{token:'shared-phone',enabled:true,accountRoute:routes[i]}})).status,200);
+  await sync(app,'multi-a',chief.token,[operation('task',task('PRIVATE A',first)),operation('task',task('PRIVATE B',second))]);
+  const lease=app.registry.lease(c.company);const sent=[];
+  try{await flushPush({DB:lease.d1,FCM_SERVICE_ACCOUNT:'test-only',COMPANY_CODE:'multi-a'},async(env,token,data)=>{sent.push({token,data});return 'ok';});}finally{lease.release();}
+  assert.equal(sent.length,2);assert.deepEqual(new Set(sent.map(x=>x.data.accountRoute)),new Set(routes));
+  assert.equal(sent.find(x=>x.data.userId===first).data.accountRoute,routes[0]);assert.equal(sent.find(x=>x.data.userId===second).data.accountRoute,routes[1]);assert.ok(!JSON.stringify(sent).includes('PRIVATE'));
 });

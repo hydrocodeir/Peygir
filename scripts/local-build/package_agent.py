@@ -1,7 +1,10 @@
 from pathlib import Path
 import zipfile
+import argparse
 root=Path(__file__).resolve().parents[2]
-asm=Path('C:/Users/psh2610/Desktop/Farda/.toolchain/gradle/gradle-8.11.1/lib/asm-9.7.jar')
+parser=argparse.ArgumentParser()
+parser.add_argument('--asm',type=Path,required=True)
+asm=parser.parse_args().asm
 out=root/'.local-build/gradle-udp-agent.jar'
 with zipfile.ZipFile(root/'.local-build/gradle-udp-helper.jar','w',zipfile.ZIP_DEFLATED) as helper:
     helper.write(root/'.local-build/classes/peygirbuild/LocalUdpPort.class','peygirbuild/LocalUdpPort.class')

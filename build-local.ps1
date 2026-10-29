@@ -1,6 +1,11 @@
-param([string[]]$Tasks = @('testDebugUnitTest', 'assembleDebug', 'lintDebug'), [switch]$UseFixedUdp)
+param([string[]]$Tasks = @('testDebugUnitTest', 'assembleDebug', 'lintDebug'), [switch]$UseFixedUdp, [string]$ToolchainPath = $env:PEYGIR_TOOLCHAIN)
 $ErrorActionPreference = 'Stop'
-$toolchainPath = 'C:/Users/psh2610/Desktop/Farda/.toolchain'
+if (-not $ToolchainPath) {
+    $candidates = @((Join-Path $PSScriptRoot '../Farda/.toolchain'), 'D:/Pooya/w/All/Farda/.toolchain', 'C:/Users/psh2610/Desktop/Farda/.toolchain')
+    $ToolchainPath = $candidates | Where-Object { (Test-Path -LiteralPath "$_/jdk") -and (Test-Path -LiteralPath "$_/sdk/build-tools/35.0.0/aapt2.exe") } | Select-Object -First 1
+}
+if (-not $ToolchainPath -or -not (Test-Path -LiteralPath "$ToolchainPath/jdk")) { throw 'Set -ToolchainPath or PEYGIR_TOOLCHAIN to the directory containing jdk, sdk and gradle.' }
+$toolchainPath = (Resolve-Path -LiteralPath $ToolchainPath).Path
 $env:JAVA_HOME = (Get-ChildItem -LiteralPath "$toolchainPath/jdk" -Directory | Select-Object -First 1).FullName
 $env:ANDROID_HOME = "$toolchainPath/sdk"
 $env:ANDROID_USER_HOME = "$PSScriptRoot/.signing/android-user"
@@ -13,7 +18,7 @@ if ($UseFixedUdp) {
     New-Item -ItemType Directory -Force "$agentBuildPath/classes" | Out-Null
     & "$env:JAVA_HOME/bin/javac.exe" -cp "$toolchainPath/gradle/gradle-8.11.1/lib/asm-9.7.jar" -d "$agentBuildPath/classes" "$PSScriptRoot/scripts/local-build/GradleUdpAgent.java" "$PSScriptRoot/scripts/local-build/LocalUdpPort.java"
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the optional local UDP workaround.' }
-    & python "$PSScriptRoot/scripts/local-build/package_agent.py"
+    & python "$PSScriptRoot/scripts/local-build/package_agent.py" --asm "$toolchainPath/gradle/gradle-8.11.1/lib/asm-9.7.jar"
     if ($LASTEXITCODE -ne 0) { throw 'Could not package the optional local UDP workaround.' }
     $env:JAVA_TOOL_OPTIONS = "$env:JAVA_TOOL_OPTIONS -javaagent:$agentBuildPath/gradle-udp-agent.jar=$agentBuildPath/gradle-udp-helper.jar".Trim()
 }

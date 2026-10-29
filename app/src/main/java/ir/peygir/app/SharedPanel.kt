@@ -39,6 +39,7 @@ import java.time.ZoneId
     }
     OutlinedCard(Modifier.fillMaxWidth().testTag("shared_panel")) {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Text("فضای سازمانی شرکت",style=MaterialTheme.typography.titleMedium)
+        CompanyAccountsShortcut()
         if(session==null) {
             Text("شما ثبت کنید؛ مدیر در گوشی خودش ببیند و نتیجهٔ پیگیری را ثبت کند.",style=MaterialTheme.typography.bodySmall)
             FilledTonalButton(onClick={login=true},enabled=!working,modifier=Modifier.fillMaxWidth()){Text("ورود به فضای مشترک")}
@@ -52,7 +53,7 @@ import java.time.ZoneId
             if(error.isNotBlank()) Text(error,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
             Text("اعلان فوری: ${PushRegistration.status(context)}",style=MaterialTheme.typography.bodySmall)
             Row {OutlinedButton(onClick={SharedSync.request(context)},enabled=!working && !syncing){Text("همگام‌سازی اکنون")};TextButton(onClick={login=true},enabled=!working && !syncing){Text("ورود دوباره")}}
-            Row {Text("یادآوری در این گوشی",Modifier.weight(1f));Switch(alerts,{value->alerts=value;SharedCredentials(context).alerts(value);SharedSync.request(context);if(!value) context.getSystemService(android.app.NotificationManager::class.java).cancelAll();Reminders.background{Reminders.process(context)}},enabled=!working)}
+            Row {Text("یادآوری در این گوشی",Modifier.weight(1f));Switch(alerts,{value->alerts=value;SharedCredentials(context).alerts(value);SharedSync.request(context);if(!value) Accounts.cancelNotifications(context);Reminders.background{Reminders.process(context)}},enabled=!working)}
             TextButton(onClick={logout=true},enabled=!working && !syncing){Text("خروج از حساب")}
         }
         Text("اطلاعات دریافت‌شده آفلاین در دسترس‌اند. با اپ باز، همگام‌سازی هنگام ثبت و حدود هر ۳۰ ثانیه بررسی می‌شود؛ در پس‌زمینه حدود هر ۱۵ دقیقه و با توجه به محدودیت‌های اندروید. اعلان فوری پس از راه‌اندازی Firebase و اجازهٔ اعلان فعال می‌شود.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -81,10 +82,10 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
     if(p.has("due")) parts+=Solar.label(java.time.LocalDate.ofEpochDay(p.getLong("due")))
     return parts.joinToString(" - ")
 }
-@Composable internal fun SharedLoginDialog(dismiss: ()->Unit,connected: (SharedSession)->Unit,onboarding: Boolean=false) {
+@Composable internal fun SharedLoginDialog(dismiss: ()->Unit,connected: (SharedSession)->Unit,onboarding: Boolean=false,addAccount: Boolean=false) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
-    val previous=remember{runCatching{SharedCredentials(context).read()}.getOrNull()}
-    var endpoint by remember {mutableStateOf(previous?.endpoint ?: BuildConfig.SYNC_URL)};var company by remember{mutableStateOf(previous?.company.orEmpty())};var username by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
+    val previous=remember{if(addAccount) null else runCatching{SharedCredentials(context).read()}.getOrNull()}
+    var endpoint by remember {mutableStateOf(previous?.endpoint ?: Accounts.profile(context)?.endpoint ?: BuildConfig.SYNC_URL)};var company by remember{mutableStateOf(previous?.company.orEmpty())};var username by remember{mutableStateOf("")};var password by remember{mutableStateOf("")}
     val legacy=previous!=null && previous.company.isEmpty() && endpoint.trimEnd('/')==previous.endpoint
     val validCompany=company.trim().lowercase(java.util.Locale.ROOT).matches(Regex("[a-z0-9][a-z0-9-]{2,31}"))
     var working by remember {mutableStateOf(false)};var error by remember {mutableStateOf("")};var pending by remember {mutableStateOf<SharedSession?>(null)}
@@ -96,13 +97,13 @@ private fun sharedSummary(p: org.json.JSONObject?,deleted: Boolean): String {
             working=true;error=""
             try {
                 val s=withContext(Dispatchers.IO){SharedSync.login(endpoint,username,password,company)}
-                val count=withContext(Dispatchers.IO){val store=Store.get(context);val bound=SharedStore(store).binding();if(bound.isEmpty()) store.snapshot().let{it.tasks.size+it.meetings.size} else 0}
+                val count=withContext(Dispatchers.IO){val store=Store.get(context);val bound=SharedStore(store).binding();if(bound.isEmpty() && Accounts.list(context).isEmpty()) store.snapshot().let{it.tasks.size+it.meetings.size} else 0}
                 if(count>0) {existing=count;pending=s} else {withContext(Dispatchers.IO){SharedSync.connect(context,s)};password="";connected(s)}
             } catch(e:Exception){error=e.message?.takeIf{it.any{c->c in 'آ'..'ی'}} ?: "ورود ناموفق بود؛ نشانی و اینترنت را بررسی کنید."}
             finally {working=false}
         }
     }
-    FullEditor(if(pending==null) "ورود به فضای مشترک" else "اشتراک اطلاعات این گوشی",working,dismiss,submit,
+    FullEditor(if(pending==null) (if(addAccount) "افزودن شرکت" else "ورود به فضای مشترک") else "اشتراک اطلاعات این گوشی",working,dismiss,submit,
         canSave=pending!=null || (endpoint.isNotBlank() && (validCompany || legacy && company.isBlank()) && username.isNotBlank() && password.isNotBlank()),feedback=error,saveLabel=if(pending==null) "ورود" else "اتصال",dismissible=!onboarding) {
         if(pending==null) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {

@@ -164,7 +164,7 @@ async function sync(request,env,user,ctx) {
   // Return only generic revocations for IDs the caller already knows. Never historical private payloads.
   for(const [id,i] of inventory) if(!allowed.has(id)) changes.unshift(revoked({recordId:id,kind:i.kind,baseRevision:i.revision}));
   ctx?.waitUntil(flushPush(env));
-  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),contacts:env.CONTACTS_ENABLED && admin(user)?(await env.DB.prepare('SELECT name FROM contacts WHERE workspace=? ORDER BY name LIMIT 10000').bind(user.workspace).all()).results.map(r=>r.name):[],userId:user.id,role:user.role,name:user.name,workspaceName:user.workspace_name,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+  return json({protocol:2,results,changes:changes.slice(0,200),cursor:0,hasMore:changes.length>200,users:await people(env,user),contacts:env.CONTACTS_ENABLED && admin(user)?(await env.DB.prepare('SELECT name FROM contacts WHERE workspace=? ORDER BY name LIMIT 10000').bind(user.workspace).all()).results.map(r=>r.name):[],userId:user.id,role:user.role,name:user.name,workspaceName:user.workspace_name,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON,accountRouting:1});
 }
 /** Account mutations use one transactional authorization decision, including the last-manager check. */
 async function manageAccounts(request,env,user) {
@@ -254,17 +254,17 @@ async function accounts(request,env,user) {
   statements.push(env.DB.prepare('INSERT INTO account_audit VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),user.workspace,user.id,b.id,b.action,Date.now()));
   await env.DB.batch(statements);return json({ok:true,users:await people(env,user)});
 }
-export async function flushPush(env) {
+export async function flushPush(env,deliver=sendPush) {
   if(!env.FCM_SERVICE_ACCOUNT) return;
   const rows=await env.DB.prepare('SELECT * FROM push_outbox WHERE next_attempt<=? ORDER BY created LIMIT 30').bind(Date.now()).all();
   for(const item of rows.results) {
     const user=await env.DB.prepare('SELECT id,workspace,COALESCE(access_role,role) AS role,active FROM users WHERE id=?').bind(item.user_id).first();
     const r=await getRecord(env,item.workspace,item.record_id);
     if(!user?.active || !r || r.deleted || !await visible(env,user,r)) {await env.DB.prepare('DELETE FROM push_outbox WHERE id=?').bind(item.id).run();continue;}
-    const devices=await env.DB.prepare('SELECT d.token FROM push_devices d JOIN sessions s ON s.token_hash=d.session_hash WHERE d.user_id=? AND d.enabled=1 AND s.expires>?').bind(user.id,Date.now()).all();
+    const devices=await env.DB.prepare("SELECT d.token,'' AS route FROM push_devices d JOIN sessions s ON s.token_hash=d.session_hash WHERE d.user_id=? AND d.enabled=1 AND s.expires>? UNION ALL SELECT d.token,d.route FROM push_accounts d JOIN sessions s ON s.token_hash=d.session_hash WHERE d.user_id=? AND d.enabled=1 AND s.expires>?").bind(user.id,Date.now(),user.id,Date.now()).all();
     let retry=false;
     for(const device of devices.results) {
-      try {const status=await sendPush(env,device.token,{userId:user.id,eventId:item.id,recordId:item.record_id,kind:item.kind});if(status==='invalid') await env.DB.prepare('DELETE FROM push_devices WHERE token=?').bind(device.token).run();else if(status!=='ok') retry=true;}
+      try {const status=await deliver(env,device.token,{userId:user.id,eventId:item.id,recordId:item.record_id,kind:item.kind,...(device.route?{accountRoute:device.route}:{})});if(status==='invalid') {await env.DB.prepare('DELETE FROM push_devices WHERE token=?').bind(device.token).run();await env.DB.prepare('DELETE FROM push_accounts WHERE token=?').bind(device.token).run();}else if(status!=='ok') retry=true;}
       catch {retry=true;}
     }
     if(retry && item.attempts<8) await env.DB.prepare('UPDATE push_outbox SET attempts=attempts+1,next_attempt=? WHERE id=?').bind(Date.now()+Math.min(3600000,30000*2**item.attempts),item.id).run();
@@ -278,9 +278,17 @@ export async function organizationRoute(request,env,ctx) {
   const user=await authenticate(request,env);
   if(path==='/v2/sync') return sync(request,env,user,ctx);
   if(path==='/v2/users') return accounts(request,env,user);
-  if(path==='/v2/config') return json({firebase:env.FCM_PUBLIC_JSON?JSON.parse(env.FCM_PUBLIC_JSON):null,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON});
+  if(path==='/v2/config') return json({firebase:env.FCM_PUBLIC_JSON?JSON.parse(env.FCM_PUBLIC_JSON):null,pushConfigured:!!env.FCM_SERVICE_ACCOUNT && !!env.FCM_PUBLIC_JSON,accountRouting:1});
   if(path==='/v2/device') {
     const b=await body(request);requireValue(text(b.token,4096,true) && typeof b.enabled==='boolean');
+    if(b.accountRoute!==undefined) {
+      requireValue(typeof b.accountRoute==='string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(b.accountRoute));
+      const owner=await env.DB.prepare('SELECT user_id FROM push_accounts WHERE route=?').bind(b.accountRoute).first();
+      requireValue(!owner || owner.user_id===user.id,'این شناسهٔ دستگاه متعلق به حساب دیگری است.');
+      await env.DB.prepare('INSERT INTO push_accounts(route,token,user_id,session_hash,enabled,updated) VALUES(?,?,?,?,?,?) ON CONFLICT(route) DO UPDATE SET token=excluded.token,session_hash=excluded.session_hash,enabled=excluded.enabled,updated=excluded.updated WHERE push_accounts.user_id=excluded.user_id').bind(b.accountRoute,b.token,user.id,user.tokenHash,b.enabled?1:0,Date.now()).run();
+      await env.DB.prepare('DELETE FROM push_devices WHERE token=? AND user_id=?').bind(b.token,user.id).run();
+      return json({ok:true,accountRoute:b.accountRoute});
+    }
     await env.DB.prepare('INSERT INTO push_devices(token,user_id,session_hash,enabled,updated) VALUES(?,?,?,?,?) ON CONFLICT(token) DO UPDATE SET user_id=excluded.user_id,session_hash=excluded.session_hash,enabled=excluded.enabled,updated=excluded.updated').bind(b.token,user.id,user.tokenHash,b.enabled?1:0,Date.now()).run();return json({ok:true});
   }
   throw new ApiError(404,'مسیر پیدا نشد.');

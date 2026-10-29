@@ -6,7 +6,10 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 8) {
-    private val appContext=context.applicationContext
+    internal val profileId=Accounts.id(context)
+    private val appContext=Accounts.context(context).applicationContext
+    internal fun isVisible()=profileId==Accounts.active(appContext) || profileId.isEmpty() && Accounts.active(appContext) in listOf("",Accounts.LEGACY)
+    internal fun publishPeople(users: List<CompanyUser>?=null,contacts: List<String>?=null)=Accounts.publishPeople(appContext,profileId,users,contacts)
     val externalChanges=kotlinx.coroutines.flow.MutableStateFlow(0L)
     private val recordingDirectory=java.io.File(context.filesDir,"recordings").canonicalFile
     private val closedDrafts=mutableSetOf<String>()
@@ -191,6 +194,16 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
     }
     companion object {
         @Volatile private var instance: Store? = null
-        fun get(context: Context): Store = instance ?: synchronized(this) { instance ?: Store(context).also { instance=it } }
+        private val companies=mutableMapOf<String,Store>()
+        @Synchronized fun get(context: Context): Store {
+            val id=Accounts.id(context)
+            if(id.isEmpty() || id==Accounts.LEGACY) return instance ?: Store(Accounts.context(context,id)).also{instance=it}
+            require(Accounts.validId(id))
+            return companies.getOrPut(id){Store(Accounts.context(context,id),"peygir-$id.db")}
+        }
+        @Synchronized internal fun forgetCompany(context: Context,id: String) {
+            companies.remove(id)?.close()
+            if(id!=Accounts.LEGACY && id.isNotEmpty()) Accounts.root(context).deleteDatabase("peygir-$id.db")
+        }
     }
 }

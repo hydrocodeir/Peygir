@@ -13,11 +13,11 @@ import java.util.UUID
 
 data class CompanyUser(val id: String,val name: String,val role: String,val active: Boolean=true,val username: String="")
 internal object OrgAccess {
-    fun role(context: Context)=context.getSharedPreferences("organization_access",0).getString("role","local") ?: "local"
-    fun id(context: Context)=context.getSharedPreferences("organization_access",0).getString("id","").orEmpty()
-    fun company(context: Context)=context.getSharedPreferences("organization_access",0).getString("company","").orEmpty()
+    fun role(context: Context)=Accounts.context(context).getSharedPreferences("organization_access",0).getString("role","local") ?: "local"
+    fun id(context: Context)=Accounts.context(context).getSharedPreferences("organization_access",0).getString("id","").orEmpty()
+    fun company(context: Context)=Accounts.context(context).getSharedPreferences("organization_access",0).getString("company","").orEmpty()
     fun deputy(context: Context)=role(context)=="deputy"
-    fun set(context: Context,session: SharedSession?) {context.getSharedPreferences("organization_access",0).edit().clear().apply {if(session!=null) putString("role",session.role).putString("id",session.userId).putString("company",session.company)}.commit()}
+    fun set(context: Context,session: SharedSession?) {Accounts.context(context).getSharedPreferences("organization_access",0).edit().clear().apply {if(session!=null) putString("role",session.role).putString("id",session.userId).putString("company",session.company)}.commit()}
     fun targetStatus(context: Context,task: Resolution,status: Status): Status = if(status==Status.DONE && task.assignee!=null && (role(context)!="manager" || task.status!=Status.REVIEW)) Status.REVIEW else status
     fun statuses(context: Context,task: Resolution)=if(deputy(context)) {if(task.status==Status.DONE) emptyList() else listOf(Status.WAITING,Status.ACTIVE,Status.REVIEW)} else Status.entries.filter{it!=Status.DONE || task.assignee==null || (role(context)=="manager" && task.status==Status.REVIEW)}
 }
@@ -38,10 +38,10 @@ internal object Organization {
     }
     fun contactNames(store: Store): List<String> = store.syncDb {db->db.rawQuery("SELECT name FROM contacts ORDER BY name",null).use{c->buildList{while(c.moveToNext()) add(c.getString(0))}}}
     fun rememberContacts(db: SQLiteDatabase,names: List<String>) {names.map{it.trim()}.filter{it.isNotBlank() && it.length<=200 && Owners.key(it).isNotBlank()}.distinctBy{Owners.key(it)}.forEach{name->db.execSQL("INSERT OR IGNORE INTO contacts(key,name) VALUES(?,?)",arrayOf(Owners.key(name),name))}}
-    fun receiveContacts(store: Store,a: JSONArray) {store.syncDb{rememberContacts(it,a.strings())};contacts.value=contactNames(store)}
+    fun receiveContacts(store: Store,a: JSONArray) {store.syncDb{rememberContacts(it,a.strings())};store.publishPeople(contacts=contactNames(store))}
     fun users(store: Store): List<CompanyUser> = store.syncDb {db->db.rawQuery("SELECT value FROM sync_meta WHERE key='directory'",null).use {if(it.moveToFirst()) parseUsers(JSONArray(it.getString(0))) else emptyList()}}
     fun parseUsers(a: JSONArray)=(0 until a.length()).map{a.getJSONObject(it).let {p->CompanyUser(p.getString("id"),p.getString("name"),p.getString("role"),p.optInt("active",1)==1,p.optString("username"))}}
-    fun receiveUsers(store: Store,a: JSONArray) {store.syncDb{it.execSQL("INSERT OR REPLACE INTO sync_meta(key,value) VALUES('directory',?)",arrayOf(a.toString()))};members.value=parseUsers(a)}
+    fun receiveUsers(store: Store,a: JSONArray) {store.syncDb{it.execSQL("INSERT OR REPLACE INTO sync_meta(key,value) VALUES('directory',?)",arrayOf(a.toString()))};store.publishPeople(users=parseUsers(a))}
     fun account(context: Context,payload: JSONObject): JSONObject {
         val s=SharedCredentials(context).read() ?: error("ابتدا وارد حساب شوید.")
         if(payload.optString("id")==s.userId && payload.optString("action") in listOf("update","reset")) check(SharedStore(Store.get(context)).counts().first==0) {"پیش از تغییر حساب خودتان، تغییرات ارسال‌نشده را همگام کنید."}

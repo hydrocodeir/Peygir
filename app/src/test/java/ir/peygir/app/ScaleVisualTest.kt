@@ -25,7 +25,7 @@ class ScaleVisualTest {
     private val f=ScaleFixture
     @Before fun setup(){
         compose.activity.getSharedPreferences("settings",0).edit().clear().commit()
-        OrgAccess.set(compose.activity,SharedSession("https://test.invalid","","","","مدیر","manager",f.users.first().id,"scale"));Organization.members.value=f.users
+        OrgAccess.set(compose.activity,SharedSession("https://test.invalid","","","","مدیر","manager",f.users.first().id,"scale"));Organization.members.value=f.users;Organization.contacts.value=emptyList()
         val config=android.content.res.Configuration(compose.activity.resources.configuration).apply{fontScale=1.3f}
         @Suppress("DEPRECATION") compose.activity.resources.updateConfiguration(config,compose.activity.resources.displayMetrics)
     }

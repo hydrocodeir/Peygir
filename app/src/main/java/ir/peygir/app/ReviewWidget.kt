@@ -54,7 +54,7 @@ open class ReviewWidget: AppWidgetProvider() {
         Reminders.background {try {update(context,ids,meetings)} finally {pending?.finish()}}
     }
     override fun onAppWidgetOptionsChanged(context: Context,manager: AppWidgetManager,id: Int,options: Bundle)=onUpdate(context,manager,intArrayOf(id))
-    override fun onDeleted(context: Context,ids: IntArray) {ids.forEach{WidgetDays.remove(context,it)}}
+    override fun onDeleted(context: Context,ids: IntArray) {ids.forEach{WidgetDays.remove(context,it);WidgetAccounts.remove(context,it)}}
     override fun onReceive(context: Context,intent: Intent) {
         super.onReceive(context,intent)
         if(intent.action in setOf(Intent.ACTION_DATE_CHANGED,Intent.ACTION_TIME_CHANGED,Intent.ACTION_TIMEZONE_CHANGED,Intent.ACTION_BOOT_COMPLETED,Intent.ACTION_MY_PACKAGE_REPLACED)) {
@@ -76,8 +76,8 @@ open class ReviewWidget: AppWidgetProvider() {
         private fun update(context: Context,ids: IntArray,meetings: Boolean) {
             if(ids.isEmpty()) return
             try {
-                val data=Store.get(context).snapshot();val manager=AppWidgetManager.getInstance(context)
-                ids.forEach{manager.updateAppWidget(it,build(context,it,data,meetings))}
+                val manager=AppWidgetManager.getInstance(context)
+                ids.forEach{id->val scoped=WidgetAccounts.context(context,id);val data=if(scoped==null) Snapshot() else Store.get(scoped).snapshot();manager.updateAppWidget(id,build(scoped ?: Accounts.context(context,WidgetAccounts.id(context,id)),id,data,meetings))}
                 @Suppress("DEPRECATION")
                 manager.notifyAppWidgetViewDataChanged(ids,R.id.widget_list)
             } catch(e: Exception) {android.util.Log.w("PeygirWidget","Widget refresh failed",e)}
@@ -94,14 +94,18 @@ open class ReviewWidget: AppWidgetProvider() {
                 val count=rows.count{it.meeting!=null || it.task!=null}
                 val label=if(meetings) "جلسات" else "مصوبات"
                 setTextViewText(R.id.widget_summary,label)
+                val profile=Accounts.profile(context)
+                val missing=Accounts.id(context).isNotEmpty() && profile==null
+                setTextViewText(R.id.widget_company,profile?.label ?: "حساب در دسترس نیست")
+                setViewVisibility(R.id.widget_company,if(profile!=null || missing) View.VISIBLE else View.GONE)
                 setTextViewText(R.id.widget_count,count.fa())
                 setContentDescription(R.id.widget_count,"تعداد $label: ${count.fa()}")
-                setViewVisibility(addId,if(OrgAccess.deputy(context)) View.GONE else View.VISIBLE)
+                setViewVisibility(addId,if(missing || OrgAccess.deputy(context) || context.getSharedPreferences("shared_status",0).getBoolean("auth_expired",false)) View.GONE else View.VISIBLE)
                 setOnClickPendingIntent(addId,launch(context,id,create,day))
                 val open=launch(context,id,kind,day)
                 setOnClickPendingIntent(R.id.widget_date,open);setOnClickPendingIntent(R.id.widget_summary,open);setOnClickPendingIntent(R.id.widget_count,open)
-                val template=Intent(context,MainActivity::class.java).setAction(kind)
-                    .setData(Uri.parse("peygir://widget/$id/${if(meetings) "meeting" else "task"}/agenda"))
+                val template=Accounts.intent(context,Intent(context,MainActivity::class.java)).setAction(kind)
+                    .setData(Uri.parse("peygir://widget/$id/${Accounts.id(context)}/${if(meetings) "meeting" else "task"}/agenda"))
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 setPendingIntentTemplate(R.id.widget_list,PendingIntent.getActivity(context,id,template,PendingIntent.FLAG_UPDATE_CURRENT or if(Build.VERSION.SDK_INT>=31) PendingIntent.FLAG_MUTABLE else 0))
                 if(Build.VERSION.SDK_INT>=31 && rows.size<=60) {
@@ -112,7 +116,7 @@ open class ReviewWidget: AppWidgetProvider() {
                     @Suppress("DEPRECATION")
                     setRemoteAdapter(R.id.widget_list,Intent(context,ReviewWidgetService::class.java)
                         .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id).putExtra("meetings",meetings)
-                        .setData(Uri.parse("peygir://widget/$id/${if(meetings) "meetings" else "tasks"}/agenda/$day")))
+                        .setData(Uri.parse("peygir://widget/$id/${Accounts.id(context)}/${if(meetings) "meetings" else "tasks"}/agenda/$day")))
                 }
             }
         }
@@ -131,12 +135,12 @@ open class ReviewWidget: AppWidgetProvider() {
             setTextViewText(R.id.widget_row_title,title);setTextViewText(R.id.widget_row_detail,detail)
             setViewVisibility(R.id.widget_row_detail,if(detail.isBlank()) View.GONE else View.VISIBLE)
             setTextColor(R.id.widget_row_detail,context.getColor(if(row.task?.status==Status.DONE) R.color.widget_done else R.color.widget_muted))
-            val open=Intent().putExtra("day",row.day).apply {row.meeting?.let{putExtra("meeting_id",it.id)};row.task?.let{putExtra("task_id",it.id)}}
+            val open=Accounts.intent(context,Intent()).putExtra("day",row.day).apply {row.meeting?.let{putExtra("meeting_id",it.id)};row.task?.let{putExtra("task_id",it.id)}}
             setOnClickFillInIntent(R.id.widget_row,open)
             setContentDescription(R.id.widget_row,listOf(weekday,Solar.label(date),title,detail).filter{it.isNotBlank()}.joinToString("، "))
         }
         private fun launch(context: Context,id: Int,action: String,day: Long)=PendingIntent.getActivity(context,id,
-            Intent(context,MainActivity::class.java).setAction(action).setData(Uri.parse("peygir://widget/$id/${action.substringAfterLast('.')}"))
+            Accounts.intent(context,Intent(context,MainActivity::class.java)).setAction(action).setData(Uri.parse("peygir://widget/$id/${Accounts.id(context)}/${action.substringAfterLast('.')}"))
                 .putExtra("day",day).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 }
@@ -146,10 +150,10 @@ class ReviewWidgetService: RemoteViewsService() {
 class ReviewWidgetFactory(private val context: Context,private val id: Int,private val meetings: Boolean=false): RemoteViewsService.RemoteViewsFactory {
     private var rows=emptyList<WidgetAgendaRow>()
     override fun onCreate() {onDataSetChanged()}
-    override fun onDataSetChanged() {rows=WidgetAgenda.rows(Store.get(context).snapshot(),meetings,LocalDate.now().toEpochDay())}
+    override fun onDataSetChanged() {val scoped=WidgetAccounts.context(context,id);rows=WidgetAgenda.rows(if(scoped==null) Snapshot() else Store.get(scoped).snapshot(),meetings,LocalDate.now().toEpochDay())}
     override fun onDestroy() {rows=emptyList()}
     override fun getCount()=rows.size
-    override fun getViewAt(position: Int)=rows.getOrNull(position)?.let{ReviewWidget.agendaRow(context,it,meetings)}
+    override fun getViewAt(position: Int)=rows.getOrNull(position)?.let{ReviewWidget.agendaRow(Accounts.context(context,WidgetAccounts.id(context,id)),it,meetings)}
     override fun getLoadingView(): RemoteViews?=null
     override fun getViewTypeCount()=1
     override fun getItemId(position: Int)=rows.getOrNull(position)?.stableId ?: position.toLong()

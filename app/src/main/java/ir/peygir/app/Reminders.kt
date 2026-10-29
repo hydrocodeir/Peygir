@@ -44,8 +44,14 @@ object Reminders {
             if(tasks.size>8) add("و ${(tasks.size-8).fa()} مصوبهٔ دیگر؛ برای مرور کامل لمس کنید.")
         }.joinToString("\n")
     }
-    private fun pending(context: Context, reviewAt: Long = 0): PendingIntent = PendingIntent.getBroadcast(context,1,Intent(context,ReminderReceiver::class.java).setAction("ir.peygir.DISPATCH").putExtra("review_at",reviewAt),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    private fun pending(context: Context, reviewAt: Long = 0): PendingIntent {
+        val intent=Accounts.intent(context,Intent(context,ReminderReceiver::class.java)).setAction("ir.peygir.DISPATCH").putExtra("review_at",reviewAt)
+        if(Accounts.notificationTag(context)!=null) intent.data=android.net.Uri.parse("peygir://dispatch/${Accounts.id(context)}")
+        return PendingIntent.getBroadcast(context,1,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+    fun cancel(context: Context) {context.getSystemService(AlarmManager::class.java).cancel(pending(Accounts.context(context)))}
     @Synchronized fun schedule(context: Context) {
+        if(Accounts.explicit(context)==null) {Accounts.contexts(context).forEach{schedule(it)};return}
         if(!SharedCredentials(context).alerts()) {context.getSystemService(AlarmManager::class.java).cancel(pending(context));return}
         channels(context)
         val now=System.currentTimeMillis()
@@ -64,25 +70,27 @@ object Reminders {
     private fun notification(context: Context, id: Int, title: String, body: String, taskId: Long = 0, reviewDay: Long? = null, token: String? = null, silent: Boolean = false): Boolean {
         val channel=if(reviewDay==null) CHANNEL else REVIEW_CHANNEL
         if(!allowed(context,channel)) return false
-        val intent=Intent(context,MainActivity::class.java).putExtra("task_id",taskId).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if(reviewDay!=null) intent.setAction(WidgetLaunch.REVIEW).setData(android.net.Uri.parse("peygir://daily-review/$reviewDay")).putExtra("day",reviewDay)
+        val intent=Accounts.intent(context,Intent(context,MainActivity::class.java)).putExtra("task_id",taskId).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if(Accounts.notificationTag(context)!=null) intent.data=android.net.Uri.parse("peygir://account/${Accounts.id(context)}/task/$taskId")
+        if(reviewDay!=null) intent.setAction(WidgetLaunch.REVIEW).setData(android.net.Uri.parse("peygir://daily-review/${Accounts.id(context)}/$reviewDay")).putExtra("day",reviewDay)
         val open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val builder=NotificationCompat.Builder(context,channel).setSmallIcon(R.drawable.ic_notification).setContentTitle(title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(open).setAutoCancel(true).setPriority(if(reviewDay==null) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT).setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        val builder=NotificationCompat.Builder(context,channel).setSmallIcon(R.drawable.ic_notification).setContentTitle(Accounts.profile(context)?.let{"${it.label} - $title"} ?: title).setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(open).setAutoCancel(true).setPriority(if(reviewDay==null) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT).setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
         if(silent) builder.setSilent(true)
         if(taskId>0 && token!=null) {
             listOf(ReminderActionReceiver.DONE to (if(OrgAccess.deputy(context)) "ارسال برای تأیید رئیس" else "انجام شد"),ReminderActionReceiver.SNOOZE to "یک ساعت دیگر یادآوری کن").forEach {(action,label)->
-                val intent=Intent(context,ReminderActionReceiver::class.java).setAction(action)
-                    .setData(android.net.Uri.parse("peygir://task-action/$taskId/$token/${action.substringAfterLast('.')}"))
+                val intent=Accounts.intent(context,Intent(context,ReminderActionReceiver::class.java)).setAction(action)
+                    .setData(android.net.Uri.parse("peygir://task-action/${Accounts.id(context)}/$taskId/$token/${action.substringAfterLast('.')}"))
                     .putExtra("task_id",taskId).putExtra("token",token)
                 val pending=PendingIntent.getBroadcast(context,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 builder.addAction(NotificationCompat.Action.Builder(0,label,pending).setAuthenticationRequired(true).build())
             }
         }
-        val n=builder.build()
-        return try { NotificationManagerCompat.from(context).notify(id,n); true } catch(_: SecurityException) { false }
+        val n=builder.addExtras(android.os.Bundle().apply{putString(Accounts.EXTRA,Accounts.id(context))}).build()
+        return try { NotificationManagerCompat.from(context).notify(Accounts.notificationTag(context),id,n); true } catch(_: SecurityException) { false }
     }
     @Suppress("UNUSED_PARAMETER")
     @Synchronized fun process(context: Context, reviewAt: Long = 0) {
+        if(Accounts.explicit(context)==null) {Accounts.contexts(context).forEach{process(it,reviewAt)};return}
         if(!SharedCredentials(context).alerts()) {schedule(context);return}
         val store=Store.get(context)
         val data=store.snapshot()
@@ -94,18 +102,18 @@ object Reminders {
             else {
                 val token=java.util.UUID.randomUUID().toString()
                 if(notification(context,t.id.toInt(),"زمان پیگیری - ${t.title}","مسئول: ${t.owner}\nسررسید: ${Solar.label(LocalDate.ofEpochDay(t.due))}\nوضعیت: ${t.status.label}",t.id,token=token)) {
-                    if(!store.activateNotification(t.id,token,rs.map{it.id})) context.getSystemService(NotificationManager::class.java).cancel(t.id.toInt())
+                    if(!store.activateNotification(t.id,token,rs.map{it.id})) Accounts.cancelTask(context,t.id.toInt())
                 }
             }
         }
         // Upgrade already-visible notifications from older app versions without another sound.
         context.getSystemService(NotificationManager::class.java).activeNotifications
-            .filter{it.notification.channelId==CHANNEL && it.notification.actions.isNullOrEmpty()}
+            .filter{it.tag==Accounts.notificationTag(context) && it.notification.channelId==CHANNEL && it.notification.actions.isNullOrEmpty()}
             .forEach {active->
                 data.tasks.find{it.id.toInt()==active.id && it.status!=Status.DONE}?.let {task->
                     val token=java.util.UUID.randomUUID().toString()
                     if(notification(context,task.id.toInt(),"زمان پیگیری - ${task.title}","مسئول: ${task.owner}\nسررسید: ${Solar.label(LocalDate.ofEpochDay(task.due))}\nوضعیت: ${task.status.label}",task.id,token=token,silent=true)) {
-                        if(!store.activateNotification(task.id,token,emptyList())) context.getSystemService(NotificationManager::class.java).cancel(task.id.toInt())
+                        if(!store.activateNotification(task.id,token,emptyList())) Accounts.cancelTask(context,task.id.toInt())
                     }
                 }
             }
@@ -115,15 +123,17 @@ object Reminders {
             val today=LocalDate.now().toEpochDay()
             if(notification(context,REVIEW_ID,"مرور مصوبات امروز - پیگیر",reviewBody(data,today),reviewDay=today)) prefs.edit().putLong("last_review",due).apply()
         }
-        data.tasks.filter { it.status==Status.DONE }.forEach { context.getSystemService(NotificationManager::class.java).cancel(it.id.toInt()) }
+        data.tasks.filter { it.status==Status.DONE }.forEach { Accounts.cancelTask(context,it.id.toInt()) }
         schedule(context)
     }
     fun test(context: Context) = notification(context,-51,"پیگیر آماده است","اعلان‌ها فعال‌اند؛ زمان پیگیری را در فرم هر مصوبه انتخاب کنید.")
-    @Synchronized fun handleAction(context: Context, intent: Intent): Boolean {
+    @Synchronized fun handleAction(source: Context, intent: Intent): Boolean {
+        val context=Accounts.fromIntent(source,intent) ?: return false
+        if(context.getSharedPreferences("shared_status",0).getBoolean("auth_expired",false)) return false
         if(intent.action !in setOf(ReminderActionReceiver.DONE,ReminderActionReceiver.SNOOZE)) return false
         val id=intent.getLongExtra("task_id",0);val token=intent.getStringExtra("token") ?: return false
         if(id<=0 || !Store.get(context).notificationAction(id,token,intent.action==ReminderActionReceiver.SNOOZE)) return false
-        context.getSystemService(NotificationManager::class.java).cancel(id.toInt())
+        Accounts.cancelTask(context,id.toInt())
         process(context);ReviewWidget.updateAll(context)
         SharedSync.request(context)
         return true
@@ -144,6 +154,6 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if(intent.action !in setOf("ir.peygir.DISPATCH",Intent.ACTION_BOOT_COMPLETED,Intent.ACTION_TIME_CHANGED,Intent.ACTION_TIMEZONE_CHANGED,Intent.ACTION_MY_PACKAGE_REPLACED,"android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED")) return
         val result=goAsync()
-        Reminders.background { try { Reminders.process(context,intent.getLongExtra("review_at",0)) } finally { result.finish() } }
+        Reminders.background { try { if(intent.action=="ir.peygir.DISPATCH") Accounts.fromIntent(context,intent)?.let{Reminders.process(it,intent.getLongExtra("review_at",0))} else Reminders.process(context) } finally { result.finish() } }
     }
 }

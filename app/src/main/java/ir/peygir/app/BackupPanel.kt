@@ -64,7 +64,7 @@ import java.time.LocalDate
                             // An in-flight old alarm must not mark a restored reminder as delivered.
                             synchronized(Reminders) {
                                 Backup.restore(context,prepared)
-                                runCatching {context.getSystemService(NotificationManager::class.java).cancelAll();Reminders.process(context)}
+                                runCatching {Accounts.cancelNotifications(context);Reminders.process(context)}
                             }
                             runCatching {ReviewWidget.updateAll(context)}
                         } finally {prepared.close()}

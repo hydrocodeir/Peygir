@@ -44,7 +44,7 @@ class PersonalOptionsTest {
         assertEquals(60,v.duration);assertEquals(-1,v.meetingLead);assertEquals("all",v.updates);assertEquals("compact",v.cards)
         assertEquals(1.6f,v.fontScale(1.6f),0f)
         compose.setContent{PeygirApp(calendarClock={LocalDate.now().atTime(16,30)})}
-        compose.onNodeWithTag("section_2").assertIsDisplayed();compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected()
+        displayed("section_2");compose.onNodeWithTag("meeting_mode_DAY").assertIsSelected()
     }
     @Test fun preferredLandingAndLastSectionPersistButExplicitNavigationWins() {
         options(UserOptions(launch="last"));c.getSharedPreferences("settings",0).edit().putInt("last_section",0).commit()

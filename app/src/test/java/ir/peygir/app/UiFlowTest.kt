@@ -23,6 +23,10 @@ class UiFlowTest {
         val context=RuntimeEnvironment.getApplication()
         Store::class.java.getDeclaredField("instance").apply{isAccessible=true}.set(null,null)
         context.deleteDatabase("peygir.db")
+        context.getSharedPreferences("company_profiles",0).edit().clear().commit()
+        context.getSharedPreferences("shared_private",0).edit().clear().commit()
+        OrgAccess.set(context,null)
+        Organization.members.value=emptyList();Organization.contacts.value=emptyList()
         context.getSharedPreferences("settings",0).edit().clear().commit()
         context.getSharedPreferences("drafts",0).edit().clear().commit()
         store=Store.get(context)
@@ -124,7 +128,8 @@ class UiFlowTest {
         assertEquals("آقای احمدی",store.snapshot().tasks.single().owner)
         assertEquals(Solar.toDate(1405,8,15)!!.toEpochDay(),store.snapshot().tasks.single().due)
         compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
-        compose.waitUntil(15000) {compose.onAllNodesWithText("تهیه گزارش ماهانه").fetchSemanticsNodes().isNotEmpty()}
+        try {compose.waitUntil(15000) {compose.onAllNodesWithText("تهیه گزارش ماهانه").fetchSemanticsNodes().isNotEmpty()}}
+        catch(e:Exception){println("Tasks after navigation: "+store.snapshot().tasks);println(compose.onRoot(useUnmergedTree=true).printToString());throw e}
         compose.waitUntil(15000) {compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).fetchSemanticsNodes().isEmpty()}
         compose.mainClock.advanceTimeBy(6000)
         compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()

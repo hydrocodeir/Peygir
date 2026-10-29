@@ -27,9 +27,8 @@ internal object ServerNetwork {
     private var manager: ConnectivityManager?=null
     private var observer: ConnectivityManager.NetworkCallback?=null
     @Synchronized fun observe(context: Context) {
-        if(context.getSharedPreferences("shared_status",0).getBoolean("auth_expired",false)) {if(!SharedSync.connection.state.value.loginRequired) SharedSync.connection.failure(true);return}
-        if(observer!=null || !SharedCredentials(context).connected()) return
-        val app=context.applicationContext
+        if(observer!=null || Accounts.contexts(context).none{SharedCredentials(it).connected()}) return
+        val app=Accounts.root(context).applicationContext
         val service=app.getSystemService(ConnectivityManager::class.java) ?: return
         val callback=object: ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {SharedSync.request(app)}

@@ -14,6 +14,7 @@ async function fixture(fn) {
     const schema=(await readFile('migrations/0001_shared.sql','utf8')).replace(/CREATE TRIGGER[\s\S]*?END;/g,s=>s.replace(/\r?\n/g,' '));
     await db.exec(schema);
     await db.exec(await readFile('migrations/0002_organization.sql','utf8'));
+    await db.exec(await readFile('migrations/0004_push_accounts.sql','utf8'));
     const workspace=uuid(),other=uuid();
     for(const id of [workspace,other]) await db.prepare('INSERT INTO workspaces VALUES(?,?)').bind(id,'Test workspace').run();
     for(const [username,role,ws] of [['assistant','assistant',workspace],['manager','manager',workspace],['other','assistant',other]]) {

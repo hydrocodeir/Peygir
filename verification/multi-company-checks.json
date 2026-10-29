@@ -1,0 +1,76 @@
+{
+  "version": "4.6.0",
+  "versionCode": 37,
+  "checkedAtTehran": "2026-10-29T17:40:34.250391+03:30",
+  "androidTests": 307,
+  "androidFailures": 0,
+  "androidSkipped": 0,
+  "lintErrors": 0,
+  "lintWarnings": 115,
+  "vpsTests": 32,
+  "vpsFailures": 0,
+  "cloudflareTests": 18,
+  "cloudflareFailures": 0,
+  "profileSuites": [
+    {
+      "name": "CompanyProfilesTest",
+      "tests": 10,
+      "cases": [
+        "switchDuringBackgroundSync",
+        "pinnedWidgetIsolation",
+        "overlappingServerRoutes",
+        "revokeOneCompany",
+        "inactiveCompanyPush",
+        "addAndReauthenticate",
+        "logoutOnlyOneCompany",
+        "legacyMigrationKeepsQueue",
+        "databaseAndQueueIsolation",
+        "reminderActionIsolation"
+      ]
+    },
+    {
+      "name": "CompanyProfilesUiTest",
+      "tests": 4,
+      "cases": [
+        "addCompanyFormDoesNotCarryThePreviousCompanyOrAskToPublishItsData",
+        "removedAccountDeepLinkDoesNotOpenTheSameIdInAnotherCompany",
+        "topCompanyPickerSwitchesTasksAndPermissionsWithoutMixingSameLocalIds",
+        "notificationFromAnotherAccountSwitchesBeforeOpeningItsTask"
+      ]
+    },
+    {
+      "name": "CompanyProfilesVisualTest",
+      "tests": 2,
+      "cases": [
+        "companyHeaderPickerAndRoleSwitchStayReadable",
+        "companyPickerSupportsDarkThemeAndLargeNames"
+      ]
+    }
+  ],
+  "accountStorage": "Separate SQLite and encrypted sessions; legacy database kept in place",
+  "profileSync": "Pinned contexts and per-account locks; independent foreground workers",
+  "pushRouting": "UUID accountRoute, userId, company and sender; ambiguous legacy matches rejected",
+  "pushProjectConstraint": "One common Firebase project for instant delivery across all registered services",
+  "widgetConfiguration": "Provider configure activity; widget binding remains pinned independently of active app profile",
+  "legacyAccountMigratedWithoutCopy": true,
+  "lateDirectoryPublicationGuarded": true,
+  "deliveryDoesNotWaitForSyncNetwork": true,
+  "screenshots": [
+    "companies-header-light.png",
+    "companies-member-header-light.png",
+    "companies-picker-dark.png",
+    "companies-picker-light.png"
+  ],
+  "apkSha256": "14c798a01a966856d2ad832a7b5e1445bea138f12b8fa273778af88b100c8797",
+  "apkBytes": 149140558,
+  "databaseVersion": 8,
+  "backupVersion": 5,
+  "protocol": 2,
+  "serverPackageVersion": "4.6.0",
+  "serverMigration": "0004_push_accounts.sql",
+  "physicalDeviceConnected": false,
+  "physicalDeviceTested": false,
+  "realMultiAccountFcmDeliveryTested": false,
+  "liveVpsDeployed": false,
+  "localBuildToolchain": "Configurable with ToolchainPath or PEYGIR_TOOLCHAIN"
+}

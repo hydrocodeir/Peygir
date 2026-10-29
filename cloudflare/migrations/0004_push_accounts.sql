@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS push_accounts(route TEXT PRIMARY KEY,token TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,session_hash TEXT NOT NULL REFERENCES sessions(token_hash) ON DELETE CASCADE,enabled INTEGER NOT NULL DEFAULT 1,updated INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS push_accounts_user ON push_accounts(user_id);

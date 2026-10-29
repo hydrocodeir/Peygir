@@ -42,6 +42,7 @@ import java.time.LocalDate
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    private val accountRequest=mutableStateOf<String?>(null)
     private val request=mutableStateOf(0L)
     private val meetingRequest=mutableStateOf(0L)
     private val sharedRequest=mutableStateOf<String?>(null)
@@ -52,14 +53,26 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState);enableEdgeToEdge()
-        request.value=intent.getLongExtra("task_id",0);widgetRequest.value=WidgetLaunch.from(intent);sharedRequest.value=intent.getStringExtra("shared_record");meetingRequest.value=intent.getLongExtra("meeting_id",0)
-        setContent {PeygirEntry {PeygirApp(requestTask=request.value,consume={request.value=0;widgetRequest.value=null;sharedRequest.value=null;meetingRequest.value=0},widgetLaunch=widgetRequest.value,sharedRecord=sharedRequest.value,requestMeeting=meetingRequest.value)}}
+        accountRequest.value=accountForIntent(intent);request.value=intent.getLongExtra("task_id",0);widgetRequest.value=WidgetLaunch.from(intent);sharedRequest.value=intent.getStringExtra("shared_record");meetingRequest.value=intent.getLongExtra("meeting_id",0)
+        setContent {PeygirEntry {PeygirApp(requestAccount=accountRequest.value,requestTask=request.value,consume={accountRequest.value=null;request.value=0;widgetRequest.value=null;sharedRequest.value=null;meetingRequest.value=0},widgetLaunch=widgetRequest.value,sharedRecord=sharedRequest.value,requestMeeting=meetingRequest.value)}}
     }
-    override fun onNewIntent(intent: Intent) {super.onNewIntent(intent);setIntent(intent);request.value=intent.getLongExtra("task_id",0);widgetRequest.value=WidgetLaunch.from(intent);sharedRequest.value=intent.getStringExtra("shared_record");meetingRequest.value=intent.getLongExtra("meeting_id",0)}
+    private fun accountForIntent(intent: Intent): String? = if(intent.hasExtra(Accounts.EXTRA)) intent.getStringExtra(Accounts.EXTRA) else if(Accounts.list(this).size>1 && (intent.hasExtra("task_id") || intent.hasExtra("meeting_id") || intent.hasExtra("shared_record") || WidgetLaunch.from(intent)!=null)) "invalid" else null
+    override fun onNewIntent(intent: Intent) {super.onNewIntent(intent);setIntent(intent);accountRequest.value=accountForIntent(intent);request.value=intent.getLongExtra("task_id",0);widgetRequest.value=WidgetLaunch.from(intent);sharedRequest.value=intent.getStringExtra("shared_record");meetingRequest.value=intent.getLongExtra("meeting_id",0)}
+}
+
+@Composable internal fun PeygirApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int?=null,calendarClock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()},requestAccount: String?=null) {
+    val root=Accounts.root(LocalContext.current)
+    val profileRevision by Accounts.revision.collectAsState()
+    val active=remember(profileRevision){Accounts.active(root)}
+    val invalid=requestAccount!=null && Accounts.profile(root,requestAccount)==null && !(requestAccount.isEmpty() && Accounts.list(root).isEmpty())
+    LaunchedEffect(requestAccount,active) {if(!invalid && requestAccount!=null && requestAccount!=active) withContext(Dispatchers.IO){Accounts.select(root,requestAccount)}}
+    if(invalid) PeygirTheme("system"){Surface(Modifier.fillMaxSize()){Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){Text("حساب مربوط به این اعلان یا ویجت در دسترس نیست. شرکت را از داخل پیگیر انتخاب کنید.");Button(onClick=consume){Text("بازکردن پیگیر")}}}}
+    else if(requestAccount!=null && requestAccount!=active) PeygirTheme("system"){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()}}
+    else key(active) {CompositionLocalProvider(LocalContext provides Accounts.context(root,active)) {PeygirCompanyApp(requestTask,consume,widgetLaunch,sharedRecord,requestMeeting,initialSection,calendarClock)}}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable internal fun PeygirApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int?=null,calendarClock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
+@Composable private fun PeygirCompanyApp(requestTask: Long = 0, consume: () -> Unit = {}, widgetLaunch: WidgetLaunch? = null,sharedRecord: String?=null,requestMeeting: Long=0,initialSection: Int?=null,calendarClock: ()->java.time.LocalDateTime = {java.time.LocalDateTime.now()}) {
     val context=LocalContext.current
     val store=remember {Store.get(context)}
     val accountRevision by SharedSync.revision.collectAsState()
@@ -67,6 +80,7 @@ class MainActivity : ComponentActivity() {
     val serverWorking by SharedSync.working.collectAsState()
     val sharedAccount=SharedCredentials(context).connected()
     var serverDetails by remember {mutableStateOf(false)}
+    var companiesOpen by remember {mutableStateOf(false)}
     var calendarFocus by remember {mutableIntStateOf(0)}
     val deputy=OrgAccess.deputy(context)
     val role=OrgAccess.role(context)
@@ -146,7 +160,11 @@ class MainActivity : ComponentActivity() {
         }
     }
     LaunchedEffect(revision) {
-        try {data=withContext(Dispatchers.IO) {if(!draftsCleaned) {store.discardDraftRecordings(except=if(editTask!=null) draftSession else null);draftsCleaned=true};Organization.members.value=Organization.users(store);Organization.contacts.value=Organization.contactNames(store);store.snapshot()};loadError=false;loading=false}
+        try {
+            val loaded=withContext(Dispatchers.IO) {if(!draftsCleaned) {store.discardDraftRecordings(except=if(editTask!=null) draftSession else null);draftsCleaned=true};Triple(store.snapshot(),Organization.users(store),Organization.contactNames(store))}
+            if(store.isVisible()){data=loaded.first;store.publishPeople(loaded.second,loaded.third)}
+            loadError=false;loading=false
+        }
         catch(e:CancellationException) {throw e}
         catch(e:Exception) {loadError=true;loading=false;android.util.Log.e("Peygir","Snapshot load failed",e);message("خواندن اطلاعات ناموفق بود؛ دوباره تلاش کنید.")}
     }
@@ -199,13 +217,14 @@ class MainActivity : ComponentActivity() {
     fun selectFilter(value: String) {filter=value;navigate(1);selectedMeeting=0}
     BackHandler(enabled=settingsOpen || page!=2 || selectedMeeting>0) {when {settingsOpen -> settingsOpen=false;selectedMeeting>0 && page==2 -> selectedMeeting=0;else -> navigate(2)}}
     PeygirTheme(mode=mode,dynamicColors=dynamicColors) {
+        if(companiesOpen) CompanySwitcher({companiesOpen=false})
         Scaffold(
-            topBar={TopAppBar(title={ServerTitle(if(settingsOpen) "تنظیمات" else if(selectedMeeting>0 && page==2) "جزئیات جلسه" else "پیگیر",serverState.takeIf{sharedAccount}){serverDetails=true}},navigationIcon={if(settingsOpen || (selectedMeeting>0 && page==2)) IconButton(onClick={if(settingsOpen) settingsOpen=false else selectedMeeting=0}){Icon(Icons.AutoMirrored.Outlined.ArrowBack,"بازگشت")}},actions={if(!settingsOpen) {if(!deputy && page in listOf(0,1)) {
+            topBar={TopAppBar(title={ServerTitle(Accounts.profile(context)?.label?.removePrefix("شرکت ") ?: if(settingsOpen) "تنظیمات" else if(selectedMeeting>0 && page==2) "جزئیات جلسه" else "پیگیر",serverState.takeIf{sharedAccount},compactTitle=Accounts.profile(context)!=null,switchCompany={companiesOpen=true}){serverDetails=true}},navigationIcon={if(settingsOpen || (selectedMeeting>0 && page==2)) IconButton(onClick={if(settingsOpen) settingsOpen=false else selectedMeeting=0}){Icon(Icons.AutoMirrored.Outlined.ArrowBack,"بازگشت")}},actions={if(!settingsOpen) {if(!deputy && page in listOf(0,1)) {
                 val awaiting=data.tasks.count{it.status==Status.REVIEW}
                 if(role=="manager") {
                     if(awaiting>0) IconButton(onClick={selectFilter("review")},enabled=!loading && !busy){BadgedBox(badge={Badge{Text(if(awaiting>99) "۹۹+" else awaiting.fa())}}){Icon(Icons.Outlined.TaskAlt,"تأییدها")}}
                     IconButton(onClick={newTask()},enabled=!loading && !busy){Icon(Icons.Outlined.Add,"ثبت مصوبه")}
-                } else FilledTonalButton(onClick={newTask()},enabled=!loading && !busy,contentPadding=PaddingValues(horizontal=12.dp)){Icon(Icons.Outlined.Add,null,Modifier.size(18.dp));Spacer(Modifier.width(4.dp));Text("ثبت مصوبه")}
+                } else if(Accounts.profile(context)!=null) IconButton(onClick={newTask()},enabled=!loading && !busy){Icon(Icons.Outlined.Add,"ثبت مصوبه")} else FilledTonalButton(onClick={newTask()},enabled=!loading && !busy,contentPadding=PaddingValues(horizontal=12.dp)){Icon(Icons.Outlined.Add,null,Modifier.size(18.dp));Spacer(Modifier.width(4.dp));Text("ثبت مصوبه")}
             };ServerRefresh(serverWorking){revision++;SharedSync.request(context)};IconButton(onClick={settingsOpen=true}){Icon(Icons.Outlined.Settings,"تنظیمات")}}})},
             bottomBar={NavigationBar {listOf((if(deputy) "جلسات من" else "جلسات") to Icons.Outlined.Groups,"پیگیری" to Icons.Outlined.Checklist,(if(deputy) "مصوبات من" else "مصوبات") to Icons.Outlined.TaskAlt,"مرور" to Icons.Outlined.CalendarMonth).forEachIndexed { i,(label,icon) -> NavigationBarItem(selected=!settingsOpen && page==pageOrder[i],onClick={navigate(pageOrder[i]);selectedMeeting=0},icon={val awaiting=if(role=="manager" && i==1) data.tasks.count{it.status==Status.REVIEW} else 0
                 Box(Modifier.size(32.dp),contentAlignment=Alignment.Center){Icon(icon,null,Modifier.size(24.dp));if(awaiting>0) Badge(containerColor=MaterialTheme.colorScheme.primary,modifier=Modifier.align(Alignment.TopEnd).testTag("approval_badge").semantics{contentDescription="${awaiting.fa()} مصوبه نیازمند تأیید"}){Text(if(awaiting>99) "۹۹+" else awaiting.fa())}}},label={Text(label)})}}},
@@ -243,8 +262,8 @@ class MainActivity : ComponentActivity() {
             else if(task.id>0 && !taskEditing) TaskSummary(task,data,busy,::discardEditor,
                 status={next->action(if(next==Status.DONE) "انجام مصوبه ثبت شد" else "وضعیت به‌روز شد",if(next in listOf(Status.DONE,Status.REVIEW)) ::discardEditor else ({})){store.status(task.id,next)}},
                 followUp={text,onSaved->action("نتیجهٔ پیگیری ثبت شد",onSaved){store.addFollowUp(task.id,text)}},feedback=editorFeedback,edit={taskEditing=true},
-                delete={action("مصوبه حذف شد",::discardEditor){store.deleteTask(task.id);context.getSystemService(android.app.NotificationManager::class.java).cancel(task.id.toInt())}},
-                reschedule={t,rs,kind,reason->action("تغییر موعد ثبت شد",::discardEditor){store.saveTask(t,rs,kind,reason);context.getSystemService(android.app.NotificationManager::class.java).cancel(t.id.toInt())}},
+                delete={action("مصوبه حذف شد",::discardEditor){store.deleteTask(task.id);Accounts.cancelTask(context,task.id.toInt())}},
+                reschedule={t,rs,kind,reason->action("تغییر موعد ثبت شد",::discardEditor){store.saveTask(t,rs,kind,reason);Accounts.cancelTask(context,t.id.toInt())}},
                 openMeeting={id->discardEditor();selectedMeeting=id;navigate(2)})
             else TaskEditor(task,data.meetings,data.reminders.filter{it.taskId==task.id},busy,::discardEditor,{t,rs->action("مصوبه ثبت شد",{
                 val captured=proposalSource.isNotBlank()
@@ -252,7 +271,7 @@ class MainActivity : ComponentActivity() {
                 val remaining=if(captured && task.id==0L) Extractor.extract(batchSource).filterNot{it.key() in savedProposals.split(',')} else emptyList()
                 proposalSource="";recordingForInput=null
                 if(remaining.isNotEmpty()) {store.discardDraftRecordings(draftSession);draftSession=java.util.UUID.randomUUID().toString();editorSession++;editTask=Resolution(meetingId=t.meetingId,due=t.due).encode()} else discardEditor()
-            }){store.saveTask(t,rs,draftSession=draftSession,consumedRecording=sourceRecording);if(task.id>0 && t.due!=task.due) context.getSystemService(android.app.NotificationManager::class.java).cancel(task.id.toInt())}},if(task.id>0) ({action("مصوبه حذف شد",::discardEditor){store.deleteTask(task.id);context.getSystemService(android.app.NotificationManager::class.java).cancel(task.id.toInt())}}) else null,recordings=data.recordings+data.draftRecordings.filter{it.draftSession==draftSession},accepted=savedProposals.split(',').toSet(),recordingId=recordingForInput,refresh={revision++},message=::message,proposalSelected={proposalSource=it},initialSource=batchSource,batchChanged={batchSource=it},history=data.history.filter{it.taskId==task.id},feedback=editorFeedback,draftSession=draftSession,recordingUsed={sourceRecording=it},allTasks=data.tasks,followUps=data.followUps.filter{it.taskId==task.id},onFollowUp={text,onSaved->action("نتیجهٔ پیگیری ثبت شد",onSaved){store.addFollowUp(task.id,text)}},reschedule={t,rs,kind,reason->action("تغییر موعد ثبت شد",::discardEditor){store.saveTask(t,rs,kind,reason,draftSession,sourceRecording);context.getSystemService(android.app.NotificationManager::class.java).cancel(t.id.toInt())}},approval={s->action(if(s==Status.DONE) "انجام مصوبه تأیید شد" else "مصوبه برای ادامهٔ کار برگشت",::discardEditor){store.status(task.id,s)}})
+            }){store.saveTask(t,rs,draftSession=draftSession,consumedRecording=sourceRecording);if(task.id>0 && t.due!=task.due) Accounts.cancelTask(context,task.id.toInt())}},if(task.id>0) ({action("مصوبه حذف شد",::discardEditor){store.deleteTask(task.id);Accounts.cancelTask(context,task.id.toInt())}}) else null,recordings=data.recordings+data.draftRecordings.filter{it.draftSession==draftSession},accepted=savedProposals.split(',').toSet(),recordingId=recordingForInput,refresh={revision++},message=::message,proposalSelected={proposalSource=it},initialSource=batchSource,batchChanged={batchSource=it},history=data.history.filter{it.taskId==task.id},feedback=editorFeedback,draftSession=draftSession,recordingUsed={sourceRecording=it},allTasks=data.tasks,followUps=data.followUps.filter{it.taskId==task.id},onFollowUp={text,onSaved->action("نتیجهٔ پیگیری ثبت شد",onSaved){store.addFollowUp(task.id,text)}},reschedule={t,rs,kind,reason->action("تغییر موعد ثبت شد",::discardEditor){store.saveTask(t,rs,kind,reason,draftSession,sourceRecording);Accounts.cancelTask(context,t.id.toInt())}},approval={s->action(if(s==Status.DONE) "انجام مصوبه تأیید شد" else "مصوبه برای ادامهٔ کار برگشت",::discardEditor){store.status(task.id,s)}})
         } }
         editMeeting?.let { id -> key(id,newMeetingTemplate) {
             val template=if(id==0L) newMeetingTemplate?.let{runCatching{MeetingCopies.decode(it)}.getOrNull()} else null
