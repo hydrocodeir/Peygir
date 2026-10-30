@@ -1,0 +1,32 @@
+{
+  "version": "4.7.0",
+  "checkedAt": "2026-10-29T16:44:29.306434+00:00",
+  "vpsAndCore": {
+    "passed": 51,
+    "failed": 0
+  },
+  "sharedApi": {
+    "passed": 18,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 14,
+    "failed": 0,
+    "engines": [
+      "Chromium",
+      "WebKit"
+    ],
+    "fixturesPerCompany": {
+      "users": 50,
+      "meetings": 200,
+      "tasks": 500
+    },
+    "companies": 2
+  },
+  "composeConfig": "passed with synthetic domain",
+  "productionAudit": "0 vulnerabilities",
+  "dockerImage": "not run - daemon unavailable",
+  "realIPhonePush": "not tested",
+  "productionDeployment": "not performed",
+  "android": "unchanged - not rebuilt"
+}

@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS web_push_outbox(id TEXT PRIMARY KEY,workspace TEXT NOT NULL,user_id TEXT NOT NULL,record_id TEXT NOT NULL,kind TEXT NOT NULL,profile_id TEXT NOT NULL DEFAULT '',meta TEXT NOT NULL DEFAULT '{}',created INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_attempt INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS web_push_due ON web_push_outbox(next_attempt,created);
+CREATE TABLE IF NOT EXISTS web_scheduled(key TEXT PRIMARY KEY,created INTEGER NOT NULL);

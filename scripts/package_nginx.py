@@ -4,6 +4,7 @@ import hashlib
 import re
 import zipfile
 import argparse
+import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--revision', default='')
@@ -13,7 +14,9 @@ if revision and not re.fullmatch(r'[a-z0-9-]{1,32}', revision):
 suffix = '-' + revision if revision else ''
 
 root = Path(__file__).resolve().parents[1]
-version = re.search(r'versionName = "([^"]+)"', (root / 'app/build.gradle.kts').read_text(encoding='utf-8')).group(1)
+version = json.loads((root / 'vps/package.json').read_text(encoding='utf-8'))['version']
+if not re.fullmatch(r'\d+\.\d+\.\d+', version):
+    raise ValueError('Invalid server version')
 dest = root / f'delivery/Peygir-{version}-nginx-vps{suffix}.zip'
 excluded = {'.git', '.agents', '.device-private', '.signing', 'node_modules', '__pycache__', '.wrangler'}
 files = list((root / 'vps').rglob('*')) + list((root / 'cloudflare/src').glob('*.mjs')) + list((root / 'cloudflare/migrations').glob('*.sql'))

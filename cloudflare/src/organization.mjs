@@ -27,7 +27,7 @@ function validate(op) {
   }
   validateOperation({...op,payload:core});
 }
-async function visible(env,user,r) {
+export async function visible(env,user,r) {
   if(admin(user)) return true;
   if(r.kind==='meeting') return normalize(r.kind,r.payload).attendees.includes(user.id);
   if(r.kind==='task') return normalize(r.kind,r.payload).assignee===user.id;
@@ -134,6 +134,7 @@ async function mutate(env,user,op) {
   for(const recipient of recipients) {
     const kind=!op.deleted && op.kind==='meeting' && p.attendees.includes(recipient) && !normalize('meeting',previous?.payload||{}).attendees.includes(recipient)?'invitation':!op.deleted && op.kind==='task' && p.assignee===recipient && p.assignee!==normalize('task',previous?.payload||{}).assignee?'assignment':op.kind==='meeting'?'meeting':p.status==='REVIEW'?'review':'task';
     statements.push(env.DB.prepare(`INSERT OR IGNORE INTO push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,kind,now,user.workspace,op.recordId,op.id));
+    if(env.WEB_PUSH_ENABLED) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO web_push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,kind,now,user.workspace,op.recordId,op.id));
   }
   await env.DB.batch(statements);
   const saved=await env.DB.prepare('SELECT response,user_id,fingerprint FROM operations WHERE workspace=? AND id=?').bind(user.workspace,op.id).first();

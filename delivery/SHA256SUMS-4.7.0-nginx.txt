@@ -1,0 +1,1 @@
+c989f36d3138e3f205d3fe2a95499683d3fe9899ed0a2a7e550dcd5545c3bbd3  Peygir-4.7.0-nginx-vps.zip

@@ -319,5 +319,6 @@
       "name": "ir.peygir.app.WidgetVisualTest",
       "tests": 1
     }
-  ]
+  ],
+  "webPwaReport": "pwa-checks.json"
 }

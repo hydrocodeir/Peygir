@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#6750a4" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="application-name" content="پیگیر" />
+    <meta name="description" content="جلسات، مصوبات و پیگیری شرکت شما" />
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <link rel="icon" href="/app/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/app/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/app/style.css" />
+    <title>پیگیر - جلسات و مصوبات</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">رفتن به محتوا</a>
+    <div id="app">
+      <main class="boot">
+        <img src="/app/icon.svg" width="64" height="64" alt="" />
+        <h1>پیگیر</h1>
+        <p role="status">در حال بازکردن دفتر شما</p>
+      </main>
+    </div>
+    <div id="dialogs"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app/app.js"></script>
+    <noscript
+      >برای استفاده از پیگیر، جاوااسکریپت مرورگر باید فعال باشد</noscript
+    >
+  </body>
+</html>

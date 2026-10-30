@@ -3,12 +3,13 @@ import {Registry,equal} from './registry.mjs';
 import {instanceLock} from './database.mjs';
 import worker,{ApiError,body,json} from '../../cloudflare/src/worker.mjs';
 import {flushPush} from '../../cloudflare/src/organization.mjs';
+import {createWebApplication} from './web.mjs';
 
 const assets=new Map([
   ['/admin/',['index.html','text/html; charset=utf-8']],['/admin/app.js',['app.js','text/javascript; charset=utf-8']],['/admin/style.css',['style.css','text/css; charset=utf-8']]
 ]);
 const cookieName='peygir_owner';
-export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,fcmPublic=null}) {
+export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,fcmPublic=null,sendWebPush,clock}) {
   const origin=new URL(publicOrigin).origin;
   const secure=origin.startsWith('https://');
   if(!secure && !['127.0.0.1','localhost','[::1]'].includes(new URL(origin).hostname)) throw new Error('Public origin must use HTTPS.');
@@ -17,7 +18,8 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
   let stopping=false;const pending=new Set();let sweepRunning=false;
   const fcm=!!(fcmService?.private_key && fcmService?.client_email && fcmService?.project_id && fcmPublic?.projectId && fcmPublic?.senderId && fcmPublic?.apiKey && fcmPublic?.applicationId);
   if(fcm && fcmService.project_id!==fcmPublic.projectId) {registry.close();unlock();throw new Error('FCM project IDs must match.');}
-  const environment=(lease,c)=>({DB:lease.d1,COMPANY_CODE:c.code,ALLOW_ASSISTANT_ACCOUNTS:true,ACCOUNT_MANAGEMENT_V2:true,CONTACTS_ENABLED:true,...(fcm?{FCM_SERVICE_ACCOUNT:JSON.stringify(fcmService),FCM_PUBLIC_JSON:JSON.stringify(fcmPublic)}:{})});
+  const environment=(lease,c)=>({DB:lease.d1,COMPANY_CODE:c.code,ALLOW_ASSISTANT_ACCOUNTS:true,ACCOUNT_MANAGEMENT_V2:true,CONTACTS_ENABLED:true,WEB_PUSH_ENABLED:true,...(fcm?{FCM_SERVICE_ACCOUNT:JSON.stringify(fcmService),FCM_PUBLIC_JSON:JSON.stringify(fcmPublic)}:{})});
+  const web=createWebApplication({registry,origin,proxy:async(company,token,path,payload,ip)=>dispatch(new Request(origin+path,{method:'POST',headers:{'Content-Type':'application/json','X-Peygir-Company':company,...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(payload)}),ip),...(sendWebPush?{send:sendWebPush}:{}),...(clock?{now:clock}:{})});
   function track(promise) {pending.add(promise);void promise.finally(()=>pending.delete(promise)).catch(()=>{});}
   const cookie=token=>`${cookieName}=${token}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=${token?28800:0}${secure?'; Secure':''}`;
   async function admin(request,path,ip) {
@@ -46,7 +48,8 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
   async function dispatch(request,ip) {
     const url=new URL(request.url),path=url.pathname;
     if(stopping) throw new ApiError(503,'سرویس در حال راه‌اندازی مجدد است.');
-    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.6.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
+    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.7.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
+    if(path==='/app' || path.startsWith('/app/'))return web.route(request,ip);
     if((path==='/' || path==='/admin') && request.method==='GET') return new Response(null,{status:302,headers:{Location:'/admin/'}});
     if(assets.has(path) && request.method==='GET') {const [name,type]=assets.get(path);return new Response(readFileSync(new URL('../public/'+name,import.meta.url)),{headers:{'Content-Type':type}});}
     if(path==='/admin/font.ttf' && request.method==='GET') return new Response(readFileSync(new URL('../../app/src/main/res/font/vazirmatn_regular.ttf',import.meta.url)),{headers:{'Content-Type':'font/ttf'}});
@@ -61,6 +64,7 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
       // Never trust a client-supplied Cloudflare header for rate limiting on the VPS.
       const headers=new Headers(request.headers);headers.set('cf-connecting-ip',ip);
       let response=await worker.fetch(new Request(request,{headers}),environment(lease,company),{waitUntil(p){tasks.push(Promise.resolve(p));}});
+      if(path==='/v2/sync' && response.ok)tasks.push(web.flushCompany(lease,company));
       if(path==='/v2/login' && response.ok) {const value=await response.json();response=json({...value,company:company.code});}
       return response;
     } finally {
@@ -74,12 +78,13 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
       let response;
       try {response=await dispatch(request,ip);}catch(e){response=json({error:e instanceof ApiError?e.message:'عملیات ناموفق بود؛ دوباره امتحان کنید.'},e instanceof ApiError?e.status:500);}
       response.headers.set('Cache-Control','no-store');response.headers.set('X-Content-Type-Options','nosniff');response.headers.set('Referrer-Policy','no-referrer');
-      response.headers.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+      response.headers.set('Content-Security-Policy',"default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+      response.headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
       return response;
     },
     async sweep() {
-      if(stopping || sweepRunning || !fcm)return;sweepRunning=true;
-      try {for(const c of registry.list().filter(c=>c.active)){const lease=registry.lease(c);try{await flushPush(environment(lease,c));}finally{lease.release();}}}finally{sweepRunning=false;}
+      if(stopping || sweepRunning)return;sweepRunning=true;
+      try {for(const c of registry.list().filter(c=>c.active)){const lease=registry.lease(c);try{if(fcm)await flushPush(environment(lease,c));await web.flushCompany(lease,c,{scheduled:true});}finally{lease.release();}}}finally{sweepRunning=false;}
     },
     async close() {stopping=true;await Promise.allSettled([...pending]);while(sweepRunning)await new Promise(r=>setTimeout(r,10));registry.close();unlock();}
   };

@@ -13,7 +13,7 @@ export async function makeBackup(dataDir,backupRoot) {
     registry=new DatabaseSync(join(dataDir,'registry.sqlite'),{readOnly:true});const companies=registry.prepare('SELECT id FROM companies ORDER BY id').all();
     const files=[];await backup(registry,join(dest,'registry.sqlite'));files.push('registry.sqlite');
     for(const {id} of companies){if(!uuid(id))throw new Error('Invalid company identity');const name='tenants/'+id+'.sqlite';const db=new DatabaseSync(join(dataDir,name),{readOnly:true});try{await backup(db,join(dest,name));}finally{db.close();}files.push(name);}
-    writeFileSync(join(dest,'manifest.json'),JSON.stringify({format:1,version:'4.6.0',created:Date.now(),files:files.map(name=>({name,sha256:hash(join(dest,name))}))},null,2)+'\n',{mode:0o600,flag:'wx'});return dest;
+    writeFileSync(join(dest,'manifest.json'),JSON.stringify({format:1,version:'4.7.0',created:Date.now(),files:files.map(name=>({name,sha256:hash(join(dest,name))}))},null,2)+'\n',{mode:0o600,flag:'wx'});return dest;
   }finally{registry?.close();unlock();}
 }
 export function restoreBackup(dataDir,source) {
@@ -34,11 +34,11 @@ export function restoreBackup(dataDir,source) {
     try {const ids=registry.prepare('SELECT id FROM companies').all().map(r=>r.id);if(ids.some(id=>!uuid(id) || !names.has('tenants/'+id+'.sqlite')) || names.size!==ids.length+1)throw new Error('Incomplete company backup');}finally{registry.close();}
     mkdirSync(join(dataDir,'tenants'),{mode:0o700});
     for(const f of manifest.files)copyFileSync(join(source,f.name),join(dataDir,f.name),constants.COPYFILE_EXCL);
-    const db=new DatabaseSync(join(dataDir,'registry.sqlite'));try{db.exec('DELETE FROM admin_sessions');}finally{db.close();}
+    const db=new DatabaseSync(join(dataDir,'registry.sqlite'));try{db.exec('DELETE FROM admin_sessions');if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='web_profiles'").get())db.exec('PRAGMA foreign_keys=ON; DELETE FROM web_profiles');}finally{db.close();}
     // A restored server can have older revisions than phones. Force a clean, authorized
     // download instead of reviving revoked sessions or retaining stale sync inventories.
     for(const name of names) if(name.startsWith('tenants/')) {
-      const db=new DatabaseSync(join(dataDir,name));try{db.exec('BEGIN IMMEDIATE; DELETE FROM sessions; DELETE FROM push_devices; DELETE FROM push_outbox; COMMIT;');}finally{db.close();}
+      const db=new DatabaseSync(join(dataDir,name));try{db.exec('BEGIN IMMEDIATE; DELETE FROM sessions; DELETE FROM push_devices; DELETE FROM push_outbox; COMMIT;');if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='web_push_outbox'").get())db.exec('DELETE FROM web_push_outbox; DELETE FROM web_scheduled;');}finally{db.close();}
     }
   }finally{unlock();}
 }
