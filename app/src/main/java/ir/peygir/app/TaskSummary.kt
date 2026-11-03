@@ -60,6 +60,7 @@ import java.time.*
                 TextButton(onClick={owner=true},contentPadding=PaddingValues(0.dp),modifier=Modifier.testTag("owner_open_tasks")){Icon(Icons.Outlined.PersonOutline,null);Spacer(Modifier.width(6.dp));Text(task.owner.ifBlank{"بدون مسئول"})}
                 Text("سررسید: ${Solar.label(LocalDate.ofEpochDay(task.due))}${if(late) " - معوق" else ""}",color=if(late) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
                 TaskState(task)
+                DeadlineProgressPanel(task,busy,{SharedSync.revision.value++},{localError=it})
                 if(task.priority==Priority.URGENT) Text("فوری",color=MaterialTheme.colorScheme.error)
                 notes.firstOrNull()?.let {note->
                     Text(note.text,maxLines=1,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodyMedium)

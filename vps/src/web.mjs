@@ -10,6 +10,7 @@ import {
   ID,
   getRecord,
 } from "../../cloudflare/src/worker.mjs";
+import { midpoint,midpointKey } from "../../cloudflare/src/deadline.mjs";
 import { visible } from "../../cloudflare/src/organization.mjs";
 import { equal, companyCode } from "./registry.mjs";
 
@@ -128,6 +129,9 @@ const titleFor = (kind) =>
     meeting: "برنامهٔ جلسه به‌روز شد",
     daily: "مرور مصوبات امروز",
     reminder: "زمان پیگیری مصوبه",
+    midpoint: "نیمی از مهلت گذشت؛ وضعیت کار و نیاز به تمدید را گزارش کنید",
+    extensionRequest: "درخواست تمدید مهلت برای بررسی رئیس",
+    extensionDecision: "نتیجهٔ بررسی درخواست تمدید مهلت",
     meetingReminder: "یادآوری جلسه",
   })[kind] || "مصوبه به‌روز شد";
 const staticTypes = {
@@ -287,7 +291,7 @@ export function createWebApplication({
       return json({
         publicKey: keys.public_key,
         timeZone: "Asia/Tehran",
-        version: "4.7.0",
+        version: "4.9.0",
       });
     if (path === "/app/api/accounts" && request.method === "GET") {
       const profiles = [];
@@ -485,6 +489,11 @@ export function createWebApplication({
       if (pref.daily && daily <= at && daily >= p.subscribed - 60000)
         enqueue("daily", "", `daily:${today}`, { day: today });
       for (const r of allowed) {
+        if(r.kind==="task" && r.payload.assignee===user.id) {
+          const payload={...r.payload,created:r.payload.created || r.changed};
+          const time=midpoint(payload);
+          if(time!==null && time<=at) enqueue("midpoint",r.id,midpointKey(r.id,payload),{stamp:midpointKey(r.id,payload)});
+        }
         if (r.kind === "task" && r.payload.status !== "DONE")
           for (const time of r.payload.reminders || [])
             if (time <= at && time >= Math.max(at - DAY, p.subscribed - 60000))
@@ -517,7 +526,7 @@ export function createWebApplication({
       }
     }
     lease.db
-      .prepare("DELETE FROM web_scheduled WHERE created<?")
+      .prepare("DELETE FROM web_scheduled WHERE created<? AND key NOT LIKE '%|midpoint:%'")
       .run(at - 100 * DAY);
   }
   async function flushCompany(lease, c, { scheduled = false } = {}) {
@@ -585,6 +594,7 @@ export function createWebApplication({
               officeTime(meta.day, record.payload.end) <= now())
           )
             continue;
+          if(event.kind==="midpoint" && (record.payload.assignee!==user.id || midpoint({...record.payload,created:record.payload.created || record.changed})===null || meta.stamp!==midpointKey(record.id,{...record.payload,created:record.payload.created || record.changed}))) continue;
           const payload = {
             title: c.name + " - " + titleFor(event.kind),
             body: "برای مشاهده و پیگیری، پیگیر را باز کنید",

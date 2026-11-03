@@ -172,11 +172,11 @@ object MeetingTimeline {
             val m=placement.meeting;val start=m.start!!;val end=m.end!!
             val column=width/placement.lanes;val height=hourHeight*((end-start)/60f)
             val palette=listOf(scheme.primaryContainer to scheme.onPrimaryContainer,scheme.secondaryContainer to scheme.onSecondaryContainer,scheme.tertiaryContainer to scheme.onTertiaryContainer)
-            val (color,ink)=palette[(m.id%palette.size).toInt().coerceAtLeast(0)]
+            val (color,ink)=if(m.reserved) ReservationColors.background to ReservationColors.ink else palette[(m.id%palette.size).toInt().coerceAtLeast(0)]
             Surface(onClick={open(m.id)},shape=RoundedCornerShape(if(weekly) 5.dp else 10.dp),color=color,contentColor=ink,
                 modifier=Modifier.offset(x=column*placement.lane,y=hourHeight*(start/60f)).width(column).height(height).padding(1.dp).testTag("meeting_card_${m.id}").semantics{contentDescription="${m.title}، ${Solar.label(LocalDate.ofEpochDay(day))}، ${m.clockLabel()}"}) {
                 Column(Modifier.padding(if(weekly) 3.dp else 8.dp)) {
-                    Text(m.title,fontSize=if(weekly) 11.sp else 15.sp,lineHeight=if(weekly) 16.sp else 22.sp,fontWeight=FontWeight.Medium,maxLines=if(weekly) 6 else 3,overflow=TextOverflow.Ellipsis)
+                    Text(if(m.reserved) "رزرو: ${m.title}" else m.title,fontSize=if(weekly) 11.sp else 15.sp,lineHeight=if(weekly) 16.sp else 22.sp,fontWeight=FontWeight.Medium,maxLines=if(weekly) 6 else 3,overflow=TextOverflow.Ellipsis)
                     if(!weekly && height>100.dp && m.location.isNotBlank()) Text(m.location,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     if(expanded && height>160.dp) {
                         if(weekly && m.location.isNotBlank()) Text(m.location,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -200,7 +200,7 @@ object MeetingTimeline {
     show?.let {group->AlertDialog(onDismissRequest={show=null},title={Text(Solar.label(LocalDate.ofEpochDay(day)))},text={
         LazyColumn(Modifier.heightIn(max=420.dp).testTag("dense_meeting_list"),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             items(group.meetings,key={it.id}) {m->OutlinedCard(onClick={show=null;open(m.id)},modifier=Modifier.fillMaxWidth().testTag("dense_meeting_${m.id}")) {
-                Column(Modifier.padding(12.dp)) {Text(m.title,style=MaterialTheme.typography.titleSmall);Text(m.clockLabel(),style=MaterialTheme.typography.bodySmall)}
+                Column(Modifier.padding(12.dp)) {Text(if(m.reserved) "رزرو: ${m.title}" else m.title,style=MaterialTheme.typography.titleSmall);Text(m.clockLabel(),style=MaterialTheme.typography.bodySmall)}
             }}
         }
     },confirmButton={TextButton(onClick={show=null}){Text("بستن")}})}

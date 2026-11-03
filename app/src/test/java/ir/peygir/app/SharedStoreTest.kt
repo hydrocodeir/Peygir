@@ -117,7 +117,7 @@ class SharedStoreTest {
         val triggers=db.rawQuery("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'sync_%'",null).use{c->buildList{while(c.moveToNext()) add(c.getString(0))}}
         triggers.forEach{db.execSQL("DROP TRIGGER $it")};listOf("sync_dirty","sync_objects","sync_meta").forEach{db.execSQL("DROP TABLE $it")};db.version=4;a.close()
         a=Store(RuntimeEnvironment.getApplication(),"sync-a.db");sa=SharedStore(a)
-        assertEquals(8,a.readableDatabase.version);assertEquals(before,a.snapshot())
+        assertEquals(9,a.readableDatabase.version);assertEquals(before,a.snapshot())
         sa.bind("https://sync.example.test",UUID.randomUUID().toString());assertEquals(2,sa.prepare().size)
     }
     @Test fun reminderSetsMergeWithoutLosingEitherPhonesNewTimes() {

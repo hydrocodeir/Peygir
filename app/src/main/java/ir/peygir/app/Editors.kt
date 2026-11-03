@@ -2,6 +2,8 @@ package ir.peygir.app
 
 import android.app.TimePickerDialog
 import androidx.compose.foundation.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -109,6 +111,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
 @Composable fun MeetingEditor(meeting: Meeting,busy: Boolean,dismiss: ()->Unit,save: (Meeting)->Unit,delete: (()->Unit)?=null,feedback: String="",initialStart: Int?=null,allMeetings: List<Meeting> = emptyList(),copied: Boolean=false) {
     var title by rememberSaveable {mutableStateOf(meeting.title)}
     var notes by rememberSaveable {mutableStateOf(meeting.notes)}
+    var reserved by rememberSaveable {mutableStateOf(meeting.reserved)}
     var day by rememberSaveable {mutableStateOf(meeting.date)}
     var picker by rememberSaveable {mutableStateOf(false)}
     var error by rememberSaveable {mutableStateOf(false)}
@@ -132,13 +135,14 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
     var incoming by rememberSaveable {mutableStateOf(false)}
     LaunchedEffect(meeting) {
         fun <T> merge(old: T,current: T,new: T,assign: (T)->Unit) {if(current==old) assign(new) else if(new!=old && new!=current) incoming=true}
+        merge(previous.reserved,reserved,meeting.reserved){reserved=it}
         merge(previous.title,title,meeting.title){title=it};merge(previous.notes,notes,meeting.notes){notes=it};merge(previous.date,day,meeting.date){day=it}
         merge(previous.start,start,meeting.start){start=it};merge(previous.end,end,meeting.end){end=it};merge(previous.location,location,meeting.location){location=it}
         merge(previous.attendees.joinToString(","),attendees,meeting.attendees.joinToString(",")){attendees=it};merge(org.json.JSONArray(previous.guests).toString(),guests,org.json.JSONArray(meeting.guests).toString()){guests=it};merge(previous.repeat,repeat,meeting.repeat){repeat=it}
         merge(previous.until ?: minOf(previous.date+90,WidgetDays.max),until,meeting.until ?: minOf(meeting.date+90,WidgetDays.max)){until=it}
         previous=meeting
     }
-    val value=meeting.copy(title=title,date=day,notes=notes,start=start,end=end,location=location,guests=org.json.JSONArray(guests).strings(),attendees=attendees.split(',').filter{it.isNotBlank()}.distinct(),repeat=repeat,until=if(repeat=="NONE") null else until,alertMinutes=alertMinutes)
+    val value=meeting.copy(reserved=reserved,title=title,date=day,notes=notes,start=start,end=end,location=location,guests=org.json.JSONArray(guests).strings(),attendees=attendees.split(',').filter{it.isNotBlank()}.distinct(),repeat=repeat,until=if(repeat=="NONE") null else until,alertMinutes=alertMinutes)
     val conflicts=remember(day,start,end,attendees,repeat,until,meeting.id,allMeetings){MeetingConflicts.find(value,allMeetings)}
     FullEditor(if(copied) "کپی جلسه" else if(meeting.id==0L) "جلسهٔ تازه" else "ویرایش جلسه",busy,dismiss,{
         if(title.isBlank()) error=true else {
@@ -146,7 +150,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         }
     },canSave=!incoming,feedback=listOf(feedback,validation,if(error) "عنوان جلسه را وارد کنید." else "").filter{it.isNotBlank()}.distinct().joinToString("\n"),saveLabel=if(conflicts.isEmpty()) "ذخیره" else "ثبت با تداخل",actions=if(delete==null) emptyList() else listOf(PageAction("حذف جلسه",delete,destructive=true))) {
         if(incoming) IncomingEditorChanges("${meeting.title}\n${Solar.label(LocalDate.ofEpochDay(meeting.date))}\n${meeting.notes}",{
-            title=meeting.title;notes=meeting.notes;day=meeting.date;start=meeting.start;end=meeting.end;location=meeting.location;attendees=meeting.attendees.joinToString(",");guests=org.json.JSONArray(meeting.guests).toString();repeat=meeting.repeat;until=meeting.until ?: minOf(meeting.date+90,WidgetDays.max);incoming=false
+            reserved=meeting.reserved;title=meeting.title;notes=meeting.notes;day=meeting.date;start=meeting.start;end=meeting.end;location=meeting.location;attendees=meeting.attendees.joinToString(",");guests=org.json.JSONArray(meeting.guests).toString();repeat=meeting.repeat;until=meeting.until ?: minOf(meeting.date+90,WidgetDays.max);incoming=false
         },{incoming=false})
         if(copied) Text("نسخهٔ تازه با همان افراد؛ تاریخ و ساعت را بررسی کنید.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         VoiceTextField(title,{title=it;error=false},voiceLabel="عنوان جلسه",label={Text("عنوان جلسه *")},isError=error,singleLine=true,modifier=Modifier.fillMaxWidth())
@@ -156,6 +160,8 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             OutlinedButton(onClick={TimePickerDialog(context,{_,h,m->end=h*60+m;validation=""},(end ?: 600)/60,(end ?: 600)%60,true).show()},modifier=Modifier.weight(1f).testTag("meeting_end_time")){Text(end?.let{"پایان: ${"%02d:%02d".format(it/60,it%60).fa()}"} ?: "ساعت پایان")}
         }
         Text("ساعت شروع و پایان الزامی است.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().toggleable(value=reserved,enabled=!busy,role=Role.Checkbox,onValueChange={reserved=it}),verticalAlignment=Alignment.CenterVertically) {Checkbox(reserved,null,enabled=!busy);Text("ثبت به‌صورت رزرو") }
+        if(reserved) Text("جلسهٔ رزرو زرد نمایش داده می‌شود و امکان ثبت مصوبه ندارد.",style=MaterialTheme.typography.bodySmall)
         ParticipantsField(value.attendees,value.guests,users,contacts+allMeetings.flatMap{it.guests}){ids,names->attendees=ids.joinToString(",");guests=org.json.JSONArray(names).toString()}
         if(conflicts.isNotEmpty()) {
             OutlinedCard(Modifier.fillMaxWidth().testTag("meeting_conflicts"),colors=CardDefaults.outlinedCardColors(containerColor=MaterialTheme.colorScheme.errorContainer)) {
@@ -260,6 +266,8 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
         if(incoming) IncomingEditorChanges("${task.title}\nمسئول: ${task.owner}\n${Solar.label(LocalDate.ofEpochDay(task.due))} - ${task.status.label}\n${task.description}",{
             title=task.title;description=task.description;owner=task.owner;assignee=task.assignee;day=task.due;priority=task.priority.name;status=task.status.name;meetingId=task.meetingId ?: 0L;incoming=false
         },{incoming=false})
+        if(task.id>0) DeadlineProgressPanel(task,busy,refresh,message)
+        Text("هشدار خودکار پس از گذشت ۵۰٪ مهلت برای مسئول مصوبه فعال است.",style=MaterialTheme.typography.bodySmall)
         if(task.status==Status.REVIEW) Text("گزارش انجام این مصوبه منتظر تأیید رئیس است.",color=MaterialTheme.colorScheme.primary)
         if(editingInput || recordingId!=null || initialSource.isNotBlank()) CaptureInput(meetingId.takeIf{it>0},recordings,accepted,task.id==0L,recordingId,busy,{inputBusy=it},{p->title=p.title;owner=p.owner;description=p.source;if(!inputIsVoice){p.due?.let{day=it.toEpochDay()};priority=p.priority.name};error="";proposalSelected(p.key())},refresh,message,initialSource,batchChanged,draftSession,{inputIsVoice=it!=null;recordingUsed(it)})
         VoiceTextField(title,{title=it;error=""},voiceLabel="عنوان مصوبه",label={Text("عنوان مصوبه *")},isError=error.isNotBlank() && title.isBlank(),modifier=Modifier.fillMaxWidth(),minLines=1,maxLines=3)
@@ -286,7 +294,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             OutlinedButton(onClick={dateFor="reminder"},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.AddAlarm,null);Spacer(Modifier.width(6.dp));Text("افزودن زمان پیگیری")}
         }
     }
-    if(meetingMenu) LinkedMeetingSearch(meetings,meetingQuery,{meetingQuery=it},{meetingMenu=false}){meetingId=it;meetingMenu=false}
+    if(meetingMenu) LinkedMeetingSearch(meetings.filter{!it.reserved},meetingQuery,{meetingQuery=it},{meetingMenu=false}){meetingId=it;meetingMenu=false}
     changeDue?.let {kind->ChangeDueDialog(task,DueChangeKind.valueOf(kind),busy,{changeDue=null},feedback) {newDay,reason,reminder->
         error=when {title.isBlank()->"عنوان مصوبه را وارد کنید.";owner.isBlank()->"مسئول انجام کار را مشخص کنید.";else->""}
         if(error.isBlank()) {

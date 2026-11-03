@@ -13,6 +13,7 @@ async function fixture(fn) {
     const db=await mf.getD1Database('DB');
     await db.exec((await readFile('migrations/0001_shared.sql','utf8')).replace(/CREATE TRIGGER[\s\S]*?END;/g,s=>s.replace(/\r?\n/g,' ')));
     await db.exec(await readFile('migrations/0002_organization.sql','utf8'));
+    await db.exec(await readFile('migrations/0006_midpoint.sql','utf8'));
     await db.exec(await readFile('migrations/0004_push_accounts.sql','utf8'));
     const ws=uuid(),other=uuid(),users={};
     for(const w of [ws,other]) await db.prepare('INSERT INTO workspaces VALUES(?,?)').bind(w,'Company').run();

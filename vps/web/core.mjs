@@ -44,6 +44,7 @@ export const filters = {
   REVIEW: "منتظر تأیید",
   DONE: "انجام‌شده",
   all: "همه",
+  extensions: "درخواست تمدید",
 };
 export const fa = (value) =>
   String(value).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[Number(d)]);
@@ -227,15 +228,17 @@ export function taskOrder(a, b, day = today(), role = "manager") {
 export function filterTask(p, filter, day = today()) {
   return (
     filter === "all" ||
-    (filter === "open"
-      ? p.status !== "DONE"
-      : filter === "today"
-        ? p.status !== "DONE" && p.due === day
-        : filter === "late"
-          ? p.status !== "DONE" && p.due < day
-          : filter === "near"
-            ? p.status !== "DONE" && p.due >= day && p.due <= day + 3
-            : p.status === filter)
+    (filter === "extensions"
+      ? p.status !== "DONE" && p.extension?.status === "PENDING"
+      : filter === "open"
+        ? p.status !== "DONE"
+        : filter === "today"
+          ? p.status !== "DONE" && p.due === day
+          : filter === "late"
+            ? p.status !== "DONE" && p.due < day
+            : filter === "near"
+              ? p.status !== "DONE" && p.due >= day && p.due <= day + 3
+              : p.status === filter)
   );
 }
 export function primaryAction(profile, p) {

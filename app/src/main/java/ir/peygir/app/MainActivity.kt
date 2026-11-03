@@ -372,7 +372,8 @@ class MainActivity : ComponentActivity() {
             })}
             Text("${Solar.label(LocalDate.ofEpochDay(m.date))} - ${m.clockLabel()}",style=MaterialTheme.typography.bodyMedium)
             if(m.attendees.isNotEmpty() || m.guests.isNotEmpty()) {CountLabel("شرکت‌کنندگان",m.attendees.size+m.guests.size);if(summary.isNotBlank()) Text(summary,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
-            if(!deputy) Button(onClick=add,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Add,null);Spacer(Modifier.width(6.dp));Text("ثبت مصوبه")}
+            if(m.reserved) Text("جلسه رزرو است؛ برای ثبت مصوبه ابتدا رزرو را بردارید.",color=ReservationColors.ink,modifier=Modifier.background(ReservationColors.background).padding(8.dp))
+            if(!deputy && !m.reserved) Button(onClick=add,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Add,null);Spacer(Modifier.width(6.dp));Text("ثبت مصوبه")}
             MoreDetails(more,{more=!more},"meeting_detail_more")
             if(more) {
                 if(reminderChange!=null) MeetingAlertPicker(m.alertMinutes,reminderChange)

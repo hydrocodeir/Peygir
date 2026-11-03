@@ -42,6 +42,7 @@ data class PageAction(val label: String,val run: ()->Unit,val tag: String="",val
 }
 @Composable fun TaskState(task: Resolution) {
     Text(task.status.label,style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Medium,color=if(task.status==Status.REVIEW) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+    if(task.extension?.let{org.json.JSONObject(it).optString("status")}=="PENDING") Text("تمدید منتظر بررسی رئیس",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
 }
 object Presentation {
     fun taskAction(role: String,task: Resolution): Pair<String,Status>? = when {

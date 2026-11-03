@@ -4,6 +4,7 @@ import { randomUUID, createECDH, randomBytes } from "node:crypto";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { createApp } from "../src/app.mjs";
+import { midpoint } from "../../cloudflare/src/deadline.mjs";
 import { makeBackup, restoreBackup } from "../src/maintenance.mjs";
 import {
   subscriptionValue,
@@ -444,6 +445,20 @@ test("VPS reminder and morning scheduling uses Tehran time and persists deduplic
   assert.equal(sent.length, 3);
   assert.equal(officeDay(officeTime(day, 480)), day);
 });
+test("halfway Web Push asks only the assignee once, including essential-only notification mode", async (t) => {
+  const {app,sent,time}=await setup(t);await company(app);
+  const manager=await login(app),uid=await user(app,manager),deputy=await login(app,'company-x','deputy');
+  for(const a of [manager,deputy]) await web(app,a,'push',{subscription:subscription(),preferences:{enabled:true,daily:false,meetingLead:-1,updates:'essential'}});
+  const created=Date.now(),due=officeDay(created)+2;
+  const record=op('task',{...task('HALFWAY',uid),created,due});
+  await web(app,manager,'sync',syncBody([record]));await settle(app);
+  sent.length=0;
+  const at=midpoint(record.payload);time(at-1);await app.sweep();assert.equal(sent.length,0);
+  time(at);await app.sweep();assert.equal(sent.length,1);
+  assert.equal(sent[0].payload.data.kind,'midpoint');assert.equal(sent[0].payload.data.profileId,deputy.p.id);
+  await app.sweep();assert.equal(sent.length,1);
+});
+
 test("transient push failures retry without losing the transactional web outbox", async (t) => {
   let failures = 1;
   const deliveries = [];

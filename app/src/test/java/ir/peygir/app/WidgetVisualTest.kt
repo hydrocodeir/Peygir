@@ -24,6 +24,15 @@ import java.time.LocalDate
 @Config(sdk=[35],application=Application::class,qualifiers="fa-rIR-w411dp-h891dp-mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetVisualTest {
+    @Test fun rendersYellowReservationInBothWidgetThemes() {
+        val base=RuntimeEnvironment.getApplication() as Context
+        val day=LocalDate.now().toEpochDay()
+        val meetings=listOf(Meeting(id=1,title="رزرو جلسهٔ برنامه‌ریزی",date=day,start=540,end=600,reserved=true),Meeting(id=2,title="جلسهٔ قطعی",date=day,start=660,end=720))
+        for((mode,name) in listOf(Configuration.UI_MODE_NIGHT_NO to "light",Configuration.UI_MODE_NIGHT_YES to "dark")) {
+            val themed=base.createConfigurationContext(Configuration(base.resources.configuration).apply{uiMode=mode})
+            render(themed,emptyList(),360,440,"widget-reservation-$name",meetings)
+        }
+    }
     @Test fun rendersWidgetLightDarkAndCompact() {
         val base=RuntimeEnvironment.getApplication() as Context
         base.getSharedPreferences("review_widgets",0).edit().clear().commit()

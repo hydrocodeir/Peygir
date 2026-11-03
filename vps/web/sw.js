@@ -1,4 +1,4 @@
-const CACHE = "peygir-shell-4.7.0";
+const CACHE = "peygir-shell-4.9.0";
 const SHELL = [
   "/app/",
   "/app/index.html",

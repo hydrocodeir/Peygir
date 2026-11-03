@@ -19,6 +19,14 @@ class MeetingFormTest {
     private val members=listOf(CompanyUser("a","علی احمدی","deputy"),CompanyUser("b","سمیه رضایی","deputy"))
     @Before fun setup(){val c=RuntimeEnvironment.getApplication();c.getSharedPreferences("shared_private",0).edit().clear().commit();OrgAccess.set(c,null);Organization.members.value=members}
     @After fun cleanup(){OrgAccess.set(RuntimeEnvironment.getApplication(),null);Organization.members.value=emptyList()}
+    @Test fun reservationCheckboxIsLabeledAndSaved() {
+        var saved: Meeting?=null
+        compose.setContent{PeygirTheme("light"){MeetingEditor(Meeting(id=7,title="رزرو شورا"),false,{}, {saved=it})}}
+        compose.onNodeWithText("ثبت به‌صورت رزرو").performScrollTo().performClick()
+        compose.onNodeWithText("ثبت به‌صورت رزرو").assertIsOn()
+        compose.onNodeWithText("ذخیره",substring=false).performClick()
+        compose.runOnIdle{assertTrue(saved!!.reserved)}
+    }
     @Test fun optionalFieldsStartCollapsedAndKeepTheirValuesThroughClosingAndReopening() {
         var saved: Meeting?=null
         val source=Meeting(id=7,title="شورا",date=day,notes="یادداشت قبلی",location="سالن",attendees=listOf("a","b"))

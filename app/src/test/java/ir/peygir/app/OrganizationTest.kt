@@ -46,7 +46,7 @@ class OrganizationTest {
     @Test fun accountBasedAssignmentAndApprovalMetadataSurviveDatabaseAndEditorEncoding() {
         val deputy=id();val chief=id()
         val t=Resolution(title="گزارش",owner="احمدی",assignee=deputy,status=Status.REVIEW,submitted=1234,approved=5678,approvedBy=chief)
-        val key=store.saveTask(t,emptyList());assertEquals(t.copy(id=key),store.snapshot().tasks.single());assertEquals(t,decodeTask(t.encode()))
+        val key=store.saveTask(t,emptyList());assertEquals(t.copy(id=key,created=store.snapshot().tasks.single().created),store.snapshot().tasks.single());assertEquals(t,decodeTask(t.encode()))
     }
     @Test fun deputyDoneActionRequestsApprovalAndOnlyChiefCanApproveAReview() {
         val task=Resolution(title="گزارش",owner="احمدی",assignee=id())
@@ -79,11 +79,11 @@ class OrganizationTest {
         val m=Meeting(title="جلسه بودجه",attendees=listOf(user.id))
         assertTrue(meetingSearch(m,listOf(user),"علي احمدی"));assertTrue(meetingSearch(m,listOf(user),"بودجه احمدی"));assertFalse(meetingSearch(m,listOf(user),"رضایی"))
     }
-    @Test fun backupV5IncludesCalendarAndAssignmentButNoCompanyDirectoryOrCredentials() {
+    @Test fun backupV6IncludesCalendarAndAssignmentButNoCompanyDirectoryOrCredentials() {
         val meeting=store.saveMeeting(Meeting(title="جلسه",start=540,end=600,location="دفتر",attendees=listOf(id())))
         store.saveTask(Resolution(title="گزارش",owner="احمدی",meetingId=meeting,assignee=id(),status=Status.REVIEW),emptyList())
         val out=ByteArrayOutputStream();Backup.write(context,out,store)
-        ZipInputStream(out.toByteArray().inputStream()).use{z->z.nextEntry;val p=JSONObject(z.readBytes().toString(Charsets.UTF_8));assertEquals(5,p.getInt("version"));assertFalse(p.has("directory"));assertFalse(p.has("session"))}
+        ZipInputStream(out.toByteArray().inputStream()).use{z->z.nextEntry;val p=JSONObject(z.readBytes().toString(Charsets.UTF_8));assertEquals(6,p.getInt("version"));assertFalse(p.has("directory"));assertFalse(p.has("session"))}
         Backup.read(context,out.toByteArray().inputStream()).use{assertEquals(store.snapshot(),it.data)}
     }
     @Test fun clearingOrganizationDataKeepsServerBindingButRemovesAllRecordsAndPendingWrites() {
@@ -115,7 +115,7 @@ class OrganizationTest {
         db.version=5;db.close()
         val upgraded=Store(context,name)
         try {
-            val data=upgraded.snapshot();assertEquals(8,upgraded.readableDatabase.version);assertEquals("جلسهٔ قبلی",data.meetings.single().title);assertNull(data.tasks.single().assignee)
+            val data=upgraded.snapshot();assertEquals(9,upgraded.readableDatabase.version);assertEquals("جلسهٔ قبلی",data.meetings.single().title);assertNull(data.tasks.single().assignee)
             val pending=SharedStore(upgraded).prepare();assertEquals(3,pending.size)
             val deleted=pending.single{it.operation.getBoolean("deleted")}.operation
             assertTrue(deleted.getJSONObject("payload").has("assignee"));assertTrue(deleted.getJSONObject("payload").has("submitted"));assertEquals(deletedRemote,deleted.getString("recordId"))

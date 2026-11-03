@@ -72,12 +72,12 @@ internal class SharedStore(private val store: Store) {
             fun num(key: String)=c.getLong(c.getColumnIndexOrThrow(key))
             val p=JSONObject()
             when(kind) {
-                "meeting"->{p.put("title",str("title"));p.put("date",num("date"));p.put("notes",str("notes"));p.put("start",if(c.isNull(c.getColumnIndexOrThrow("start"))) JSONObject.NULL else num("start"));p.put("end",if(c.isNull(c.getColumnIndexOrThrow("end"))) JSONObject.NULL else num("end"));p.put("location",str("location"));p.put("attendees",JSONArray(str("attendees")));p.put("guests",JSONArray(str("guests")));p.put("repeat",str("repeat_rule"));p.put("until",if(c.isNull(c.getColumnIndexOrThrow("repeat_until"))) JSONObject.NULL else num("repeat_until"));p.put("series",str("series") ?: JSONObject.NULL)}
+                "meeting"->{p.put("title",str("title"));p.put("date",num("date"));p.put("notes",str("notes"));p.put("reserved",num("reserved")==1L);p.put("start",if(c.isNull(c.getColumnIndexOrThrow("start"))) JSONObject.NULL else num("start"));p.put("end",if(c.isNull(c.getColumnIndexOrThrow("end"))) JSONObject.NULL else num("end"));p.put("location",str("location"));p.put("attendees",JSONArray(str("attendees")));p.put("guests",JSONArray(str("guests")));p.put("repeat",str("repeat_rule"));p.put("until",if(c.isNull(c.getColumnIndexOrThrow("repeat_until"))) JSONObject.NULL else num("repeat_until"));p.put("series",str("series") ?: JSONObject.NULL)}
                 "task"->{
                     listOf("title","description","owner","priority","status").forEach {p.put(it,str(it))};p.put("due",num("due"))
                     p.put("meeting",if(c.isNull(c.getColumnIndexOrThrow("meeting_id"))) JSONObject.NULL else identity(db,"meeting",num("meeting_id")))
                     val times=db.rawQuery("SELECT at FROM reminders WHERE task_id=? ORDER BY at",arrayOf(id.toString())).use{r->JSONArray().also {a->while(r.moveToNext()) a.put(r.getLong(0))}}
-                    p.put("reminders",times);p.put("assignee",str("assignee") ?: JSONObject.NULL);p.put("submitted",num("submitted"));p.put("approved",num("approved"));p.put("approvedBy",str("approved_by") ?: JSONObject.NULL)
+                    p.put("created",num("created"));p.put("extension",str("extension")?.let{JSONObject(it)} ?: JSONObject.NULL);p.put("reminders",times);p.put("assignee",str("assignee") ?: JSONObject.NULL);p.put("submitted",num("submitted"));p.put("approved",num("approved"));p.put("approvedBy",str("approved_by") ?: JSONObject.NULL)
                 }
                 "followup"->{p.put("task",identity(db,"task",num("task_id")));p.put("text",str("text"));p.put("created",num("created"))}
                 "history"->{p.put("task",identity(db,"task",num("task_id")));p.put("old",num("old_due"));p.put("new",num("new_due"));p.put("changed",num("changed_at"));p.put("kind",str("kind"));p.put("reason",str("reason"))}

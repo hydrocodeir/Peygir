@@ -44,7 +44,7 @@ object Backup {
             r.id to file
         }
         val p=settings(context)
-        val json=obj("format" to "peygir-backup","version" to 5,"createdAt" to System.currentTimeMillis(),
+        val json=obj("format" to "peygir-backup","version" to 6,"createdAt" to System.currentTimeMillis(),
             "settings" to obj("theme" to p.theme,"dynamic" to p.dynamic,"daily" to p.daily,"times" to p.times,"dictation" to p.dictation,"options" to p.options.json()),
             "contacts" to JSONArray(data.contacts),
             "meetings" to array(data.meetings) {obj("id" to it.id,"title" to it.title,"date" to it.date,"notes" to it.notes,"localAlert" to it.alertMinutes).meetingOrganization(it)},
@@ -83,7 +83,7 @@ object Backup {
             }
             require("peygir.json" in names) {"این فایل پشتیبان پیگیر نیست."}
             val root=JSONObject(File(directory,"peygir.json").readText(Charsets.UTF_8))
-            require(root.getString("format")=="peygir-backup" && root.getInt("version") in 1..5) {"نسخهٔ پشتیبان پشتیبانی نمی‌شود."}
+            require(root.getString("format")=="peygir-backup" && root.getInt("version") in 1..6) {"نسخهٔ پشتیبان پشتیبانی نمی‌شود."}
             fun <T> list(key: String, parse: (JSONObject)->T): List<T> {
                 val a=root.getJSONArray(key);require(a.length()<=100000) {"تعداد داده‌های پشتیبان بیش از حد مجاز است."}
                 return (0 until a.length()).map {parse(a.getJSONObject(it))}
@@ -113,6 +113,11 @@ object Backup {
             fun accountRef(value: String?)=value==null || Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").matches(value)
             require(meetings.all {it.guests.size<=200 && it.guests.all{n->n.isNotBlank() && n.length<=200} && it.guests.distinctBy{n->Owners.key(n)}.size==it.guests.size && it.attendees.size<=200 && it.attendees.distinct().size==it.attendees.size && it.attendees.all {id->accountRef(id)} && accountRef(it.series) && (it.repeat=="NONE" || (it.series!=null && it.until!=null && it.until in it.date..it.date+366))})
             require(tasks.all {accountRef(it.assignee) && accountRef(it.approvedBy) && it.submitted>=0 && it.approved>=0})
+            require(tasks.none{t->meetings.any{it.id==t.meetingId && it.reserved}}) {"پشتیبان شامل مصوبه برای جلسهٔ رزرو است."}
+            require(tasks.all{it.created>=0 && (it.extension==null || runCatching {
+                val e=JSONObject(it.extension)
+                e.getString("status") in listOf("PENDING","APPROVED","REJECTED") && e.getString("progress").isNotBlank() && e.getString("progress").length<=1000 && e.getString("reason").isNotBlank() && e.getString("reason").length<=2000 && day(e.getLong("due")) && day(e.getLong("baseDue")) && e.getLong("due")>e.getLong("baseDue") && accountRef(e.getString("requestedBy")) && e.getLong("requestedAt")>0
+            }.getOrDefault(false))}) {"اطلاعات درخواست تمدید در پشتیبان معتبر نیست."}
             require(tasks.all {it.title.isNotBlank() && it.owner.isNotBlank() && day(it.due) && (it.meetingId==null || it.meetingId in meetingIds)})
             require(reminders.all {it.taskId in taskIds && it.at>0} && reminders.map{it.taskId to it.at}.distinct().size==reminders.size)
             require(history.all {it.taskId in taskIds && day(it.oldDue) && day(it.newDue) && it.changedAt>0})

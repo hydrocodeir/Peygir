@@ -111,7 +111,7 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
                                 Surface(onClick={if(count==0 && creator!=null) pickStart(epoch) else go(epoch)},enabled=epoch in min..max,shape=RoundedCornerShape(12.dp),color=cellColor,contentColor=ink,modifier=Modifier.fillMaxSize().padding(1.dp).testTag("meeting_day_$epoch").semantics{selected=chosen;contentDescription="${Solar.label(LocalDate.ofEpochDay(epoch))}، ${count.fa()} جلسه"}) {
                                     Column(Modifier.padding(vertical=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
                                         Text((d+1).fa(),style=MaterialTheme.typography.bodyMedium.copy(lineHeight=22.sp),fontWeight=if(chosen || count>0) FontWeight.Bold else FontWeight.Normal)
-                                        MeetingDayMarker(count,epoch,ink)
+                                        MeetingDayMarker(count,epoch,if(data.meetings.any{it.date==epoch && it.reserved}) androidx.compose.ui.graphics.Color(0xFFAD8000) else ink)
                                     }
                                 }
                             }}
@@ -134,10 +134,10 @@ internal fun meetingSearch(meeting: Meeting,users: List<CompanyUser>,query: Stri
 
 @Composable private fun MeetingCalendarCard(m: Meeting,data: Snapshot,users: List<CompanyUser>,deputy: Boolean,open: (Long)->Unit,delete: ((Long)->Unit)?,showDate: Boolean=true) {
     val expanded=rememberUserOptions().cards=="full"
-    OutlinedCard(onClick={open(m.id)},shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth().testTag("meeting_card_${m.id}")) {
+    OutlinedCard(onClick={open(m.id)},colors=CardDefaults.outlinedCardColors(containerColor=if(m.reserved) ReservationColors.background else MaterialTheme.colorScheme.surface,contentColor=if(m.reserved) ReservationColors.ink else MaterialTheme.colorScheme.onSurface),shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth().testTag("meeting_card_${m.id}")) {
         Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                Text(m.title,style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
+                Text(if(m.reserved) "رزرو: ${m.title}" else m.title,style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
                 Text(if(showDate) "${Solar.label(LocalDate.ofEpochDay(m.date))} - ${m.clockLabel()}" else m.clockLabel(),style=MaterialTheme.typography.bodySmall)
                 if(expanded) {
                     if(m.location.isNotBlank()) Text(m.location,style=MaterialTheme.typography.bodySmall,maxLines=1,overflow=TextOverflow.Ellipsis)

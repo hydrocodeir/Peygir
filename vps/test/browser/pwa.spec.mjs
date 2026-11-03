@@ -54,6 +54,334 @@ async function openTasks(page) {
     .getByRole("button", { name: "مصوبات", exact: true })
     .click();
 }
+
+test("direct meeting search shows dates, people and actions without opening a search dialog", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .getByRole("searchbox", { name: "جست‌وجوی مستقیم جلسات" })
+    .fill("جلسه 200");
+  const results = page.locator(".meeting-search-results");
+  await expect(results.locator(".meeting-card")).toHaveCount(1);
+  await expect(results).toContainText("اتاق هیئت‌مدیره");
+  await expect(
+    results.getByRole("button", { name: "ویرایش", exact: true }),
+  ).toBeVisible();
+  await expect(
+    results.getByRole("button", { name: "ثبت مصوبه", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  await results.locator(".meeting-body").click();
+  await expect(page.locator("dialog .detail-data-grid")).toContainText(
+    "محل یا لینک",
+  );
+  await expect(page.locator("dialog")).toContainText("یادداشت آزمایشی");
+  await expect(page.locator("dialog details")).toHaveCount(0);
+});
+
+test("workspace keeps detailed cards and visible form fields accessible on desktop and small dark screens", async ({
+  page,
+}) => {
+  await login(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(page.locator(".sidebar-profile")).toBeVisible();
+  await page
+    .locator(".sidebar-tools")
+    .getByRole("button", { name: "مدیریت کاربران", exact: true })
+    .click();
+  await expect(
+    page
+      .locator("dialog")
+      .getByRole("heading", { name: "مدیریت کاربران", exact: true }),
+  ).toBeVisible();
+  await closeTop(page);
+  await openTasks(page);
+  const card = page.locator(".task-card").first();
+  await expect(card.locator(".card-excerpt")).toContainText("دادهٔ ساختگی");
+  await expect(card.locator(".linked-meeting")).toBeVisible();
+  await expect(
+    card.getByRole("button", { name: "پیگیری", exact: true }),
+  ).toBeVisible();
+  await card.getByRole("button", { name: "ویرایش", exact: true }).click();
+  for (const label of ["اولویت", "جلسه", "شرح"])
+    await expect(
+      page.locator("dialog").getByLabel(label, { exact: true }),
+    ).toBeVisible();
+  await expect(page.locator("dialog details")).toHaveCount(0);
+  await closeTop(page);
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  for (const [width, height] of [
+    [375, 812],
+    [812, 375],
+    [768, 1024],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await expect(page.locator(".metric-card").first()).toHaveCSS(
+      "background-color",
+      "rgb(28, 30, 43)",
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await expect(
+      page.getByRole("searchbox", { name: "جست‌وجوی مستقیم مصوبات" }),
+    ).toBeVisible();
+  }
+});
+
+test("chief approves an extension directly from its card while a rejection action is also visible", async ({
+  page,
+  request,
+}, info) => {
+  test.setTimeout(90000);
+  const origin = "http://127.0.0.1:18748",
+    loginApi = async (username) => {
+      const r = await request.post("/app/api/login", {
+        headers: { origin },
+        data: { company: "company-x", username, password },
+      });
+      expect(r.ok()).toBe(true);
+      return (await r.json()).profile;
+    },
+    manager = await loginApi("manager"),
+    deputy = await loginApi("user2");
+  const syncApi = async (profile, operations = []) => {
+    const response = await request.post(
+      `/app/api/profiles/${profile.id}/sync`,
+      {
+        headers: { origin, "x-csrf-token": profile.csrf },
+        data: { protocol: 2, cursor: 0, operations, inventory: [] },
+      },
+    );
+    expect(response.ok()).toBe(true);
+    return response.json();
+  };
+  const day = Math.floor((Date.now() + 210 * 60000) / 86400000),
+    id = crypto.randomUUID(),
+    title = "بررسی مستقیم تمدید " + info.project.name;
+  const payload = {
+    title,
+    owner: deputy.name,
+    assignee: deputy.userId,
+    due: day + 3,
+    description: "تحویل گزارش مالی",
+    status: "ACTIVE",
+    priority: "HIGH",
+    meeting: null,
+    reminders: [],
+    submitted: 0,
+    approved: 0,
+    approvedBy: null,
+  };
+  const original = (
+    await syncApi(manager, [
+      {
+        id: crypto.randomUUID(),
+        recordId: id,
+        kind: "task",
+        baseRevision: 0,
+        deleted: false,
+        payload,
+      },
+    ])
+  ).results[0].record;
+  const extension = {
+    id: crypto.randomUUID(),
+    status: "PENDING",
+    progress: "گزارش اولیه آماده است",
+    reason: "منتظر تأیید اطلاعات مالی",
+    due: day + 7,
+    baseDue: day + 3,
+    requestedBy: deputy.userId,
+    requestedAt: Date.now(),
+    decidedBy: null,
+    decidedAt: 0,
+  };
+  await syncApi(deputy, [
+    {
+      id: crypto.randomUUID(),
+      recordId: id,
+      kind: "task",
+      baseRevision: original.revision,
+      deleted: false,
+      payload: { ...original.payload, extension },
+    },
+  ]);
+  await login(page);
+  await openTasks(page);
+  await page.locator("[name=filter]").selectOption("extensions");
+  await page
+    .getByRole("searchbox", { name: "جست‌وجوی مستقیم مصوبات" })
+    .fill(title);
+  const card = page.locator(".task-card");
+  await expect(card).toHaveCount(1);
+  await expect(
+    card.getByRole("button", { name: "رد تمدید", exact: true }),
+  ).toBeVisible();
+  await card.getByRole("button", { name: "تأیید تمدید", exact: true }).click();
+  await expect(page.locator("dialog")).toContainText(extension.reason);
+  await page
+    .locator("dialog")
+    .getByRole("button", { name: "تأیید تمدید", exact: true })
+    .click();
+  await expect
+    .poll(async () => {
+      const r = (await data(page))[0].records.find((r) => r.id === id);
+      return [r.payload.due, r.payload.extension.status];
+    })
+    .toEqual([day + 7, "APPROVED"]);
+  await expect.poll(async () => (await data(page))[0].drafts.length).toBe(0);
+});
+
+test("reservation checkbox produces yellow calendar events and prevents resolution creation", async ({
+  page,
+}, info) => {
+  await login(page);
+  await page.getByRole("button", { name: "جلسهٔ جدید", exact: true }).click();
+  const form = page.locator("dialog").last(),
+    title = "رزرو آزمایشی " + info.project.name;
+  await form.locator("[name=title]").fill(title);
+  await form.getByLabel("ثبت به‌صورت رزرو", { exact: true }).check();
+  await form
+    .locator(".dialog-header")
+    .getByRole("button", { name: "ثبت", exact: true })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await data(page))[0].records.find((r) => r.payload.title === title)
+          ?.payload.reserved,
+    )
+    .toBe(true);
+  await page
+    .getByRole("button", { name: "به‌روزرسانی اتصال و اطلاعات" })
+    .click();
+  await expect.poll(async () => (await data(page))[0].drafts.length).toBe(0);
+  const event = page.locator(".event.reserved").filter({ hasText: title });
+  await expect(event).toBeVisible();
+  await expect(event).toHaveCSS("background-color", "rgb(255, 224, 130)");
+  await event.click();
+  await expect(
+    page
+      .locator("dialog")
+      .getByRole("button", { name: "ثبت مصوبه", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator("dialog")).toContainText("جلسه رزرو است");
+  await page.screenshot({
+    path: fileURLToPath(
+      new URL(
+        "../../../verification/reservation-" + info.project.name + ".png",
+        import.meta.url,
+      ),
+    ),
+  });
+});
+
+test("assignee can report progress and request extension without changing the current due", async ({
+  page,
+  request,
+}, info) => {
+  const origin = "http://127.0.0.1:18748";
+  const session = await (
+    await request.post("/app/api/login", {
+      headers: { origin },
+      data: { company: "company-x", username: "manager", password },
+    })
+  ).json();
+  const profile = session.profile,
+    headers = { origin, "x-csrf-token": profile.csrf };
+  const directory = await (
+    await request.post(`/app/api/profiles/${profile.id}/sync`, {
+      headers,
+      data: { protocol: 2, cursor: 0, operations: [], inventory: [] },
+    })
+  ).json();
+  const deputy = directory.users.find((u) => u.username === "user2"),
+    recordId = crypto.randomUUID(),
+    due = Math.floor((Date.now() + 210 * 60000) / 86400000) + 5;
+  const payload = {
+    title: "درخواست اختصاصی " + info.project.name,
+    owner: deputy.name,
+    assignee: deputy.id,
+    due,
+    description: "شرح آزمون تمدید",
+    status: "WAITING",
+    priority: "NORMAL",
+    meeting: null,
+    reminders: [],
+    submitted: 0,
+    approved: 0,
+    approvedBy: null,
+  };
+  const created = await request.post(`/app/api/profiles/${profile.id}/sync`, {
+    headers,
+    data: {
+      protocol: 2,
+      cursor: 0,
+      operations: [
+        {
+          id: crypto.randomUUID(),
+          recordId,
+          kind: "task",
+          baseRevision: 0,
+          deleted: false,
+          payload,
+        },
+      ],
+      inventory: [],
+    },
+  });
+  expect(created.ok()).toBe(true);
+  await login(page, "company-x", "user2");
+  await openTasks(page);
+  await page.locator("[name=filter]").selectOption("WAITING");
+  const snapshot = (await data(page))[0],
+    original = snapshot.records.find((r) => r.id === recordId);
+  await page
+    .locator(".task-card")
+    .filter({ hasText: original.payload.title })
+    .first()
+    .locator(".task-body")
+    .click();
+  await page
+    .getByRole("button", { name: "ثبت وضعیت و نیاز به تمدید", exact: true })
+    .click();
+  const form = page.locator("dialog").last();
+  await form
+    .getByLabel("کار در چه مرحله‌ای است؟", { exact: true })
+    .fill("نیمی از گزارش آماده شده است");
+  await form.getByLabel("نیاز به تمدید مهلت دارم", { exact: true }).check();
+  await form
+    .getByLabel("دلیل نیاز به تمدید", { exact: true })
+    .fill("منتظر دریافت اطلاعات مالی هستم");
+  await form
+    .locator(".dialog-header")
+    .getByRole("button", { name: "ثبت", exact: true })
+    .click();
+  await expect(page.locator("dialog").last()).toContainText(
+    "درخواست تمدید منتظر بررسی رئیس",
+  );
+  await expect
+    .poll(async () => {
+      const r = (await data(page))[0].records.find((r) => r.id === original.id);
+      return [r.payload.due, r.payload.extension?.status];
+    })
+    .toEqual([original.payload.due, "PENDING"]);
+  await expect(
+    page.getByRole("button", { name: "تأیید تمدید", exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: fileURLToPath(
+      new URL(
+        "../../../verification/extension-" + info.project.name + ".png",
+        import.meta.url,
+      ),
+    ),
+  });
+});
 test("700 records, compact lists, Persian calendar, participant suggestions reopen and forms discard", async ({
   page,
 }, info) => {
@@ -72,7 +400,10 @@ test("700 records, compact lists, Persian calendar, participant suggestions reop
   await page.getByRole("button", { name: "جلسهٔ جدید", exact: true }).click();
   const form = page.locator("dialog").last();
   await form.locator("[name=title]").fill("فرم ذخیره‌نشده");
-  const people = form.getByRole("combobox");
+  const people = form.getByRole("combobox", {
+    name: "شرکت‌کنندگان",
+    exact: true,
+  });
   await people.click();
   await expect(
     form.locator(".person-list").getByRole("option").first(),
@@ -83,7 +414,7 @@ test("700 records, compact lists, Persian calendar, participant suggestions reop
     .filter({ hasText: "کاربر 49 احمدی" })
     .click();
   await expect(form.locator(".chips")).toContainText("کاربر 49 احمدی");
-  await form.getByRole("heading").click();
+  await form.getByRole("heading").first().click();
   await people.click();
   await expect(
     form.locator(".person-list").getByRole("option").first(),
@@ -98,14 +429,10 @@ test("700 records, compact lists, Persian calendar, participant suggestions reop
   await closeTop(page);
   await openTasks(page);
   expect(await page.locator(".task-card").count()).toBeLessThanOrEqual(100);
+  await page.locator("[name=filter]").selectOption("all");
   await page
-    .getByRole("button", { name: "جست‌وجوی مصوبات", exact: true })
-    .click();
-  await page.locator("dialog [name=query]").fill("مصوبه 500");
-  await page
-    .locator("dialog")
-    .getByRole("button", { name: "جست‌وجو", exact: true })
-    .click();
+    .getByRole("searchbox", { name: "جست‌وجوی مستقیم مصوبات" })
+    .fill("مصوبه 500");
   await expect(page.locator(".task-card")).toHaveCount(1);
   await expect(page.locator(".task-title")).toContainText("500");
   expect(
@@ -143,7 +470,11 @@ test("offline creation survives reload, reconnects once and never caches account
       .click();
     await page.locator("dialog [name=title]").fill(offlineTitle);
     await page.locator("dialog [name=person]").fill("مسئول بیرونی وب");
-    await page.locator("dialog").getByRole("heading").click();
+    await page
+      .locator("dialog")
+      .getByRole("heading", { level: 2 })
+      .first()
+      .click();
     await page
       .locator("dialog .dialog-header")
       .getByRole("button", { name: "ثبت", exact: true })
@@ -356,10 +687,13 @@ test("meeting creation validates times, selects accounts, persists and copies pe
     .click();
   await expect(form.locator(".error-text")).toBeVisible();
   await form.locator("[name=end]").fill("06:30");
-  const combo = form.getByRole("combobox");
+  const combo = form.getByRole("combobox", {
+    name: "شرکت‌کنندگان",
+    exact: true,
+  });
   await combo.fill("کاربر 48");
   await form.locator(".person-list").getByRole("option").first().click();
-  await form.getByRole("heading").click();
+  await form.getByRole("heading").first().click();
   await form
     .locator(".dialog-header")
     .getByRole("button", { name: "ثبت", exact: true })

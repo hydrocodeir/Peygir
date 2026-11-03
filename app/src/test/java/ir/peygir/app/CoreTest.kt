@@ -236,7 +236,7 @@ class CoreTest {
         legacy.writableDatabase.execSQL("DROP TABLE newer_recordings")
         legacy.writableDatabase.version=1;legacy.close()
         val upgraded=Store(context,"legacy-test.db")
-        try {assertEquals(before,upgraded.snapshot());assertEquals(8,upgraded.readableDatabase.version)} finally {upgraded.close();context.deleteDatabase("legacy-test.db")}
+        try {assertEquals(before,upgraded.snapshot());assertEquals(9,upgraded.readableDatabase.version)} finally {upgraded.close();context.deleteDatabase("legacy-test.db")}
     }
     @Test fun dispatchOnlyNotifiesDueUnfinishedTasksAndDoesNotRepeat() {
         val now=System.currentTimeMillis()

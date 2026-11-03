@@ -13,12 +13,14 @@ const state = {
   mode: "day",
   filter: "open",
   query: "",
+  meetingQuery: "",
   limit: 50,
   busy: false,
   backoff: 0,
   theme: "system",
 };
 let timer,
+  refreshRequested = false,
   installPrompt,
   observer,
   renderGeneration = 0,
@@ -63,6 +65,12 @@ const paths = {
   share:
     "M8 12 16 6M8 12l8 6M8 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm12-7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm0 14a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
   edit: "m4 16 12-12 4 4L8 20H4Zm10-10 4 4",
+  clock: "M12 8v4l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
+  location:
+    "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0ZM15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
+  dashboard: "M3 3h7v7H3Zm11 0h7v4h-7ZM3 14h7v7H3Zm11-3h7v10h-7Z",
+  arrow: "M19 12H5m6-6-6 6 6 6",
+  note: "M5 3h14v18H5ZM8 8h8M8 12h8M8 16h5",
   users:
     "M15 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 21v-3a8 8 0 0 1 16 0v3M18 3a3 3 0 0 1 1 6m0 3a6 6 0 0 1 4 6",
 };
@@ -80,6 +88,136 @@ const button = (text, fn, cls = "", attrs = {}) =>
   el("button", { type: "button", class: cls, onclick: fn, ...attrs }, text);
 const ib = (name, label, fn) =>
   button(icon(name), fn, "icon", { "aria-label": label, title: label });
+const actionButton = (name, label, fn, cls = "outline", attrs = {}) =>
+  button(
+    [icon(name), el("span", {}, label)],
+    fn,
+    "action-button " + cls,
+    attrs,
+  );
+const section = (title, ...children) =>
+  el("section", { class: "content-section" }, el("h3", {}, title), ...children);
+const statusPill = (p) =>
+  el("span", { class: "status-pill status-" + p.status }, C.statuses[p.status]);
+const metaItem = (name, label, value) =>
+  el(
+    "div",
+    { class: "meta-item" },
+    icon(name),
+    el("span", {}, el("small", {}, label), el("strong", {}, value)),
+  );
+function goTasks(filter = "open") {
+  state.tab = "tasks";
+  state.filter = filter;
+  state.query = "";
+  state.limit = 50;
+  render();
+}
+function dueLabel(p) {
+  const n = p.due - C.today();
+  return p.status === "DONE"
+    ? "انجام‌شده"
+    : n < 0
+      ? C.fa(-n) + " روز تأخیر"
+      : n === 0
+        ? "سررسید امروز"
+        : C.fa(n) + " روز تا سررسید";
+}
+function quickReport(r) {
+  const note = el("textarea", {
+    name: "quickFollowup",
+    maxlength: 1000,
+    placeholder: "آخرین وضعیت کار و اقدام بعدی را بنویسید",
+  });
+  const m = modal("ثبت نتیجهٔ پیگیری", {
+    saveText: "ثبت گزارش",
+    save: async () => {
+      if (!note.value.trim()) throw new Error("نتیجهٔ پیگیری را بنویسید");
+      await saveChanges([
+        {
+          id: uuid(),
+          kind: "followup",
+          payload: { task: r.id, text: note.value.trim(), created: Date.now() },
+        },
+      ]);
+    },
+  });
+  m.body.append(
+    el("p", { class: "context-title" }, r.payload.title),
+    field("نتیجهٔ پیگیری", note),
+  );
+  note.focus();
+}
+function taskSearchText(r) {
+  return [
+    r.payload.title,
+    r.payload.owner,
+    r.payload.description,
+    meetings().find((m) => m.id === r.payload.meeting)?.payload.title || "",
+  ].join(" ");
+}
+async function saveExtensionDecision(r, approve) {
+  const current = state.records.find((x) => x.id === r.id) || r,
+    p = current.payload,
+    e = p.extension;
+  if (
+    state.profile.role !== "manager" ||
+    e?.status !== "PENDING" ||
+    ["DONE", "REVIEW"].includes(p.status)
+  )
+    throw new Error("این درخواست دیگر قابل بررسی نیست؛ اطلاعات را تازه کنید");
+  if (approve && (e.baseDue !== p.due || e.due < C.today()))
+    throw new Error(
+      "مهلت پیشنهادی معتبر نیست؛ درخواست را رد کنید تا مسئول درخواست تازه ثبت کند",
+    );
+  const extension = {
+      ...e,
+      status: approve ? "APPROVED" : "REJECTED",
+      decidedBy: state.profile.userId,
+      decidedAt: Date.now(),
+    },
+    changes = [
+      {
+        id: current.id,
+        kind: "task",
+        base: current,
+        payload: { ...p, extension, due: approve ? e.due : p.due },
+      },
+    ];
+  if (approve)
+    changes.push({
+      id: uuid(),
+      kind: "history",
+      payload: {
+        task: current.id,
+        old: p.due,
+        new: e.due,
+        changed: Date.now(),
+        kind: "EXTEND",
+        reason: e.reason,
+      },
+    });
+  await saveChanges(changes);
+}
+async function reviewExtension(r, approve) {
+  if (
+    !(await confirm(
+      approve ? "تأیید تمدید مهلت" : "رد درخواست تمدید",
+      r.payload.title +
+        "\nدلیل: " +
+        r.payload.extension.reason +
+        "\nتاریخ پیشنهادی: " +
+        C.label(r.payload.extension.due),
+      approve ? "تأیید تمدید" : "رد درخواست",
+    ))
+  )
+    return;
+  try {
+    await saveExtensionDecision(r, approve);
+  } catch (e) {
+    fail(e);
+  }
+}
 const badge = (n) => el("span", { class: "badge" }, C.fa(n));
 function field(label, node, help = null) {
   const control = node.matches("input,textarea,select,button")
@@ -119,7 +257,12 @@ function fail(e) {
 function modal(title, { sheet = false, save = null, saveText = "ثبت" } = {}) {
   const d = el("dialog", { class: sheet ? "sheet" : "" }),
     body = el("div", { class: "dialog-body" }),
-    error = el("p", { class: "error-text", role: "alert", hidden: true });
+    error = el("p", {
+      class: "error-text",
+      role: "alert",
+      tabindex: "-1",
+      hidden: true,
+    });
   let resolve;
   const done = new Promise((r) => (resolve = r)),
     close = () => {
@@ -144,6 +287,7 @@ function modal(title, { sheet = false, save = null, saveText = "ثبت" } = {}) 
         } catch (e) {
           error.textContent = e.message;
           error.hidden = false;
+          error.focus({ preventScroll: true });
           error.scrollIntoView({ block: "nearest" });
         } finally {
           saveButton.disabled = false;
@@ -201,10 +345,11 @@ function applyTheme(value) {
   S.meta("theme", value).catch(fail);
 }
 const records = (kind) => state.records.filter((r) => r.kind === kind),
-  tasks = () =>
-    records("task").sort((a, b) =>
-      C.taskOrder(a, b, C.today(), state.profile.role),
-    ),
+  tasks = () => {
+    const day = C.today(),
+      role = state.profile.role;
+    return records("task").sort((a, b) => C.taskOrder(a, b, day, role));
+  },
   meetings = () =>
     records("meeting").sort(
       (a, b) =>
@@ -253,7 +398,10 @@ function schedule(delay = 30000) {
   timer = setTimeout(refresh, delay);
 }
 async function refresh() {
-  if (state.busy) return;
+  if (state.busy) {
+    refreshRequested = true;
+    return;
+  }
   if (!navigator.onLine) {
     renderStatus();
     schedule(10000);
@@ -282,11 +430,13 @@ async function refresh() {
   state.backoff = error ? Math.min(state.backoff + 1, 5) : 0;
   await load();
   render();
-  schedule(
-    error
+  const delay = refreshRequested
+    ? 0
+    : error
       ? [10000, 30000, 60000, 120000, 300000][Math.max(0, state.backoff - 1)]
-      : 30000,
-  );
+      : 30000;
+  refreshRequested = false;
+  schedule(delay);
 }
 function renderStatus() {
   const n = document.querySelector("#connection");
@@ -316,9 +466,11 @@ async function saveChanges(changes) {
   if (!state.profile || state.profile.expired)
     throw new Error("ابتدا دوباره وارد حساب شوید");
   await S.queueChanges(state.profile.id, changes);
+  if (state.busy) refreshRequested = true;
   await load();
   render();
-  schedule(0);
+  if (state.busy) refreshRequested = true;
+  else schedule(0);
   toast(
     navigator.onLine
       ? "ثبت شد - در حال همگام‌سازی"
@@ -333,33 +485,132 @@ function render() {
     return;
   }
   renderGeneration++;
+  const focused = document.activeElement,
+    searchName = focused?.matches('input[type="search"]') ? focused.name : null,
+    selection = searchName
+      ? [focused.selectionStart, focused.selectionEnd]
+      : null;
   observer?.disconnect();
   if (!state.profile) {
     loginPage();
     return;
   }
   const p = state.profile,
-    header = el(
-      "header",
-      { class: "app-header" },
-      button(
-        el(
-          "div",
-          {},
-          el("div", { class: "name" }, p.companyName || p.company, " ⌄"),
-          el("div", { class: "connection", id: "connection" }),
-        ),
-        accountPicker,
-        "company-button",
-        { "aria-label": "انتخاب شرکت و حساب" },
+    admin = C.admin(p),
+    today = C.today(),
+    all = tasks(),
+    open = all.filter((r) => r.payload.status !== "DONE"),
+    pending = all.filter((r) => r.payload.status === "REVIEW"),
+    extensions = open.filter((r) => r.payload.extension?.status === "PENDING");
+  const labels = {
+    meetings: [
+      "برنامهٔ جلسات",
+      "زمان‌بندی، افراد و مصوبات هر جلسه، در یک نگاه",
+    ],
+    tasks: ["مصوبات و کارها", "مسئول، مهلت و آخرین وضعیت هر کار را دنبال کنید"],
+    followup: ["میز پیگیری", "کارهای نیازمند توجه و درخواست‌های منتظر بررسی"],
+    review: ["مرور روزانه", "برنامهٔ تحویل کارها را روز به روز بررسی کنید"],
+  };
+  const header = el(
+    "header",
+    { class: "app-header" },
+    button(
+      el(
+        "div",
+        {},
+        el("div", { class: "name" }, p.companyName || p.company, icon("next")),
+        el("div", { class: "connection", id: "connection" }),
       ),
-      ib("refresh", "به‌روزرسانی اتصال و اطلاعات", refresh),
-      ib("settings", "تنظیمات", settings),
+      accountPicker,
+      "company-button",
+      { "aria-label": "انتخاب شرکت و حساب" },
     ),
-    main = el("main", { id: "main", tabindex: "-1" }),
-    shell = el("div", { class: "app-shell" }, header);
+    el(
+      "div",
+      { class: "header-actions" },
+      actionButton("refresh", "تازه‌سازی", refresh, "quiet", {
+        "aria-label": "به‌روزرسانی اتصال و اطلاعات",
+      }),
+      actionButton("settings", "تنظیمات", settings, "quiet"),
+    ),
+  );
+  const nav = el(
+    "nav",
+    { class: "tabs", "aria-label": "بخش‌های برنامه" },
+    [
+      ["meetings", "جلسات", "calendar"],
+      ["followup", "پیگیری", "dashboard"],
+      ["tasks", "مصوبات", "tasks"],
+      ["review", "مرور", "clock"],
+    ].map(([id, text, name]) =>
+      button(
+        [
+          el("span", { class: "tab-icon" }, icon(name)),
+          el("span", {}, text),
+          id === "followup" && pending.length + extensions.length > 0
+            ? el(
+                "span",
+                { class: "nav-count", id: "pending-nav-count" },
+                C.fa(pending.length + extensions.length),
+              )
+            : null,
+        ],
+        () => {
+          state.tab = id;
+          state.query = "";
+          state.limit = 50;
+          render();
+        },
+        "tab",
+        {
+          "aria-label": text,
+          "aria-describedby":
+            id === "followup" && pending.length + extensions.length > 0
+              ? "pending-nav-count"
+              : null,
+          "aria-current": state.tab === id ? "page" : null,
+        },
+      ),
+    ),
+  );
+  const sidebar = el(
+    "aside",
+    { class: "sidebar" },
+    el(
+      "div",
+      { class: "workspace-brand" },
+      el("img", { src: "/app/icon.svg", width: 40, height: 40, alt: "" }),
+      el(
+        "div",
+        {},
+        el("strong", {}, "پیگیر"),
+        el("small", {}, "دفتر کار تیم شما"),
+      ),
+    ),
+    el("div", { class: "sidebar-caption" }, "فضای کاری"),
+    nav,
+    el(
+      "div",
+      { class: "sidebar-tools" },
+      el("small", {}, "دسترسی سریع"),
+      admin
+        ? actionButton("users", "مدیریت کاربران", userManagement, "quiet")
+        : null,
+      actionButton("settings", "اعلان‌ها و نمایش", settings, "quiet"),
+      actionButton("users", "حساب‌ها و شرکت‌ها", accountPicker, "quiet"),
+    ),
+    el(
+      "div",
+      { class: "sidebar-profile" },
+      el("span", { class: "avatar" }, p.name?.trim().slice(0, 1) || "پ"),
+      el("div", {}, el("strong", {}, p.name), el("small", {}, C.roles[p.role])),
+    ),
+  );
+  const main = el("main", { id: "main", tabindex: "-1" }),
+    workspace = el("div", { class: "workspace" }, header),
+    shell = el("div", { class: "app-shell" }, sidebar, workspace);
   if (p.expired)
-    shell.append(
+    workspace.append(
       el(
         "div",
         { class: "banner error" },
@@ -367,43 +618,97 @@ function render() {
       ),
     );
   else if (state.drafts.length)
-    shell.append(
+    workspace.append(
       el(
         "div",
         { class: "banner" },
-        button(
-          el(
-            "span",
-            { class: "row" },
-            "در انتظار ارسال",
-            badge(state.drafts.length),
-          ),
-          () =>
-            state.drafts.some((d) => d.conflict) ? conflictDialog() : refresh(),
+        button(["در انتظار ارسال", badge(state.drafts.length)], () =>
+          state.drafts.some((d) => d.conflict) ? conflictDialog() : refresh(),
         ),
       ),
     );
-  shell.append(main);
-  shell.append(
+  workspace.append(main);
+  main.append(
     el(
-      "nav",
-      { class: "tabs", "aria-label": "بخش‌های برنامه" },
-      [
-        ["meetings", "جلسات", "users"],
-        ["followup", "پیگیری", "tasks"],
-        ["tasks", "مصوبات", "check"],
-        ["review", "مرور", "calendar"],
-      ].map(([id, text, i]) =>
-        button(
-          [el("span", { class: "tab-icon" }, icon(i)), el("span", {}, text)],
+      "div",
+      { class: "page-heading" },
+      el(
+        "div",
+        {},
+        el(
+          "div",
+          { class: "eyebrow" },
+          "فضای کاری / " +
+            (state.tab === "meetings"
+              ? "تقویم"
+              : state.tab === "tasks"
+                ? "مصوبات"
+                : state.tab === "followup"
+                  ? "پیگیری"
+                  : "مرور"),
+        ),
+        el("h1", {}, labels[state.tab][0]),
+        el("p", {}, labels[state.tab][1]),
+      ),
+      el("div", { class: "today-stamp" }, icon("calendar"), C.label(today)),
+    ),
+  );
+  const metrics = [
+    [
+      "جلسات امروز",
+      meetings().filter((r) => r.payload.date === today).length,
+      "calendar",
+      "neutral",
+      () => {
+        state.tab = "meetings";
+        state.day = today;
+        render();
+      },
+    ],
+    ["مصوبات باز", open.length, "tasks", "purple", () => goTasks("open")],
+    [
+      "سررسید گذشته",
+      open.filter((r) => r.payload.due < today).length,
+      "clock",
+      "red",
+      () => goTasks("late"),
+    ],
+    p.role === "manager"
+      ? [
+          "منتظر تأیید شما",
+          pending.length + extensions.length,
+          "check",
+          "amber",
           () => {
-            state.tab = id;
-            state.query = "";
-            state.limit = 50;
+            state.tab = "followup";
             render();
           },
-          "tab",
-          { "aria-current": state.tab === id ? "page" : null },
+        ]
+      : [
+          "سررسید امروز",
+          open.filter((r) => r.payload.due === today).length,
+          "check",
+          "amber",
+          () => goTasks("today"),
+        ],
+  ];
+  main.append(
+    el(
+      "div",
+      { class: "workspace-stats" },
+      metrics.map(([label, count, name, tone, fn]) =>
+        button(
+          [
+            el("span", { class: "metric-icon " + tone }, icon(name)),
+            el(
+              "span",
+              { class: "metric-copy" },
+              el("span", {}, label),
+              el("strong", {}, C.fa(count)),
+            ),
+          ],
+          fn,
+          "metric-card",
         ),
       ),
     ),
@@ -416,6 +721,15 @@ function render() {
     review: renderReview,
     followup: renderFollowup,
   })[state.tab](main);
+  if (searchName) {
+    const search = main.querySelector(
+      `input[name="${CSS.escape(searchName)}"]`,
+    );
+    if (search) {
+      search.focus({ preventScroll: true });
+      search.setSelectionRange(...selection);
+    }
+  }
 }
 function dateNav() {
   return el(
@@ -500,18 +814,112 @@ function renderMeetings(main) {
         ),
     ),
   );
+  const query = input("meetingQuery", state.meetingQuery, {
+      type: "search",
+      placeholder: "عنوان جلسه، محل یا نام افراد…",
+      "aria-label": "جست‌وجوی مستقیم جلسات",
+    }),
+    results = el("section", { class: "meeting-search-results", hidden: true });
+  let searchTimer;
+  query.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    state.meetingQuery = query.value;
+    searchTimer = setTimeout(paintSearch, 120);
+  });
+  function paintSearch() {
+    results.hidden = !state.meetingQuery.trim();
+    if (results.hidden) {
+      results.replaceChildren();
+      return;
+    }
+    const rows = meetings().filter((r) =>
+      C.matches(
+        [
+          r.payload.title,
+          r.payload.location,
+          r.payload.notes,
+          ...(r.payload.attendees || []).map(personName),
+          ...(r.payload.guests || []),
+        ].join(" "),
+        state.meetingQuery,
+      ),
+    );
+    results.replaceChildren(
+      el(
+        "div",
+        { class: "section-heading" },
+        el("h2", {}, "نتایج در همهٔ تاریخ‌ها"),
+        badge(rows.length),
+      ),
+      el("div", { class: "cards" }, rows.slice(0, 20).map(meetingCard)),
+    );
+    if (rows.length > 20)
+      results.append(
+        button(
+          "نمایش همهٔ " + C.fa(rows.length) + " نتیجه",
+          () =>
+            results
+              .querySelector(".cards")
+              .replaceChildren(...rows.map(meetingCard)),
+          "outline",
+        ),
+      );
+    if (!rows.length) results.append(empty("جلسه‌ای با این مشخصات پیدا نشد"));
+  }
   main.append(
     el(
       "div",
       { class: "toolbar" },
       segment,
-      ib("search", "جست‌وجوی جلسه یا افراد", meetingSearch),
+      el(
+        "div",
+        { class: "inline-search calendar-search" },
+        icon("search"),
+        query,
+      ),
       C.admin(state.profile)
-        ? ib("plus", "جلسهٔ جدید", () => meetingForm(null, state.day))
+        ? actionButton(
+            "plus",
+            "جلسهٔ جدید",
+            () => meetingForm(null, state.day),
+            "primary",
+          )
         : null,
     ),
+    results,
     dateNav(),
   );
+  paintSearch();
+  const calendar = el("section", {
+      class: "calendar-panel",
+      "aria-label": "تقویم جلسات",
+    }),
+    agenda = el("aside", { class: "agenda-panel" });
+  const dayRows = meetings().filter((r) => r.payload.date === state.day);
+  agenda.append(
+    el(
+      "div",
+      { class: "panel-heading" },
+      el(
+        "div",
+        {},
+        el("h2", {}, "دستور روز"),
+        el("small", {}, C.label(state.day)),
+      ),
+      badge(dayRows.length),
+    ),
+    el(
+      "div",
+      { class: "calendar-legend" },
+      el("span", {}, el("i", { class: "legend-confirmed" }), "جلسهٔ قطعی"),
+      el("span", {}, el("i", { class: "legend-reserved" }), "رزرو"),
+    ),
+  );
+  agenda.append(...dayRows.map(meetingCard));
+  if (!dayRows.length) agenda.append(empty("برای این روز جلسه‌ای ندارید"));
+  const layout = el("div", { class: "calendar-layout" }, calendar, agenda);
+  main.append(layout);
+  main = calendar;
   if (state.mode === "month") {
     const content = el("div", { class: "page-content" });
     content.append(
@@ -529,25 +937,6 @@ function renderMeetings(main) {
         (day) => meetings().filter((r) => r.payload.date === day).length,
       ),
     );
-    const selected = meetings().filter((r) => r.payload.date === state.day);
-    content.append(
-      el(
-        "div",
-        { class: "section-heading" },
-        C.label(state.day),
-        badge(selected.length),
-      ),
-      el("div", { class: "cards" }, selected.map(meetingCard)),
-    );
-    if (!selected.length)
-      content.append(
-        empty(
-          "جلسه‌ای برای این روز ثبت نشده",
-          C.admin(state.profile)
-            ? button("ثبت جلسه", () => meetingForm(null, state.day), "tonal")
-            : null,
-        ),
-      );
     main.append(content);
     return;
   }
@@ -641,9 +1030,21 @@ function renderMeetings(main) {
       const b = button(
         dense
           ? [el("span", {}, "جلسات هم‌زمان"), badge(dense.length)]
-          : r.payload.title,
+          : [
+              el(
+                "strong",
+                {},
+                (r.payload.reserved ? "رزرو: " : "") + r.payload.title,
+              ),
+              el("small", {}, C.time(start) + " تا " + C.time(end)),
+            ],
         () => (dense ? dayMeetingList(dense) : meetingDetail(r)),
-        "event" + (dense ? " dense" : " tone-" + (C.solar(day).day % 3)),
+        "event" +
+          (dense
+            ? " dense"
+            : r.payload.reserved
+              ? " reserved"
+              : " tone-" + (C.solar(day).day % 3)),
         {
           "aria-label": dense
             ? C.fa(`${dense.length} جلسه هم‌زمان`)
@@ -689,19 +1090,70 @@ function renderMeetings(main) {
   );
 }
 function meetingCard(r) {
-  const p = r.payload;
-  return button(
-    [
-      el("strong", {}, p.title),
-      el(
-        "small",
-        {},
-        C.label(p.date) + " - " + C.time(p.start) + " تا " + C.time(p.end),
-      ),
-      p.location ? el("small", {}, p.location) : null,
-    ],
-    () => meetingDetail(r),
-    "meeting-card",
+  const p = r.payload,
+    items = records("task").filter((t) => t.payload.meeting === r.id),
+    names = [...(p.attendees || []).map(personName), ...(p.guests || [])];
+  return el(
+    "article",
+    { class: "meeting-card" + (p.reserved ? " reserved" : "") },
+    button(
+      [
+        el(
+          "div",
+          { class: "card-topline" },
+          el(
+            "span",
+            {
+              class:
+                "status-pill " +
+                (p.reserved ? "reservation-pill" : "confirmed-pill"),
+            },
+            p.reserved ? "رزرو جلسه" : "قطعی",
+          ),
+          el(
+            "span",
+            { class: "meeting-time" },
+            C.time(p.start) + " – " + C.time(p.end),
+          ),
+        ),
+        el("strong", { class: "meeting-title" }, p.title),
+        el("small", { class: "meeting-date" }, C.label(p.date)),
+        p.location
+          ? el("span", { class: "inline-meta" }, icon("location"), p.location)
+          : null,
+        names.length
+          ? el(
+              "span",
+              { class: "inline-meta" },
+              icon("users"),
+              names.slice(0, 2).join("، ") +
+                (names.length > 2
+                  ? " و " + C.fa(names.length - 2) + " نفر دیگر"
+                  : ""),
+            )
+          : el("small", {}, "شرکت‌کننده‌ای انتخاب نشده"),
+        p.notes ? el("span", { class: "card-excerpt" }, p.notes) : null,
+        el(
+          "span",
+          { class: "meeting-counts" },
+          el("span", {}, C.fa(names.length) + " شرکت‌کننده"),
+          el("span", {}, C.fa(items.length) + " مصوبه"),
+        ),
+      ],
+      () => meetingDetail(r),
+      "meeting-body",
+    ),
+    el(
+      "div",
+      { class: "card-actions" },
+      actionButton("arrow", "مشاهده", () => meetingDetail(r), "quiet"),
+      C.admin(state.profile)
+        ? actionButton("edit", "ویرایش", () => meetingForm(r), "quiet")
+        : null,
+      C.admin(state.profile) && !p.reserved
+        ? actionButton("plus", "ثبت مصوبه", () => taskForm(null, r), "quiet")
+        : null,
+    ),
   );
 }
 function dayMeetingList(items) {
@@ -710,82 +1162,153 @@ function dayMeetingList(items) {
     ...items.sort((a, b) => a.payload.start - b.payload.start).map(meetingCard),
   );
 }
-function meetingSearch() {
-  const m = modal("جست‌وجوی جلسات", { sheet: true }),
-    q = input("search", "", {
-      type: "search",
-      placeholder: "نام جلسه یا شرکت‌کننده",
-      "aria-label": "جست‌وجوی جلسات",
-    }),
-    list = el("div", { class: "search-list" });
-  m.body.append(q, list);
-  let limit = 40;
-  const show = () => {
-    const rows = meetings().filter((r) =>
-      C.matches(
-        [
-          r.payload.title,
-          r.payload.location,
-          ...(r.payload.attendees || []).map(personName),
-          ...(r.payload.guests || []),
-        ].join(" "),
-        q.value,
-      ),
-    );
-    list.replaceChildren(
-      el("div", { class: "count-label" }, "نتیجه", badge(rows.length)),
-      ...rows.slice(0, limit).map(meetingCard),
-    );
-    if (rows.length > limit)
-      list.append(
-        button(
-          "نمایش بیشتر",
-          () => {
-            limit += 40;
-            show();
-          },
-          "tonal",
-        ),
-      );
-  };
-  q.addEventListener("input", () => {
-    limit = 40;
-    show();
-  });
-  show();
-  q.focus();
-}
-
 function taskCard(r) {
   const p = r.payload,
     action = C.primaryAction(state.profile, p),
-    late = p.due < C.today() && p.status !== "DONE";
+    late = p.due < C.today() && p.status !== "DONE",
+    meeting = meetings().find((m) => m.id === p.meeting),
+    note = related("followup", r.id)[0],
+    pending = p.extension?.status === "PENDING";
+  const due = C.officeAt(p.due + 1, 0),
+    elapsed =
+      p.created > 0 && due > p.created
+        ? Math.min(
+            100,
+            Math.max(
+              0,
+              Math.round(((Date.now() - p.created) / (due - p.created)) * 100),
+            ),
+          )
+        : null;
   return el(
     "article",
-    { class: "task-card" + (p.status === "DONE" ? " done" : "") },
+    {
+      class:
+        "task-card" +
+        (p.status === "DONE" ? " done" : "") +
+        (late ? " overdue" : ""),
+    },
     button(
       [
+        el(
+          "div",
+          { class: "card-topline" },
+          statusPill(p),
+          el(
+            "span",
+            { class: "priority-pill priority-" + p.priority },
+            C.priorities[p.priority],
+          ),
+        ),
         el("div", { class: "task-title" }, p.title),
         el(
           "div",
-          { class: "task-meta" + (late ? " late" : "") },
-          p.owner + " - " + C.label(p.due),
+          { class: "task-meta" },
+          el("span", { class: "inline-meta" }, icon("users"), p.owner),
+          el(
+            "span",
+            { class: "inline-meta" },
+            icon("calendar"),
+            C.label(p.due),
+          ),
         ),
         el(
           "div",
-          { class: "task-status" },
-          C.statuses[p.status],
-          r.local ? " - در انتظار ارسال" : "",
+          { class: "task-status" + (late ? " late" : "") },
+          dueLabel(p),
+          r.local
+            ? el("span", { class: "local-badge" }, "در انتظار ارسال")
+            : null,
         ),
+        p.description
+          ? el("p", { class: "card-excerpt" }, p.description)
+          : null,
+        meeting
+          ? el(
+              "div",
+              { class: "linked-meeting" },
+              icon("calendar"),
+              meeting.payload.title,
+            )
+          : null,
+        pending
+          ? el(
+              "div",
+              { class: "extension-notice" },
+              icon("clock"),
+              "درخواست تمدید منتظر بررسی رئیس",
+            )
+          : null,
+        note
+          ? el(
+              "div",
+              { class: "latest-note" },
+              icon("note"),
+              el(
+                "span",
+                {},
+                el("small", {}, "آخرین پیگیری"),
+                el("span", {}, note.payload.text),
+              ),
+            )
+          : null,
+        elapsed !== null && p.status !== "DONE"
+          ? el(
+              "div",
+              { class: "deadline-meter" },
+              el(
+                "div",
+                { class: "meter-label" },
+                el("span", {}, "زمان سپری‌شده از مهلت"),
+                el("strong", {}, C.fa(elapsed) + "٪"),
+              ),
+              el("progress", {
+                max: 100,
+                value: elapsed,
+                "aria-label": "زمان سپری‌شده از مهلت",
+              }),
+            )
+          : null,
       ],
       () => taskDetail(r),
       "task-body",
     ),
-    action
-      ? button(icon("check"), () => taskAction(r), "task-state", {
-          "aria-label": action[0] + " - " + p.title,
-        })
-      : null,
+    el(
+      "div",
+      { class: "card-actions" },
+      pending &&
+        state.profile.role === "manager" &&
+        !["DONE", "REVIEW"].includes(p.status)
+        ? [
+            actionButton(
+              "check",
+              "تأیید تمدید",
+              () => reviewExtension(r, true),
+              "tonal",
+            ),
+            actionButton(
+              "close",
+              "رد تمدید",
+              () => reviewExtension(r, false),
+              "danger",
+            ),
+          ]
+        : null,
+      action
+        ? actionButton(
+            "check",
+            action[0],
+            () => taskAction(r),
+            "task-state tonal",
+            { "aria-label": action[0] + " - " + p.title },
+          )
+        : null,
+      actionButton("note", "پیگیری", () => quickReport(r), "quiet"),
+      C.admin(state.profile)
+        ? actionButton("edit", "ویرایش", () => taskForm(r), "quiet")
+        : null,
+      actionButton("arrow", "جزئیات", () => taskDetail(r), "quiet"),
+    ),
   );
 }
 function listTasks(container, rows) {
@@ -831,86 +1354,111 @@ function renderTasks(main) {
     state.limit = 50;
     render();
   });
-  const rows = tasks().filter(
-    (r) =>
-      C.filterTask(r.payload, state.filter) &&
-      C.matches(
+  const q = input("taskQuery", state.query, {
+    type: "search",
+    placeholder: "جست‌وجو در عنوان، مسئول، شرح یا جلسه…",
+    "aria-label": "جست‌وجوی مستقیم مصوبات",
+  });
+  const body = el("div", { class: "page-content" }),
+    count = el("span", { class: "result-count", role: "status" });
+  const paint = () => {
+    observer?.disconnect();
+    const rows = tasks().filter(
+      (r) =>
+        C.filterTask(r.payload, state.filter) &&
+        C.matches(taskSearchText(r), state.query),
+    );
+    count.textContent = C.fa(rows.length) + " مصوبه";
+    body.replaceChildren();
+    if (rows.length) listTasks(body, rows);
+    else
+      body.append(
+        empty(
+          "مصوبه‌ای با این مشخصات پیدا نشد",
+          state.query
+            ? button(
+                "پاک کردن جست‌وجو",
+                () => {
+                  state.query = "";
+                  render();
+                },
+                "outline",
+              )
+            : null,
+        ),
+      );
+  };
+  let debounce;
+  q.addEventListener("input", () => {
+    clearTimeout(debounce);
+    state.query = q.value;
+    state.limit = 50;
+    debounce = setTimeout(paint, 120);
+  });
+  const chips = el(
+    "div",
+    { class: "filter-chips", "aria-label": "فیلترهای سریع مصوبات" },
+    ["open", "today", "late", "REVIEW", "extensions", "DONE", "all"].map((f) =>
+      button(
         [
-          r.payload.title,
-          r.payload.owner,
-          r.payload.description,
-          meetings().find((m) => m.id === r.payload.meeting)?.payload.title ||
-            "",
-        ].join(" "),
-        state.query,
+          C.filters[f],
+          badge(tasks().filter((r) => C.filterTask(r.payload, f)).length),
+        ],
+        () => {
+          state.filter = f;
+          state.limit = 50;
+          render();
+        },
+        "filter-chip",
+        { "aria-pressed": String(state.filter === f) },
       ),
+    ),
   );
   main.append(
     el(
       "div",
-      { class: "toolbar" },
-      filter,
-      badge(rows.length),
-      ib("search", "جست‌وجوی مصوبات", taskSearch),
-      C.admin(state.profile)
-        ? ib("plus", "مصوبهٔ جدید", () => taskForm())
-        : null,
-    ),
-  );
-  if (state.query)
-    main.append(
+      { class: "task-controls" },
       el(
         "div",
-        { class: "banner row" },
-        el("span", { class: "grow" }, state.query),
-        button("پاک کردن", () => {
-          state.query = "";
-          render();
-        }),
+        { class: "toolbar" },
+        el("div", { class: "inline-search" }, icon("search"), q),
+        filter,
+        C.admin(state.profile)
+          ? actionButton("plus", "مصوبهٔ جدید", () => taskForm(), "primary")
+          : null,
       ),
-    );
-  const body = el("div", { class: "page-content" });
-  main.append(body);
-  if (rows.length) listTasks(body, rows);
-  else body.append(empty("مصوبه‌ای در این فهرست نیست"));
-}
-function taskSearch() {
-  const m = modal("جست‌وجوی مصوبات"),
-    q = input("query", state.query, {
-      type: "search",
-      placeholder: "عنوان، مسئول یا جلسه",
-      "aria-label": "جست‌وجوی مصوبات",
-    });
-  const run = () => {
-    state.query = q.value;
-    state.tab = "tasks";
-    state.filter = "all";
-    state.limit = 50;
-    m.close();
-    render();
-  };
-  m.body.append(q, button("جست‌وجو", run, "primary"));
-  q.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") run();
-  });
-  q.focus();
+      chips,
+      el(
+        "div",
+        { class: "list-caption" },
+        count,
+        el("span", {}, "برای هر مصوبه، وضعیت و اقدام بعدی را همین‌جا ببینید"),
+      ),
+    ),
+    body,
+  );
+  paint();
 }
 function renderFollowup(main) {
+  const body = el("div", { class: "page-content followup-board" }),
+    all = tasks();
+  let count = 0;
   main.append(
     el(
       "div",
-      { class: "toolbar" },
-      el("h1", { class: "grow" }, "پیگیری"),
+      { class: "toolbar followup-toolbar" },
+      el(
+        "p",
+        { class: "grow muted" },
+        "ابتدا درخواست‌ها و کارهای نزدیک به سررسید را بررسی کنید",
+      ),
       C.admin(state.profile)
-        ? button("ثبت مصوبه", () => taskForm(), "tonal")
+        ? actionButton("plus", "ثبت مصوبه", () => taskForm(), "primary")
         : null,
     ),
   );
-  const body = el("div", { class: "page-content" }),
-    all = tasks();
-  let count = 0;
   for (const f of [
-    ...(state.profile.role === "manager" ? ["REVIEW"] : []),
+    ...(state.profile.role === "manager" ? ["extensions", "REVIEW"] : []),
     "late",
     "today",
     "near",
@@ -920,29 +1468,20 @@ function renderFollowup(main) {
     count += rows.length;
     body.append(
       el(
-        "div",
-        { class: "section-heading" },
-        button([C.filters[f], badge(rows.length)], () => {
-          state.tab = "tasks";
-          state.filter = f;
-          state.query = "";
-          state.limit = 50;
-          render();
-        }),
+        "section",
+        { class: "followup-group" },
+        el(
+          "div",
+          { class: "section-heading" },
+          el("h2", {}, C.filters[f]),
+          badge(rows.length),
+          button(["مشاهدهٔ همه", icon("arrow")], () => goTasks(f), "quiet"),
+        ),
+        el("div", { class: "cards" }, rows.slice(0, 4).map(taskCard)),
       ),
-      el("div", { class: "cards" }, rows.slice(0, 5).map(taskCard)),
     );
-    if (rows.length > 5)
-      body.append(
-        button("دیدن همه", () => {
-          state.tab = "tasks";
-          state.filter = f;
-          state.limit = 50;
-          render();
-        }),
-      );
   }
-  if (!count) body.append(empty("پیگیری فوری ندارید"));
+  if (!count) body.append(empty("همه‌چیز مرتب است؛ پیگیری فوری ندارید"));
   main.append(body);
 }
 function renderReview(main) {
@@ -1288,30 +1827,41 @@ function taskDetail(record) {
     el(
       "div",
       { class: "detail-main" },
-      button(p.owner, () => personTasks(p), "text-start tonal"),
       el(
         "div",
-        { class: "detail-meta" },
-        C.label(p.due),
-        C.statuses[p.status],
-        C.priorities[p.priority],
+        { class: "detail-data-grid" },
+        metaItem("users", "مسئول انجام", p.owner),
+        metaItem("calendar", "سررسید", C.label(p.due)),
+        metaItem("check", "وضعیت", C.statuses[p.status]),
+        metaItem("tasks", "اولویت", C.priorities[p.priority]),
       ),
+      actionButton("users", "مصوبات این مسئول", () => personTasks(p), "tonal"),
     ),
     el(
       "div",
       { class: "row wrap" },
-      ib("share", "اشتراک‌گذاری خلاصه", () => share(p)),
+      actionButton("share", "اشتراک‌گذاری خلاصه", () => share(p), "outline"),
       C.admin(state.profile)
-        ? ib("edit", "ویرایش مصوبه", () => {
+        ? actionButton("edit", "ویرایش مصوبه", () => {
             m.close();
             taskForm(r);
           })
         : null,
       C.admin(state.profile)
-        ? button("تمدید یا تعویق", () => reschedule(r, m))
+        ? actionButton(
+            "clock",
+            "تمدید یا تعویق",
+            () => reschedule(r, m),
+            "outline",
+            {
+              disabled:
+                p.extension?.status === "PENDING" || p.status === "DONE",
+            },
+          )
         : null,
     ),
   );
+  deadlinePanel(r, m);
   const action = C.primaryAction(state.profile, p);
   if (action)
     m.body.append(
@@ -1381,8 +1931,50 @@ function taskDetail(record) {
     add,
   );
   const history = related("history", r.id);
+  const reminders = section(
+    "زمان‌بندی و یادآوری‌ها",
+    el(
+      "div",
+      { class: "detail-data-grid" },
+      metaItem("clock", "وضعیت مهلت", dueLabel(p)),
+      metaItem("note", "تعداد پیگیری‌ها", C.fa(notes.length)),
+    ),
+  );
+  if (p.created > 0)
+    reminders.append(
+      metaItem("calendar", "تاریخ ثبت", C.label(C.today(p.created))),
+    );
+  if (r.actor) reminders.append(metaItem("users", "آخرین ثبت توسط", r.actor));
+  if (p.submitted > 0)
+    reminders.append(
+      metaItem("check", "ارسال گزارش انجام", C.label(C.today(p.submitted))),
+    );
+  if (p.approved > 0)
+    reminders.append(
+      metaItem("check", "تأیید نهایی", C.label(C.today(p.approved))),
+    );
+  reminders.append(
+    el(
+      "p",
+      { class: "help" },
+      "هشدار خودکار نیمهٔ مهلت برای مسئول مصوبه فعال است.",
+    ),
+    ...(p.reminders || []).map((at) =>
+      metaItem(
+        "clock",
+        "یادآوری پیگیری",
+        C.label(C.today(at)) + " — " + C.time(C.nowMinute(at)),
+      ),
+    ),
+  );
+  if (!p.reminders?.length)
+    reminders.append(
+      el("p", { class: "help" }, "یادآوری دستی دیگری ثبت نشده است."),
+    );
+  m.body.append(reminders);
   m.body.append(
-    details(
+    section(
+      "شرح، جلسه و سوابق",
       p.description ? el("p", { class: "text-pre" }, p.description) : null,
       p.meeting
         ? button("مشاهدهٔ جلسه", () => {
@@ -1423,6 +2015,149 @@ function taskDetail(record) {
         : null,
     ),
   );
+}
+function deadlinePanel(r, parent) {
+  const p = r.payload,
+    e = p.extension,
+    box = el(
+      "section",
+      { class: "deadline-panel" },
+      el("h3", {}, "پیگیری نیمهٔ مهلت"),
+    );
+  box.append(
+    el(
+      "p",
+      { class: "help" },
+      "پس از گذشت ۵۰٪ مهلت، وضعیت کار و نیاز به تمدید از مسئول پرسیده می‌شود.",
+    ),
+  );
+  if (e) {
+    box.append(
+      el(
+        "strong",
+        {},
+        e.status === "PENDING"
+          ? "درخواست تمدید منتظر بررسی رئیس"
+          : e.status === "APPROVED"
+            ? "تمدید مهلت تأیید شد"
+            : "درخواست رد شد؛ مهلت قبلی برقرار است",
+      ),
+      el("p", {}, "وضعیت کار: " + e.progress),
+      el("p", {}, "دلیل: " + e.reason),
+      el("p", {}, "مهلت پیشنهادی: " + C.label(e.due)),
+    );
+    if (
+      e.status === "PENDING" &&
+      state.profile.role === "manager" &&
+      !["DONE", "REVIEW"].includes(p.status)
+    ) {
+      const decide = async (approve) => {
+        await saveExtensionDecision(r, approve);
+        parent.close();
+        taskDetail(r);
+      };
+      const run = async (approve) => {
+        const controls = box.querySelectorAll("button");
+        controls.forEach((b) => (b.disabled = true));
+        try {
+          await decide(approve);
+        } catch (error) {
+          parent.error.textContent = error.message;
+          parent.error.hidden = false;
+          controls.forEach((b) => (b.disabled = false));
+        }
+      };
+      box.append(
+        button("تأیید تمدید", () => run(true), "primary"),
+        button("رد درخواست", () => run(false), "outline"),
+      );
+    }
+  }
+  if (
+    p.assignee === state.profile.userId &&
+    e?.status !== "PENDING" &&
+    !["DONE", "REVIEW"].includes(p.status)
+  )
+    box.append(
+      button(
+        "ثبت وضعیت و نیاز به تمدید",
+        () => {
+          const progress = el("textarea", { maxlength: 970 }),
+            reason = el("textarea", { maxlength: 2000 }),
+            needs = input("needsExtension", "", { type: "checkbox" }),
+            due = dateField("مهلت پیشنهادی", Math.max(p.due + 1, C.today())),
+            form = modal("درخواست تمدید", {
+              sheet: true,
+              save: async () => {
+                if (
+                  !progress.value.trim() ||
+                  (needs.checked &&
+                    (!reason.value.trim() ||
+                      due.get() <= p.due ||
+                      due.get() < C.today()))
+                )
+                  throw new Error(
+                    "وضعیت، دلیل و تاریخی پس از مهلت فعلی را وارد کنید",
+                  );
+                const extension = {
+                  id: uuid(),
+                  status: "PENDING",
+                  progress: progress.value.trim(),
+                  reason: reason.value.trim(),
+                  due: due.get(),
+                  baseDue: p.due,
+                  requestedBy: state.profile.userId,
+                  requestedAt: Date.now(),
+                  decidedBy: null,
+                  decidedAt: 0,
+                };
+                if (needs.checked) await changeRecord(r, { ...p, extension });
+                else
+                  await saveChanges([
+                    {
+                      id: uuid(),
+                      kind: "followup",
+                      payload: {
+                        task: r.id,
+                        text: "نیاز به تمدید ندارم؛ " + progress.value.trim(),
+                        created: Date.now(),
+                      },
+                    },
+                  ]);
+                parent.close();
+                taskDetail(r);
+              },
+            });
+          const extra = el(
+            "div",
+            { hidden: true },
+            field("دلیل نیاز به تمدید", reason),
+            due.node,
+            el(
+              "p",
+              { class: "help" },
+              "تا تأیید رئیس، مهلت فعلی تغییر نمی‌کند.",
+            ),
+          );
+          needs.addEventListener(
+            "change",
+            () => (extra.hidden = !needs.checked),
+          );
+          form.body.append(
+            field("کار در چه مرحله‌ای است؟", progress),
+            el(
+              "label",
+              { class: "switch-label" },
+              "نیاز به تمدید مهلت دارم",
+              needs,
+            ),
+            extra,
+          );
+        },
+        "tonal",
+      ),
+    );
+  parent.body.append(box);
 }
 function noteView(r) {
   return el(
@@ -1469,6 +2204,10 @@ async function share(p) {
 }
 
 function taskForm(record = null, meeting = null) {
+  if (meeting?.payload.reserved) {
+    toast("برای جلسهٔ رزرو نمی‌توان مصوبه ثبت کرد");
+    return;
+  }
   const original = record?.payload,
     title = input("title", original?.title || "", {
       required: true,
@@ -1491,10 +2230,12 @@ function taskForm(record = null, meeting = null) {
       {
         "": "بدون جلسه",
         ...Object.fromEntries(
-          meetings().map((r) => [
-            r.id,
-            r.payload.title + " - " + C.label(r.payload.date),
-          ]),
+          meetings()
+            .filter((r) => !r.payload.reserved)
+            .map((r) => [
+              r.id,
+              r.payload.title + " - " + C.label(r.payload.date),
+            ]),
         ),
       },
       original?.meeting || meeting?.id || "",
@@ -1528,10 +2269,24 @@ function taskForm(record = null, meeting = null) {
         if (minute === null) throw new Error("ساعت پیگیری را انتخاب کنید");
         const day = original ? reminderDate.get() : due.get() - 1,
           at = C.officeAt(day, minute);
-        reminders = at > Date.now() ? [at] : [];
+        const existing = original?.reminders || [];
+        const unchanged =
+          original &&
+          existing[0] &&
+          reminderDate.get() === C.today(existing[0]) &&
+          minute === C.nowMinute(existing[0]);
+        reminders = unchanged
+          ? existing
+          : [...(at > Date.now() ? [at] : []), ...existing.slice(1)];
       } else reminders = [];
+      if (
+        meetings().find((r) => r.id === meetingSelect.value)?.payload.reserved
+      )
+        throw new Error("برای جلسهٔ رزرو نمی‌توان مصوبه ثبت کرد");
       const payload = {
         ...(original || {}),
+        created: original?.created || Date.now(),
+        extension: original?.extension || null,
         title: title.value.trim(),
         description: description.value.trim(),
         owner: person.name.trim(),
@@ -1564,11 +2319,20 @@ function taskForm(record = null, meeting = null) {
       await saveChanges(changes);
     },
   });
+  if (original?.extension?.status === "PENDING")
+    due.node.querySelector("button").disabled = true;
+  m.body.classList.add("editor-form");
   m.body.append(
     field("عنوان", title),
     field("مسئول انجام", owner.node),
+    el(
+      "p",
+      { class: "help" },
+      "هشدار خودکار در ۵۰٪ مهلت برای مسئول مصوبه فعال است.",
+    ),
     due.node,
-    details(
+    section(
+      "جزئیات مصوبه",
       field("اولویت", priority),
       field("جلسه", meetingSelect),
       field("شرح", description),
@@ -1631,16 +2395,31 @@ function meetingDetail(r) {
     el(
       "div",
       { class: "detail-main" },
-      C.label(p.date),
-      C.time(p.start) + " تا " + C.time(p.end),
-      p.location || null,
+      el(
+        "div",
+        { class: "detail-data-grid" },
+        metaItem("calendar", "روز جلسه", C.label(p.date)),
+        metaItem("clock", "ساعت", C.time(p.start) + " تا " + C.time(p.end)),
+        metaItem("location", "محل یا لینک", p.location || "تعیین نشده"),
+        metaItem("users", "شرکت‌کنندگان", C.fa(people.length) + " نفر"),
+      ),
+      el(
+        "span",
+        {
+          class:
+            "status-pill " +
+            (p.reserved ? "reservation-pill" : "confirmed-pill"),
+        },
+        p.reserved ? "جلسهٔ رزرو" : "جلسهٔ قطعی",
+      ),
     ),
     el(
       "div",
       { class: "chips" },
-      people.slice(0, 4).map((n) => el("span", { class: "chip" }, n)),
+      people.map((n) => el("span", { class: "chip" }, n)),
     ),
-    details(
+    section(
+      "دستور جلسه و یادداشت‌ها",
       el("p", { class: "text-pre" }, p.notes || "یادداشتی ثبت نشده"),
       people.length > 4 ? el("p", {}, people.join(" - ")) : null,
     ),
@@ -1663,7 +2442,13 @@ function meetingDetail(r) {
           () => meetingForm(r, C.today(), p.start, true),
           "outline",
         ),
-        button("ثبت مصوبه", () => taskForm(null, r), "tonal"),
+        p.reserved
+          ? el(
+              "p",
+              { class: "help" },
+              "جلسه رزرو است؛ برای ثبت مصوبه ابتدا رزرو را بردارید.",
+            )
+          : button("ثبت مصوبه", () => taskForm(null, r), "tonal"),
       ),
     );
   m.body.append(
@@ -1672,7 +2457,8 @@ function meetingDetail(r) {
   );
   if (C.admin(state.profile))
     m.body.append(
-      details(
+      section(
+        "مدیریت جلسه",
         button(
           "حذف جلسه",
           async () => {
@@ -1700,6 +2486,10 @@ function meetingForm(
 ) {
   const p = record?.payload,
     title = input("title", p?.title || "", { maxlength: 500, required: true }),
+    reserved = input("reserved", "", {
+      type: "checkbox",
+      checked: !!p?.reserved,
+    }),
     date = dateField("روز جلسه", copy ? day : (p?.date ?? day)),
     from = input("start", C.inputTime(copy ? start : (p?.start ?? start)), {
       type: "time",
@@ -1735,16 +2525,25 @@ function meetingForm(
         WEEKLY: "هر هفته",
         MONTHLY: "هر ماه شمسی",
       },
-      "NONE",
+      record && !copy ? p.repeat || "NONE" : "NONE",
     ),
-    until = dateField("پایان تکرار", day + 30);
+    until = dateField("پایان تکرار", p?.until ?? day + 30);
+  if (record && !copy) repeat.disabled = true;
   const m = modal(copy ? "کپی جلسه" : record ? "ویرایش جلسه" : "جلسهٔ جدید", {
     sheet: true,
     save: async () => {
       const selected = people.get();
       if (selected.length > 200)
         throw new Error("حداکثر ۲۰۰ شرکت‌کننده انتخاب کنید");
+      if (
+        reserved.checked &&
+        record &&
+        !copy &&
+        tasks().some((t) => t.payload.meeting === record.id)
+      )
+        throw new Error("جلسهٔ دارای مصوبه را نمی‌توان رزرو کرد");
       const payload = {
+        reserved: reserved.checked,
         title: title.value.trim(),
         date: date.get(),
         notes: notes.value.trim(),
@@ -1761,11 +2560,13 @@ function meetingForm(
           ),
         repeat: repeat.value,
         until: repeat.value === "NONE" ? null : until.get(),
-        series: repeat.value === "NONE" ? null : uuid(),
+        series:
+          repeat.value === "NONE" ? null : record && !copy ? p.series : uuid(),
       };
-      const instances = C.meetingInstances(payload),
+      const instances =
+          record && !copy ? [payload] : C.meetingInstances(payload),
         collisions = C.conflicts(
-          payload,
+          record && !copy ? { ...payload, repeat: "NONE" } : payload,
           meetings(),
           !copy ? record?.id : null,
         );
@@ -1793,16 +2594,27 @@ function meetingForm(
       );
     },
   });
+  m.body.classList.add("editor-form");
   m.body.append(
     field("عنوان جلسه", title),
+    el("label", { class: "switch-label" }, "ثبت به‌صورت رزرو", reserved),
+    el("p", { class: "help" }, "جلسهٔ رزرو زرد است و امکان ثبت مصوبه ندارد."),
     date.node,
     el("div", { class: "two-fields" }, field("شروع", from), field("پایان", to)),
     field("شرکت‌کنندگان", people.node, "انتخاب کاربر شرکت یا افزودن نام مخاطب"),
-    details(
+    section(
+      "جزئیات و تکرار جلسه",
       field("محل جلسه", location),
       field("یادداشت", notes),
       field("تکرار", repeat),
       until.node,
+      record && !copy
+        ? el(
+            "p",
+            { class: "help" },
+            "ویرایش فقط روی همین نوبت جلسه اعمال می‌شود.",
+          )
+        : null,
     ),
   );
 }
@@ -2198,7 +3010,7 @@ async function settings() {
         "danger",
       ),
     ),
-    el("small", {}, "پیگیر وب ۴.۷.۰ - اطلاعات هر شرکت جداگانه نگهداری می‌شوند"),
+    el("small", {}, "پیگیر وب ۴.۹.۰ - اطلاعات هر شرکت جداگانه نگهداری می‌شوند"),
   );
 }
 function notificationStatus() {
@@ -2421,7 +3233,7 @@ async function openLink(data) {
     await load();
     render();
   } catch {}
-  if(state.profile?.id!==p.id)return;
+  if (state.profile?.id !== p.id) return;
   const r = state.records.find((x) => x.id === data.recordId);
   if (r?.kind === "meeting") meetingDetail(r);
   else if (r?.kind === "task") taskDetail(r);

@@ -21,7 +21,7 @@ class LegacyStorageTest {
         val before=store.snapshot()
         store.writableDatabase.execSQL("DROP TABLE backlog");store.writableDatabase.version=3;store.close()
         store=Store(context,"legacy-storage.db")
-        assertEquals(before,store.snapshot());assertEquals(8,store.readableDatabase.version)
+        assertEquals(before,store.snapshot());assertEquals(9,store.readableDatabase.version)
     }
     @Test fun openingVersionFourDataDoesNotDeleteOrScheduleLegacyEntries() {
         store.writableDatabase.execSQL("INSERT INTO backlog(title,description,owner,created) VALUES(?,?,?,?)",arrayOf<Any>("legacy entry","note","",1L))

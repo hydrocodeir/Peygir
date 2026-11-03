@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 8) {
+class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 9) {
     internal val profileId=Accounts.id(context)
     private val appContext=Accounts.context(context).applicationContext
     internal fun isVisible()=profileId==Accounts.active(appContext) || profileId.isEmpty() && Accounts.active(appContext) in listOf("",Accounts.LEGACY)
@@ -26,6 +26,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         SharedStore.create(db)
         Organization.create(db)
         MeetingAlerts.create(db)
+        DeadlineProgress.create(db)
     }
     private fun createHistory(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE due_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,old_due INTEGER NOT NULL,new_due INTEGER NOT NULL,changed_at INTEGER NOT NULL,kind TEXT NOT NULL,reason TEXT NOT NULL)")
@@ -43,7 +44,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createHistory(db)
         val hasDraft=db.rawQuery("PRAGMA table_info(recordings)",null).use{c->var found=false;while(c.moveToNext()) if(c.getString(1)=="draft_session") found=true;found}
         if(!hasDraft) db.execSQL("ALTER TABLE recordings ADD COLUMN draft_session TEXT NOT NULL DEFAULT ''")
-    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db);if(old<8) MeetingAlerts.create(db)}
+    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db);if(old<8) MeetingAlerts.create(db);if(old<9) DeadlineProgress.create(db)}
     @Synchronized internal fun <T> syncDb(block: (SQLiteDatabase)->T): T = block(writableDatabase)
     @Synchronized fun snapshot(): Snapshot {
         val db = readableDatabase
@@ -61,6 +62,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
     @Synchronized fun saveMeeting(m: Meeting): Long {
         require(m.title.isNotBlank());MeetingSchedule.requireTime(m)
         require(m.guests.size<=200 && m.guests.all{it.isNotBlank() && it.length<=200 && Owners.key(it).isNotBlank()} && m.guests.distinctBy{Owners.key(it)}.size==m.guests.size) {"نام مخاطبان باید معتبر و بدون تکرار باشد."}
+        if(m.reserved && m.id>0) require(!readableDatabase.rawQuery("SELECT 1 FROM tasks WHERE meeting_id=? LIMIT 1",arrayOf(m.id.toString())).use{it.moveToFirst()}) {"جلسهٔ دارای مصوبه را نمی‌توان رزرو کرد."}
         val v = ContentValues().apply { put("title",m.title.trim()); put("date",m.date); put("notes",m.notes);meetingOrganization(m) }
         val db=writableDatabase;db.beginTransaction()
         try {
@@ -89,9 +91,13 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         var committed=false
         var audioToDelete=emptyList<String>()
         try {
-            val oldDue=if(t.id==0L) null else db.rawQuery("SELECT due FROM tasks WHERE id=?",arrayOf(t.id.toString())).use{c->if(c.moveToFirst()) c.getLong(0) else error("مصوبه پیدا نشد.")}
+            if(t.meetingId!=null) require(db.rawQuery("SELECT reserved FROM meetings WHERE id=?",arrayOf(t.meetingId.toString())).use{it.moveToFirst() && it.getInt(0)==0}) {"برای جلسهٔ رزرو نمی‌توان مصوبه ثبت کرد؛ ابتدا رزرو را بردارید."}
+            val persisted=if(t.id==0L) null else db.rawQuery("SELECT due,created,extension FROM tasks WHERE id=?",arrayOf(t.id.toString())).use{c->check(c.moveToFirst()) {"مصوبه پیدا نشد."};Triple(c.getLong(0),c.getLong(1),c.getString(2))}
+            if(persisted?.third?.let{org.json.JSONObject(it).optString("status")}=="PENDING" && t.due!=persisted.first) require(OrgAccess.role(appContext)=="manager" && t.extension?.let{org.json.JSONObject(it).optString("status")}=="APPROVED") {"تا بررسی درخواست تمدید توسط رئیس، مهلت فعلی باید حفظ شود."}
+            val value=t.copy(created=persisted?.second?.takeIf{it>0} ?: t.created.takeIf{it>0} ?: System.currentTimeMillis())
+            val oldDue=persisted?.first
             if(changeKind!=DueChangeKind.EDIT) require(oldDue!=null && t.status!=Status.DONE && t.due>oldDue && t.due>=java.time.LocalDate.now().toEpochDay()) {"مهلت جدید باید پس از موعد قبلی و از امروز به بعد باشد."}
-            val v = ContentValues().apply { put("meeting_id",t.meetingId); put("title",t.title.trim()); put("description",t.description.trim()); put("owner",t.owner.trim()); put("due",t.due); put("priority",t.priority.name); put("status",t.status.name);taskOrganization(t) }
+            val v = ContentValues().apply { put("meeting_id",t.meetingId); put("title",t.title.trim()); put("description",t.description.trim()); put("owner",t.owner.trim()); put("due",t.due); put("priority",t.priority.name); put("status",t.status.name);taskOrganization(value) }
             val id = if(t.id==0L) db.insertOrThrow("tasks",null,v) else { check(db.update("tasks",v,"id=?",arrayOf(t.id.toString()))==1); t.id }
             if(oldDue!=null && (oldDue!=t.due || t.status==Status.DONE)) db.delete("notification_tokens","task_id=?",arrayOf(id.toString()))
             if(oldDue!=null && oldDue!=t.due) db.insertOrThrow("due_changes",null,ContentValues().apply{put("task_id",id);put("old_due",oldDue);put("new_due",t.due);put("changed_at",System.currentTimeMillis());put("kind",changeKind.name);put("reason",reason.trim())})
@@ -182,7 +188,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
             listOf("backlog","notification_tokens","follow_ups","recordings","reminders","due_changes","tasks","meetings").forEach {db.delete(it,null,null)}
             data.backlog.forEach {b->db.insertOrThrow("backlog",null,ContentValues().apply {put("id",b.id);put("title",b.title);put("description",b.description);put("owner",b.owner);put("created",b.created)})}
             data.meetings.forEach {m->db.insertOrThrow("meetings",null,ContentValues().apply {put("id",m.id);put("title",m.title);put("date",m.date);put("notes",m.notes);meetingOrganization(m)});MeetingAlerts.save(db,m.id,m.alertMinutes)}
-            data.tasks.forEach {t->db.insertOrThrow("tasks",null,ContentValues().apply {put("id",t.id);put("meeting_id",t.meetingId);put("title",t.title);put("description",t.description);put("owner",t.owner);put("due",t.due);put("priority",t.priority.name);put("status",t.status.name);taskOrganization(t)})}
+            data.tasks.forEach {t->db.insertOrThrow("tasks",null,ContentValues().apply {put("id",t.id);put("meeting_id",t.meetingId);put("title",t.title);put("description",t.description);put("owner",t.owner);put("due",t.due);put("priority",t.priority.name);put("status",t.status.name);taskOrganization(if(t.created>0) t else t.copy(created=System.currentTimeMillis()))})}
             data.reminders.forEach {r->db.insertOrThrow("reminders",null,ContentValues().apply {put("id",r.id);put("task_id",r.taskId);put("at",r.at);put("delivered",if(r.delivered) 1 else 0)})}
             data.history.forEach {h->db.insertOrThrow("due_changes",null,ContentValues().apply {put("id",h.id);put("task_id",h.taskId);put("old_due",h.oldDue);put("new_due",h.newDue);put("changed_at",h.changedAt);put("kind",h.kind.name);put("reason",h.reason)})}
             data.followUps.forEach {f->db.insertOrThrow("follow_ups",null,ContentValues().apply {put("id",f.id);put("task_id",f.taskId);put("text",f.text);put("created",f.created)})}

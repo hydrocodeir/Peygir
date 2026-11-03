@@ -2,13 +2,11 @@
   "config": {
     "argv": [
       "C:\\Program Files\\nodejs\\node.exe",
-      "C:\\Users\\psh2610\\Desktop\\Dastyar\\vps\\node_modules\\@playwright\\test\\cli.js",
-      "test",
-      "--config",
-      "vps/playwright.config.mjs"
+      "D:\\Pooya\\w\\All\\Dastyar\\vps\\node_modules\\@playwright\\test\\cli.js",
+      "test"
     ],
-    "configFile": "C:\\Users\\psh2610\\Desktop\\Dastyar\\vps\\playwright.config.mjs",
-    "rootDir": "C:/Users/psh2610/Desktop/Dastyar/vps/test/browser",
+    "configFile": "D:\\Pooya\\w\\All\\Dastyar\\vps\\playwright.config.mjs",
+    "rootDir": "D:/Pooya/w/All/Dastyar/vps/test/browser",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -24,7 +22,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "C:/Users/psh2610/Desktop/Dastyar/.local-build/pwa-browser",
+        "outputDir": "D:/Pooya/w/All/Dastyar/.local-build/pwa-browser",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -32,7 +30,7 @@
         },
         "id": "chromium-mobile",
         "name": "chromium-mobile",
-        "testDir": "C:/Users/psh2610/Desktop/Dastyar/vps/test/browser",
+        "testDir": "D:/Pooya/w/All/Dastyar/vps/test/browser",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -40,7 +38,7 @@
         "timeout": 45000
       },
       {
-        "outputDir": "C:/Users/psh2610/Desktop/Dastyar/.local-build/pwa-browser",
+        "outputDir": "D:/Pooya/w/All/Dastyar/.local-build/pwa-browser",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -48,7 +46,7 @@
         },
         "id": "webkit-iphone",
         "name": "webkit-iphone",
-        "testDir": "C:/Users/psh2610/Desktop/Dastyar/vps/test/browser",
+        "testDir": "D:/Pooya/w/All/Dastyar/vps/test/browser",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -97,6 +95,176 @@
       "line": 0,
       "specs": [
         {
+          "title": "direct meeting search shows dates, people and actions without opening a search dialog",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium-mobile",
+              "projectName": "chromium-mobile",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1385,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:08.686Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-7a0a6d67462e00e20f62",
+          "file": "pwa.spec.mjs",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "workspace keeps detailed cards and visible form fields accessible on desktop and small dark screens",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium-mobile",
+              "projectName": "chromium-mobile",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2594,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:10.207Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-403b5dd7819216209911",
+          "file": "pwa.spec.mjs",
+          "line": 83,
+          "column": 1
+        },
+        {
+          "title": "chief approves an extension directly from its card while a rejection action is also visible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium-mobile",
+              "projectName": "chromium-mobile",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4515,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:12.811Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-afc8a5330cb85e7fe706",
+          "file": "pwa.spec.mjs",
+          "line": 135,
+          "column": 1
+        },
+        {
+          "title": "reservation checkbox produces yellow calendar events and prevents resolution creation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium-mobile",
+              "projectName": "chromium-mobile",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2329,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:17.338Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-c11cf13208816a5a23b2",
+          "file": "pwa.spec.mjs",
+          "line": 239,
+          "column": 1
+        },
+        {
+          "title": "assignee can report progress and request extension without changing the current due",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium-mobile",
+              "projectName": "chromium-mobile",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1986,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:19.680Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-fb80950e1e65f565e826",
+          "file": "pwa.spec.mjs",
+          "line": 283,
+          "column": 1
+        },
+        {
           "title": "700 records, compact lists, Persian calendar, participant suggestions reopen and forms discard",
           "ok": true,
           "tags": [],
@@ -112,12 +280,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3478,
+                  "duration": 3433,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:43.364Z",
+                  "startTime": "2026-11-03T16:42:21.682Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -127,7 +295,7 @@
           ],
           "id": "5d9eb74527913e319f89-55c821d43dddd66dc14c",
           "file": "pwa.spec.mjs",
-          "line": 57,
+          "line": 385,
           "column": 1
         },
         {
@@ -146,12 +314,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2900,
+                  "duration": 3724,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:47.039Z",
+                  "startTime": "2026-11-03T16:42:25.125Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -161,7 +329,7 @@
           ],
           "id": "5d9eb74527913e319f89-ec4f1bb82c209972791e",
           "file": "pwa.spec.mjs",
-          "line": 126,
+          "line": 453,
           "column": 1
         },
         {
@@ -180,12 +348,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2215,
+                  "duration": 2500,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:49.953Z",
+                  "startTime": "2026-11-03T16:42:28.860Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -195,7 +363,7 @@
           ],
           "id": "5d9eb74527913e319f89-4a94b0a42e1ce3202dcd",
           "file": "pwa.spec.mjs",
-          "line": 183,
+          "line": 514,
           "column": 1
         },
         {
@@ -214,12 +382,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 879,
+                  "duration": 1373,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:52.177Z",
+                  "startTime": "2026-11-03T16:42:31.370Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -229,7 +397,7 @@
           ],
           "id": "5d9eb74527913e319f89-54496e94345b6ad8995e",
           "file": "pwa.spec.mjs",
-          "line": 216,
+          "line": 547,
           "column": 1
         },
         {
@@ -248,12 +416,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 245,
+                  "duration": 426,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:53.069Z",
+                  "startTime": "2026-11-03T16:42:32.753Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -263,7 +431,7 @@
           ],
           "id": "5d9eb74527913e319f89-5422bb0cc3f123ecdcd9",
           "file": "pwa.spec.mjs",
-          "line": 260,
+          "line": 591,
           "column": 1
         },
         {
@@ -282,12 +450,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3071,
+                  "duration": 3580,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:53.325Z",
+                  "startTime": "2026-11-03T16:42:33.189Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -297,7 +465,7 @@
           ],
           "id": "5d9eb74527913e319f89-47bb42a4e38dcbb3f779",
           "file": "pwa.spec.mjs",
-          "line": 344,
+          "line": 675,
           "column": 1
         },
         {
@@ -316,12 +484,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1276,
+                  "duration": 2015,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:56.406Z",
+                  "startTime": "2026-11-03T16:42:36.779Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -331,7 +499,177 @@
           ],
           "id": "5d9eb74527913e319f89-722897d14b085f6fcc60",
           "file": "pwa.spec.mjs",
-          "line": 388,
+          "line": 722,
+          "column": 1
+        },
+        {
+          "title": "direct meeting search shows dates, people and actions without opening a search dialog",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit-iphone",
+              "projectName": "webkit-iphone",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14628,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:39.575Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-d1a2e149d0e5de82d77b",
+          "file": "pwa.spec.mjs",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "workspace keeps detailed cards and visible form fields accessible on desktop and small dark screens",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit-iphone",
+              "projectName": "webkit-iphone",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19350,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:42:54.341Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-14cacb2215f9c0295063",
+          "file": "pwa.spec.mjs",
+          "line": 83,
+          "column": 1
+        },
+        {
+          "title": "chief approves an extension directly from its card while a rejection action is also visible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit-iphone",
+              "projectName": "webkit-iphone",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18614,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:43:13.704Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-ce4198527f8c5a3df05a",
+          "file": "pwa.spec.mjs",
+          "line": 135,
+          "column": 1
+        },
+        {
+          "title": "reservation checkbox produces yellow calendar events and prevents resolution creation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit-iphone",
+              "projectName": "webkit-iphone",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16797,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:43:32.332Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-5966efe235687225b55b",
+          "file": "pwa.spec.mjs",
+          "line": 239,
+          "column": 1
+        },
+        {
+          "title": "assignee can report progress and request extension without changing the current due",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit-iphone",
+              "projectName": "webkit-iphone",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5540,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T16:43:49.155Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-713fec95a2ba6710e06c",
+          "file": "pwa.spec.mjs",
+          "line": 283,
           "column": 1
         },
         {
@@ -350,12 +688,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 17653,
+                  "duration": 18129,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:39:58.398Z",
+                  "startTime": "2026-11-03T16:43:54.710Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -365,7 +703,7 @@
           ],
           "id": "5d9eb74527913e319f89-71c143688891c92c1add",
           "file": "pwa.spec.mjs",
-          "line": 57,
+          "line": 385,
           "column": 1
         },
         {
@@ -384,12 +722,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 19221,
+                  "duration": 18353,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:40:16.167Z",
+                  "startTime": "2026-11-03T16:44:12.854Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -399,7 +737,7 @@
           ],
           "id": "5d9eb74527913e319f89-7139b725f84de42dd491",
           "file": "pwa.spec.mjs",
-          "line": 126,
+          "line": 453,
           "column": 1
         },
         {
@@ -418,12 +756,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 20438,
+                  "duration": 20693,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:40:35.402Z",
+                  "startTime": "2026-11-03T16:44:31.217Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -433,7 +771,7 @@
           ],
           "id": "5d9eb74527913e319f89-a43b02b86f9354f2a3e4",
           "file": "pwa.spec.mjs",
-          "line": 183,
+          "line": 514,
           "column": 1
         },
         {
@@ -452,12 +790,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3880,
+                  "duration": 5045,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:40:55.851Z",
+                  "startTime": "2026-11-03T16:44:51.935Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -467,7 +805,7 @@
           ],
           "id": "5d9eb74527913e319f89-6452d8c3768d81b21c99",
           "file": "pwa.spec.mjs",
-          "line": 216,
+          "line": 547,
           "column": 1
         },
         {
@@ -486,12 +824,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1321,
+                  "duration": 1269,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:40:59.742Z",
+                  "startTime": "2026-11-03T16:44:56.988Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -501,7 +839,7 @@
           ],
           "id": "5d9eb74527913e319f89-67d460330da4130e0347",
           "file": "pwa.spec.mjs",
-          "line": 260,
+          "line": 591,
           "column": 1
         },
         {
@@ -520,12 +858,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 16855,
+                  "duration": 17957,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:41:01.073Z",
+                  "startTime": "2026-11-03T16:44:58.268Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -535,7 +873,7 @@
           ],
           "id": "5d9eb74527913e319f89-738a3d6a28aed03d13fb",
           "file": "pwa.spec.mjs",
-          "line": 344,
+          "line": 675,
           "column": 1
         },
         {
@@ -554,12 +892,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 15169,
+                  "duration": 15552,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-29T16:41:17.937Z",
+                  "startTime": "2026-11-03T16:45:16.234Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -569,7 +907,7 @@
           ],
           "id": "5d9eb74527913e319f89-902810ba1f1b6e67b995",
           "file": "pwa.spec.mjs",
-          "line": 388,
+          "line": 722,
           "column": 1
         }
       ]
@@ -577,9 +915,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-29T16:39:41.810Z",
-    "duration": 111651.191,
-    "expected": 14,
+    "startTime": "2026-11-03T16:42:05.110Z",
+    "duration": 207059.652,
+    "expected": 24,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

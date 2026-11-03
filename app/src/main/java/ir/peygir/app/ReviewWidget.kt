@@ -131,10 +131,12 @@ open class ReviewWidget: AppWidgetProvider() {
             setInt(R.id.widget_day_number,"setBackgroundResource",if(today) R.drawable.widget_button else 0)
             setTextColor(R.id.widget_day_number,context.getColor(if(today) R.color.widget_primary else R.color.widget_ink))
             val title=row.meeting?.title ?: row.task?.title ?: if(meetings) "جلسه‌ای ندارید" else "مصوبه‌ای ندارید"
-            val detail=row.meeting?.clockLabel() ?: row.task?.let{"${it.owner} - ${it.status.label}"}.orEmpty()
+            val detail=row.meeting?.let{(if(it.reserved) "رزرو - " else "")+it.clockLabel()} ?: row.task?.let{"${it.owner} - ${it.status.label}"}.orEmpty()
+            setInt(R.id.widget_meeting_card,"setBackgroundResource",if(row.meeting?.reserved==true) R.drawable.widget_reservation else R.drawable.widget_card)
+            setTextColor(R.id.widget_row_title,if(row.meeting?.reserved==true) 0xFF4E3900.toInt() else context.getColor(R.color.widget_ink))
             setTextViewText(R.id.widget_row_title,title);setTextViewText(R.id.widget_row_detail,detail)
             setViewVisibility(R.id.widget_row_detail,if(detail.isBlank()) View.GONE else View.VISIBLE)
-            setTextColor(R.id.widget_row_detail,context.getColor(if(row.task?.status==Status.DONE) R.color.widget_done else R.color.widget_muted))
+            setTextColor(R.id.widget_row_detail,if(row.meeting?.reserved==true) 0xFF4E3900.toInt() else context.getColor(if(row.task?.status==Status.DONE) R.color.widget_done else R.color.widget_muted))
             val open=Accounts.intent(context,Intent()).putExtra("day",row.day).apply {row.meeting?.let{putExtra("meeting_id",it.id)};row.task?.let{putExtra("task_id",it.id)}}
             setOnClickFillInIntent(R.id.widget_row,open)
             setContentDescription(R.id.widget_row,listOf(weekday,Solar.label(date),title,detail).filter{it.isNotBlank()}.joinToString("، "))

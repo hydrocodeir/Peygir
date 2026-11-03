@@ -121,7 +121,7 @@ class PersonalOptionsTest {
         val pending=shared.prepare().map{it.operation.toString()};val snapshot=old.snapshot()
         old.writableDatabase.execSQL("DROP TABLE meeting_alerts");old.writableDatabase.version=7;old.close()
         val upgraded=Store(c,name)
-        try {assertEquals(8,upgraded.readableDatabase.version);assertEquals(snapshot,upgraded.snapshot());assertEquals(pending,SharedStore(upgraded).prepare().map{it.operation.toString()})}
+        try {assertEquals(9,upgraded.readableDatabase.version);assertEquals(snapshot,upgraded.snapshot());assertEquals(pending,SharedStore(upgraded).prepare().map{it.operation.toString()})}
         finally {upgraded.close();c.deleteDatabase(name)}
     }
 }

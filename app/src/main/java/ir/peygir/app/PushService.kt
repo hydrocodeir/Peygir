@@ -88,6 +88,9 @@ class PeygirMessagingService: FirebaseMessagingService() {
         }
     }
     private fun receiveAccount(account: Context,data: Map<String,String>) {
+        // The sync dispatches the local midpoint alarm, whose durable receipt also covers offline delivery.
+        // Avoid a second generic FCM notification for the same question.
+        if(data["kind"]=="midpoint") {SharedJobs.immediate(account);return}
         val company=OrgAccess.company(account)
         val received=account.getSharedPreferences("push_private",0)
         val event=data["eventId"].orEmpty()
@@ -112,12 +115,15 @@ class PeygirMessagingService: FirebaseMessagingService() {
 }
 
 internal object CompanyPush {
-    fun shouldNotify(kind: String?,mode: String)=mode!="essential" || kind in setOf("invitation","assignment","review")
+    fun shouldNotify(kind: String?,mode: String)=mode!="essential" || kind in setOf("invitation","assignment","review","midpoint","extensionRequest","extensionDecision")
     fun title(kind: String?)=when(kind) {
         "invitation"->"به جلسه دعوت شده‌اید"
         "assignment"->"مصوبه‌ای به شما واگذار شد"
         "meeting"->"برنامهٔ جلسه به‌روز شد"
         "review"->"گزارش انجام مصوبه برای بررسی"
+        "midpoint"->"نیمی از مهلت گذشت؛ وضعیت کار و نیاز به تمدید را گزارش کنید"
+        "extensionRequest"->"درخواست تمدید مهلت برای بررسی رئیس"
+        "extensionDecision"->"نتیجهٔ بررسی درخواست تمدید مهلت"
         else->"مصوبهٔ سازمانی به‌روز شد"
     }
 }

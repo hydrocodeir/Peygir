@@ -1,0 +1,26 @@
+{
+  "tests": 314,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "version": "4.8.0",
+  "androidSchema": 9,
+  "backupVersion": 6,
+  "vpsTests": 55,
+  "cloudflareTests": 18,
+  "browserTests": 18,
+  "browserEngines": [
+    "Chromium mobile",
+    "WebKit iPhone"
+  ],
+  "lintErrors": 0,
+  "physicalDeviceTested": false,
+  "productionDeployed": false,
+  "finalStorageRegression": {
+    "tests": 57,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "apkSha256": "70df676e8be4f0983fdd94d8a2973dfcf9e543afd9b704028d88e4cfc2785591"
+}

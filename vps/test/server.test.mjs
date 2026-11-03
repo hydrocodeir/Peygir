@@ -7,11 +7,71 @@ import {createApp} from '../src/app.mjs';
 import {makeBackup,restoreBackup} from '../src/maintenance.mjs';
 import {importD1} from '../src/import-d1.mjs';
 import {passwordHash} from '../../cloudflare/src/worker.mjs';
-import {flushPush} from '../../cloudflare/src/organization.mjs';
+import {flushPush,enqueueMidpoints} from '../../cloudflare/src/organization.mjs';
+import {midpoint} from '../../cloudflare/src/deadline.mjs';
 
 const testRoot=resolve(import.meta.dirname,'../../.local-build/vps-tests');mkdirSync(testRoot,{recursive:true});
 const owner={username:'owner',password:'owner-test-passphrase-12345'};
 const origin='https://peygir.test';
+
+test('reserved meetings reject linked resolutions and existing task meetings cannot become reservations',async t=>{
+  const {app}=await setup(t);await company(app,'reserve');const chief=await login(app,'reserve');
+  const m=operation('meeting',{title:'رزرو',date:21000,notes:'',start:540,end:600,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,reserved:true});
+  assert.equal((await sync(app,'reserve',chief.token,[m])).data.results[0].ok,true);
+  assert.equal((await sync(app,'reserve',chief.token,[operation('task',{...task('ممنوع'),meeting:m.recordId})])).status,400);
+  assert.equal((await sync(app,'reserve',chief.token,[operation('meeting',{...m.payload,reserved:false},m.recordId,randomUUID(),1)])).status,200);
+  const r=await sync(app,'reserve',chief.token,[operation('task',{...task('مجاز'),meeting:m.recordId})]);assert.equal(r.data.results[0].ok,true);
+  assert.equal((await sync(app,'reserve',chief.token,[operation('meeting',m.payload,m.recordId,randomUUID(),2)])).status,400);
+});
+
+test('extension requests cannot change due dates or be approved by deputies or assistants; rejection preserves due',async t=>{
+  const {app}=await setup(t);await company(app,'extensions');const chief=await login(app,'extensions');
+  const uid=await user(app,'extensions',chief.token),deputy=await login(app,'extensions','user','account-password-123456');
+  await user(app,'extensions',chief.token,'assistant','helper');const helper=await login(app,'extensions','helper','account-password-123456');
+  const due=Math.floor((Date.now()+210*60000)/86400000)+5;
+  const first=operation('task',{...task('گزارش',uid),due});let r=(await sync(app,'extensions',chief.token,[first])).data.results[0].record;
+  const extension={id:randomUUID(),status:'PENDING',progress:'۵۰ درصد',reason:'منتظر داده',due:due+3,baseDue:due,requestedBy:uid,requestedAt:Date.now(),decidedBy:null,decidedAt:0};
+  assert.equal((await sync(app,'extensions',deputy.token,[operation('task',{...r.payload,extension,due:due+3},r.id,randomUUID(),r.revision)])).status,400);
+  r=(await sync(app,'extensions',deputy.token,[operation('task',{...r.payload,extension},r.id,randomUUID(),r.revision)])).data.results[0].record;
+  assert.equal(r.payload.due,due);assert.equal(r.payload.extension.status,'PENDING');
+  assert.equal((await sync(app,'extensions',helper.token,[operation('task',{...r.payload,due:due+3},r.id,randomUUID(),r.revision)])).status,400);
+  const approval={...r.payload.extension,status:'APPROVED',decidedAt:Date.now(),decidedBy:uid};
+  for(const s of [deputy,helper]) assert.equal((await sync(app,'extensions',s.token,[operation('task',{...r.payload,extension:approval,due:due+3},r.id,randomUUID(),r.revision)])).status,400);
+  const rejection={...r.payload.extension,status:'REJECTED',decidedAt:Date.now(),decidedBy:chief.userId};
+  assert.equal((await sync(app,'extensions',chief.token,[operation('task',{...r.payload,extension:rejection,due:due+3},r.id,randomUUID(),r.revision)])).status,400);
+  r=(await sync(app,'extensions',chief.token,[operation('task',{...r.payload,extension:rejection},r.id,randomUUID(),r.revision)])).data.results[0].record;
+  assert.equal(r.payload.due,due);assert.equal(r.payload.extension.status,'REJECTED');
+  const requested={...extension,id:randomUUID(),requestedAt:Date.now()};
+  r=(await sync(app,'extensions',deputy.token,[operation('task',{...r.payload,extension:requested},r.id,randomUUID(),r.revision)])).data.results[0].record;
+  const accepted={...r.payload.extension,status:'APPROVED',decidedBy:chief.userId,decidedAt:Date.now()};
+  r=(await sync(app,'extensions',chief.token,[operation('task',{...r.payload,extension:accepted,due:due+3},r.id,randomUUID(),r.revision)])).data.results[0].record;
+  assert.equal(r.payload.due,due+3);assert.equal(r.payload.extension.decidedBy,chief.userId);
+  // Older clients preserve extension decisions and the original creation timestamp.
+  const legacy={...r.payload,title:'عنوان تازه'};delete legacy.extension;delete legacy.created;
+  const updated=(await sync(app,'extensions',chief.token,[operation('task',legacy,r.id,randomUUID(),r.revision)])).data.results[0].record;
+  assert.deepEqual(updated.payload.extension,r.payload.extension);assert.equal(updated.payload.created,r.payload.created);
+  const lease=app.registry.lease(app.registry.find('extensions'));try {
+    assert.ok(lease.db.prepare("SELECT 1 FROM push_outbox WHERE user_id=? AND kind='extensionRequest'").get(chief.userId));
+    assert.ok(lease.db.prepare("SELECT 1 FROM push_outbox WHERE user_id=? AND kind='extensionDecision'").get(uid));
+  }finally{lease.release();}
+});
+
+test('midpoint events target only the assignee, fire at exactly half the interval, persist deduplication and skip completed work',async t=>{
+  const {app}=await setup(t);await company(app,'midpoint');const chief=await login(app,'midpoint');const uid=await user(app,'midpoint',chief.token);
+  const created=Date.now()-2*86400000,due=Math.floor((Date.now()+210*60000)/86400000)+2;
+  const first=operation('task',{...task('پیگیری خودکار',uid),created,due});
+  const r=(await sync(app,'midpoint',chief.token,[first])).data.results[0].record;
+  const at=midpoint(r.payload);assert.equal(at,Math.floor(created+((due+1)*86400000-210*60000-created)/2));
+  const lease=app.registry.lease(app.registry.find('midpoint'));try {
+    const env={DB:lease.d1};await enqueueMidpoints(env,at-1);
+    assert.equal(lease.db.prepare("SELECT count(*) n FROM push_outbox WHERE kind='midpoint'").get().n,0);
+    await enqueueMidpoints(env,at);await enqueueMidpoints(env,at+1);
+    const events=lease.db.prepare("SELECT * FROM push_outbox WHERE kind='midpoint'").all();assert.equal(events.length,1);assert.equal(events[0].user_id,uid);
+    lease.db.prepare("DELETE FROM push_outbox WHERE kind='midpoint'").run();await enqueueMidpoints(env,at+5000);
+    assert.equal(lease.db.prepare("SELECT count(*) n FROM push_outbox WHERE kind='midpoint'").get().n,0);
+    assert.equal(midpoint({...r.payload,status:'DONE'}),null);assert.equal(midpoint({...r.payload,status:'REVIEW'}),null);
+  }finally{lease.release();}
+});
 async function setup(t){const dir=mkdtempSync(join(testRoot,'case-'));const app=await createApp({dataDir:dir,publicOrigin:origin,bootstrap:owner});let closed=false;t.after(async()=>{if(!closed)await app.close();assert.ok(resolve(dir).startsWith(testRoot+sep));rmSync(dir,{recursive:true,force:true});});return {app,dir,close:async()=>{if(!closed){await app.close();closed=true;}}};}
 async function request(app,path,{company,token,cookie,csrf,body,method=body===undefined?'GET':'POST',requestOrigin=origin,headers={}}={}){
   const r=await app.fetch(new Request(origin+path,{method,headers:{'content-type':'application/json',origin:requestOrigin,...(company?{'x-peygir-company':company}:{}),...(token?{authorization:'Bearer '+token}:{}),...(cookie?{cookie}:{}),...(csrf?{'x-csrf-token':csrf}:{}),...headers},...(body===undefined?{}:{body:JSON.stringify(body)})}));const text=await r.text();return {status:r.status,headers:r.headers,text,data: r.headers.get('content-type')?.includes('application/json')?JSON.parse(text):null};

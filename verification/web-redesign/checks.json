@@ -1,0 +1,57 @@
+{
+  "version": "4.9.0",
+  "date": "2026-11-03",
+  "skill": "ui-ux-pro-max",
+  "apiAndCoreTests": {
+    "passed": 55,
+    "failed": 0
+  },
+  "browserTests": {
+    "startTime": "2026-11-03T16:42:05.110Z",
+    "duration": 207059.652,
+    "expected": 24,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "engines": [
+    "Chromium mobile",
+    "WebKit iPhone"
+  ],
+  "responsiveViewports": [
+    [
+      375,
+      812
+    ],
+    [
+      812,
+      375
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      1440,
+      1000
+    ]
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "reducedMotionChecked": true,
+  "screenshots": 8,
+  "contrastRatios": {
+    "light body": 15.19,
+    "light secondary": 5.58,
+    "light primary button": 7.15,
+    "dark body": 14.4,
+    "dark secondary": 8.42,
+    "dark primary button": 8.13,
+    "reservation": 8.5
+  },
+  "androidChanged": false,
+  "androidVersion": "4.8.0",
+  "productionDeployed": false
+}

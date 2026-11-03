@@ -25,7 +25,8 @@ class ScaleDataTest {
             val data=store.snapshot()
             assertEquals(200,data.meetings.size);assertEquals(500,data.tasks.size);assertEquals(50,Organization.users(store).size)
             Status.entries.forEach{assertEquals(125,data.tasks.count{t->t.status==it})}
-            assertEquals(f.tasks.toSet(),data.tasks.toSet())
+            assertTrue(data.tasks.all{it.created>0})
+            assertEquals(f.tasks.toSet(),data.tasks.map{it.copy(created=0)}.toSet())
             val bytes=ByteArrayOutputStream().also{Backup.write(c,it,store)}.toByteArray()
             Backup.read(c,bytes.inputStream()).use{prepared->assertEquals(data.tasks.toSet(),prepared.data.tasks.toSet());assertEquals(data.meetings.toSet(),prepared.data.meetings.toSet())}
         } finally {store.close();c.deleteDatabase(name)}

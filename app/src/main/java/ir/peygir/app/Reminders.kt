@@ -60,7 +60,8 @@ object Reminders {
         val taskAt=data.reminders.filter { !it.delivered && it.taskId in active && it.at>now }.minOfOrNull { it.at }
         val reviewAt=if(dailyEnabled(context)) nextDaily(ZonedDateTime.now(),dailyTimes(context)) else null
         val meetingAt=MeetingAlerts.next(context,Store.get(context),data,now)
-        val at=listOfNotNull(taskAt,reviewAt,meetingAt).minOrNull()
+        val midpointAt=DeadlineProgress.next(context,Store.get(context),data,now)
+        val at=listOfNotNull(taskAt,reviewAt,meetingAt,midpointAt).minOrNull()
         val manager=context.getSystemService(AlarmManager::class.java)
         if(at==null) { manager.cancel(pending(context)); return }
         val pi=pending(context,if(at==reviewAt) reviewAt!! else 0)
@@ -96,6 +97,7 @@ object Reminders {
         val data=store.snapshot()
         val now=System.currentTimeMillis()
         MeetingAlerts.process(context,store,data,now)
+        DeadlineProgress.process(context,store,data,now) {task->notification(context,("midpoint:${task.id}").hashCode(),"نیمی از مهلت گذشت - ${task.title}","کار در چه مرحله‌ای است؟ آیا نیاز به تمدید مهلت دارید؟ وضعیت و دلیل را برای رئیس ثبت کنید.",task.id)}
         data.reminders.filter { !it.delivered && it.at<=now }.groupBy { it.taskId }.forEach { (taskId,rs) ->
             val t=data.tasks.find { it.id==taskId }
             if(t==null || t.status==Status.DONE) store.delivered(rs.map { it.id })

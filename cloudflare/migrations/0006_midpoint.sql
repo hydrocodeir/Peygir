@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS midpoint_events(key TEXT PRIMARY KEY, created INTEGER NOT NULL);

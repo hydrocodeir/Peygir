@@ -1,5 +1,6 @@
 import {ApiError,authenticate,body,json,record,getRecord,requireValue,text,integer,ID,sha,passwordHash,hex,login,validateOperation} from './worker.mjs';
 import {sendPush} from './push.mjs';
+import {midpoint,midpointKey,validateExtension,transitionExtension} from './deadline.mjs';
 
 const admin = u => u.role === 'assistant' || u.role === 'manager';
 const ref = v => v === null || (typeof v === 'string' && ID.test(v));
@@ -7,13 +8,15 @@ const day = v => integer(v,-100000,100000);
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 function contactKey(name) {return name.normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u064b-\u065f\u0670ـ]/g,'').replace(/^(?:(?:آقا|آقای|خانم|جناب|سرکار|دکتر|مهندس)\s+)+/,'').replace(/[\s\u200c\p{P}]/gu,'').toLowerCase();}
 export function normalize(kind,value) {
-  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,...value};
-  if(kind==='task') return {assignee:null,submitted:0,approved:0,approvedBy:null,...value};
+  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,reserved:false,...value};
+  if(kind==='task') return {assignee:null,submitted:0,approved:0,approvedBy:null,created:0,extension:null,...value};
   return {...value};
 }
 function validate(op) {
   const p=op.payload, core={...p};
   if(op.kind==='meeting') {
+    requireValue(p.reserved===undefined || typeof p.reserved==='boolean');
+    delete core.reserved;
     requireValue((op.deleted && p.start===null && p.end===null) || (integer(p.start,0,1438) && integer(p.end,p.start+1,1439)),'ساعت پایان باید بعد از شروع و در همان روز باشد.');
     requireValue(text(p.location,2000) && Array.isArray(p.attendees) && p.attendees.length<=200 && p.attendees.every(x=>typeof x==='string' && ID.test(x)) && new Set(p.attendees).size===p.attendees.length);
     requireValue(p.guests===undefined || Array.isArray(p.guests) && p.guests.length<=200 && p.guests.every(n=>text(n,200,true) && contactKey(n).length>0) && new Set(p.guests.map(contactKey)).size===p.guests.length);
@@ -21,6 +24,7 @@ function validate(op) {
     requireValue(p.repeat==='NONE' || (p.series!==null && p.until>=p.date && p.until-p.date<=366));
     for(const k of ['start','end','location','attendees','guests','repeat','until','series']) delete core[k];
   } else if(op.kind==='task') {
+    requireValue(p.created===undefined || integer(p.created));validateExtension(p.extension);delete core.created;delete core.extension;
     requireValue(ref(p.assignee) && integer(p.submitted) && integer(p.approved) && ref(p.approvedBy));
     for(const k of ['assignee','submitted','approved','approvedBy']) delete core[k];
     if(core.status==='REVIEW') core.status='ACTIVE';
@@ -36,6 +40,7 @@ export async function visible(env,user,r) {
 }
 async function projected(env,user,r,visibleMeetings=null) {
   const p=normalize(r.kind,r.payload);
+  if(r.kind==='task' && !p.created) p.created=r.changed;
   if(!admin(user) && r.kind==='task' && p.meeting) {
     if(visibleMeetings) {if(!visibleMeetings.has(p.meeting)) p.meeting=null;}
     else {const m=await getRecord(env,user.workspace,p.meeting);if(!m || m.deleted || !await visible(env,user,m)) p.meeting=null;}
@@ -70,12 +75,18 @@ async function mutate(env,user,op) {
   }
   if((previous?.revision||0)!==op.baseRevision || previous && previous.kind!==op.kind) return {opId:op.id,ok:false,record:previous?await projected(env,user,previous):revoked(op)};
   let p={...op.payload};
+  if(op.kind==='meeting' && !Object.hasOwn(p,'reserved')) p.reserved=previous?.payload.reserved ?? false;
+  if(op.kind==='task') {
+    if(!Object.hasOwn(p,'created')) p.created=previous?.payload.created || previous?.changed || 0;
+    if(!Object.hasOwn(p,'extension')) p.extension=previous?.payload.extension ?? null;
+    if(previous) p.created=previous.payload.created || previous.changed;
+  }
   if(op.kind==='meeting' && !Object.hasOwn(p,'guests')) p.guests=previous?.payload.guests || [];
   if(!admin(user)) {
     requireValue(!op.deleted,'معاون اجازهٔ حذف ندارد.');
     if(op.kind==='task') {
       const old=(await projected(env,user,previous)).payload;
-      for(const key of Object.keys(old)) if(!['status','reminders'].includes(key)) requireValue(same(old[key],p[key]),'فقط وضعیت و زمان یادآوری مصوبهٔ خودتان قابل تغییر است.');
+      for(const key of Object.keys(old)) if(!['status','reminders','extension'].includes(key)) requireValue(same(old[key],p[key]),'فقط وضعیت و زمان یادآوری مصوبهٔ خودتان قابل تغییر است.');
       requireValue(['WAITING','ACTIVE','REVIEW'].includes(p.status) && old.status!=='DONE','تأیید نهایی فقط با رئیس است.');
       p.meeting=previous.payload.meeting;
     } else if(op.kind==='followup') {
@@ -85,11 +96,16 @@ async function mutate(env,user,op) {
     } else throw new ApiError(403,'این تغییر فقط در دسترس رئیس و دستیار است.');
   }
   if(!op.deleted) {
+    if(op.kind==='meeting' && p.reserved) {
+      const linked=await env.DB.prepare("SELECT 1 FROM records WHERE workspace=? AND kind='task' AND deleted=0 AND json_extract(payload,'$.meeting')=? LIMIT 1").bind(user.workspace,op.recordId).first();
+      requireValue(!linked,'جلسهٔ دارای مصوبه را نمی‌توان رزرو کرد.');
+    }
     const parentId=op.kind==='task'?p.meeting:['followup','history'].includes(op.kind)?p.task:null;
     if(parentId) {
       const parent=await getRecord(env,user.workspace,parentId);
       if(!parent || parent.deleted || parent.kind!==(op.kind==='task'?'meeting':'task')) return {opId:op.id,ok:false,record:{...(previous?await projected(env,user,previous):revoked(op)),reason:'parent_deleted',revoked:false}};
     }
+    if(op.kind==='task' && p.meeting) {const parent=await getRecord(env,user.workspace,p.meeting);requireValue(!parent?.payload.reserved,'برای جلسهٔ رزرو نمی‌توان مصوبه ثبت کرد؛ ابتدا رزرو را بردارید.');}
     if(admin(user)) {
       if(op.kind==='meeting') await validatePeople(env,user,p.attendees.filter(x=>!normalize('meeting',previous?.payload||{}).attendees?.includes(x)));
       if(op.kind==='task' && p.assignee!==normalize('task',previous?.payload||{}).assignee) await validatePeople(env,user,p.assignee?[p.assignee]:[]);
@@ -98,6 +114,10 @@ async function mutate(env,user,op) {
   const now=Date.now();
   if(op.kind==='task') {
     const old=normalize('task',previous?.payload||{});
+    if(!p.created) p.created=previous?.changed || now;
+    requireValue(p.created<=now+60000,'زمان ثبت مصوبه معتبر نیست.');
+    if(!op.deleted) transitionExtension(old,p,user,now);
+    if(p.assignee!==old.assignee && old.extension?.status==='PENDING') p.extension=null;
     if(p.assignee && p.status==='DONE' && old.status!=='DONE') requireValue(user.role==='manager' && old.status==='REVIEW','انجام مصوبهٔ واگذارشده باید ابتدا گزارش و سپس توسط رئیس تأیید شود.');
     if(user.role!=='manager' && p.assignee) requireValue(p.status!=='DONE' || old.status==='DONE','تأیید نهایی فقط با رئیس است.');
     p.submitted=p.status==='REVIEW'?(old.status==='REVIEW'?old.submitted:now):old.submitted||0;
@@ -109,11 +129,13 @@ async function mutate(env,user,op) {
   const result={opId:op.id,ok:true,record:{id:op.recordId,kind:op.kind,revision:next,payload:p,deleted:op.deleted,actor:user.name,changed:now}};
   const guard=admin(user)?'1':op.kind==='task'?"EXISTS(SELECT 1 FROM records g WHERE g.workspace=? AND g.id=? AND g.deleted=0 AND json_extract(g.payload,'$.assignee')=?)":"EXISTS(SELECT 1 FROM records g WHERE g.workspace=? AND g.id=? AND g.kind='task' AND g.deleted=0 AND json_extract(g.payload,'$.assignee')=?)";
   const guardArgs=admin(user)?[]:[user.workspace,op.kind==='task'?op.recordId:p.task,user.id];
+  const reservationGuard=op.deleted?'1':op.kind==='task' && p.meeting?"NOT EXISTS(SELECT 1 FROM records m WHERE m.workspace=? AND m.id=? AND m.deleted=0 AND json_extract(m.payload,'$.reserved')=1)":op.kind==='meeting' && p.reserved?"NOT EXISTS(SELECT 1 FROM records t WHERE t.workspace=? AND t.kind='task' AND t.deleted=0 AND json_extract(t.payload,'$.meeting')=?)":'1';
+  const reservationArgs=reservationGuard==='1'?[]:[user.workspace,op.kind==='task'?p.meeting:op.recordId];
   const statements=[
     env.DB.prepare(`INSERT INTO records(workspace,id,kind,revision,payload,deleted,actor,changed,operation)
-      SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM operations WHERE workspace=? AND id=?) AND ${guard}
+      SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM operations WHERE workspace=? AND id=?) AND ${guard} AND ${reservationGuard}
       ON CONFLICT(workspace,id) DO UPDATE SET revision=excluded.revision,payload=excluded.payload,deleted=excluded.deleted,actor=excluded.actor,changed=excluded.changed,operation=excluded.operation
-      WHERE records.revision=? AND records.kind=? AND ?>0`).bind(user.workspace,op.recordId,op.kind,next,JSON.stringify(p),op.deleted?1:0,user.name,now,op.id,user.workspace,op.id,...guardArgs,op.baseRevision,op.kind,op.baseRevision),
+      WHERE records.revision=? AND records.kind=? AND ?>0`).bind(user.workspace,op.recordId,op.kind,next,JSON.stringify(p),op.deleted?1:0,user.name,now,op.id,user.workspace,op.id,...guardArgs,...reservationArgs,op.baseRevision,op.kind,op.baseRevision),
     env.DB.prepare('INSERT OR IGNORE INTO operations(workspace,id,fingerprint,response,user_id) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM records WHERE workspace=? AND id=? AND operation=?)').bind(user.workspace,op.id,fingerprint,JSON.stringify(result),user.id,user.workspace,op.recordId,op.id),
   ];
   const committed="EXISTS(SELECT 1 FROM records WHERE workspace=? AND id=? AND operation=?)";
@@ -132,7 +154,8 @@ async function mutate(env,user,op) {
   if(taskRecord?.payload.assignee) recipients.add(taskRecord.payload.assignee);
   recipients.delete(user.id);
   for(const recipient of recipients) {
-    const kind=!op.deleted && op.kind==='meeting' && p.attendees.includes(recipient) && !normalize('meeting',previous?.payload||{}).attendees.includes(recipient)?'invitation':!op.deleted && op.kind==='task' && p.assignee===recipient && p.assignee!==normalize('task',previous?.payload||{}).assignee?'assignment':op.kind==='meeting'?'meeting':p.status==='REVIEW'?'review':'task';
+    const extensionChanged=op.kind==='task' && !same(previous?.payload.extension ?? null,p.extension ?? null);
+    const kind=extensionChanged && p.extension?.status==='PENDING'?'extensionRequest':extensionChanged && ['APPROVED','REJECTED'].includes(p.extension?.status)?'extensionDecision':!op.deleted && op.kind==='meeting' && p.attendees.includes(recipient) && !normalize('meeting',previous?.payload||{}).attendees.includes(recipient)?'invitation':!op.deleted && op.kind==='task' && p.assignee===recipient && p.assignee!==normalize('task',previous?.payload||{}).assignee?'assignment':op.kind==='meeting'?'meeting':p.status==='REVIEW'?'review':'task';
     statements.push(env.DB.prepare(`INSERT OR IGNORE INTO push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,kind,now,user.workspace,op.recordId,op.id));
     if(env.WEB_PUSH_ENABLED) statements.push(env.DB.prepare(`INSERT OR IGNORE INTO web_push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,?,? WHERE ${committed}`).bind(op.id+'|'+recipient,user.workspace,recipient,op.kind==='followup'||op.kind==='history'?p.task:op.recordId,kind,now,user.workspace,op.recordId,op.id));
   }
@@ -255,13 +278,27 @@ async function accounts(request,env,user) {
   statements.push(env.DB.prepare('INSERT INTO account_audit VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),user.workspace,user.id,b.id,b.action,Date.now()));
   await env.DB.batch(statements);return json({ok:true,users:await people(env,user)});
 }
+export async function enqueueMidpoints(env,now=Date.now()) {
+  const rows=await env.DB.prepare("SELECT * FROM records WHERE kind='task' AND deleted=0 AND json_extract(payload,'$.assignee') IS NOT NULL").all();
+  for(const r of rows.results) {
+    const p=normalize('task',JSON.parse(r.payload));if(!p.created) p.created=r.changed;
+    const at=midpoint(p);if(at===null || at>now) continue;
+    const key=r.workspace+':'+midpointKey(r.id,p);
+    if(await env.DB.prepare('SELECT 1 FROM midpoint_events WHERE key=?').bind(key).first()) continue;
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO push_outbox(id,workspace,user_id,record_id,kind,created) SELECT ?,?,?,?,'midpoint',? WHERE NOT EXISTS(SELECT 1 FROM midpoint_events WHERE key=?)").bind(key,r.workspace,p.assignee,r.id,now,key),
+      env.DB.prepare('INSERT OR IGNORE INTO midpoint_events(key,created) VALUES(?,?)').bind(key,now),
+    ]);
+  }
+}
 export async function flushPush(env,deliver=sendPush) {
   if(!env.FCM_SERVICE_ACCOUNT) return;
+  await enqueueMidpoints(env);
   const rows=await env.DB.prepare('SELECT * FROM push_outbox WHERE next_attempt<=? ORDER BY created LIMIT 30').bind(Date.now()).all();
   for(const item of rows.results) {
     const user=await env.DB.prepare('SELECT id,workspace,COALESCE(access_role,role) AS role,active FROM users WHERE id=?').bind(item.user_id).first();
     const r=await getRecord(env,item.workspace,item.record_id);
-    if(!user?.active || !r || r.deleted || !await visible(env,user,r)) {await env.DB.prepare('DELETE FROM push_outbox WHERE id=?').bind(item.id).run();continue;}
+    if(!user?.active || !r || r.deleted || !await visible(env,user,r) || item.kind==='midpoint' && (midpoint({...r.payload,created:r.payload.created || r.changed})===null || item.id!==r.workspace+':'+midpointKey(r.id,{...r.payload,created:r.payload.created || r.changed}) || r.payload.assignee!==user.id)) {await env.DB.prepare('DELETE FROM push_outbox WHERE id=?').bind(item.id).run();continue;}
     const devices=await env.DB.prepare("SELECT d.token,'' AS route FROM push_devices d JOIN sessions s ON s.token_hash=d.session_hash WHERE d.user_id=? AND d.enabled=1 AND s.expires>? UNION ALL SELECT d.token,d.route FROM push_accounts d JOIN sessions s ON s.token_hash=d.session_hash WHERE d.user_id=? AND d.enabled=1 AND s.expires>?").bind(user.id,Date.now(),user.id,Date.now()).all();
     let retry=false;
     for(const device of devices.results) {

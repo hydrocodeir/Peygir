@@ -103,6 +103,9 @@ test("task filters, manager approval and three-way changes preserve distinct edi
   assert.equal(C.primaryAction({ role: "deputy" }, p), null);
   assert.equal(C.filterTask(p, "late", 101), true);
   assert.equal(C.filterTask({ ...p, status: "DONE" }, "open", 101), false);
+  assert.equal(C.filterTask({...p,extension:{status:'PENDING'}},'extensions',101),true);
+  assert.equal(C.filterTask({...p,extension:{status:'REJECTED'}},'extensions',101),false);
+  assert.equal(C.filterTask({...p,status:'DONE',extension:{status:'PENDING'}},'extensions',101),false);
   assert.deepEqual(
     C.mergePayload({ a: 1, b: 1 }, { a: 2, b: 1 }, { a: 1, b: 2 }),
     { a: 2, b: 2 },
