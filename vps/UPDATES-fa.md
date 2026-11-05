@@ -27,18 +27,29 @@ python scripts/publish_android_update.py `
 
 ## انتشار روی VPS/Nginx
 
-ابتدا سورس/API را با بستهٔ `Peygir-4.10.0-nginx-vps.zip` طبق [راهنمای Nginx](NGINX-fa.md) ارتقا دهید. بستهٔ `Peygir-4.10.0-android-update.zip` را در پوشهٔ خانگی سرور قرار دهید. از ریشهٔ همان نصب قبلی:
+ابتدا سورس/API را با بستهٔ `Peygir-4.10.0-nginx-vps.zip` طبق [راهنمای Nginx](NGINX-fa.md) ارتقا دهید. بستهٔ `Peygir-4.10.0-android-update.zip` را در پوشهٔ خانگی سرور قرار دهید. سپس دستورهای زیر را اجرا کنید؛ اگر مسیر نصب شما متفاوت است، دستور `cd` را مطابق آن تغییر دهید:
 
 ```bash
-mkdir -p ~/peygir-android-4.10.0
-unzip ~/Peygir-4.10.0-android-update.zip -d ~/peygir-android-4.10.0
-container=$(sudo bash vps/scripts/peygir-nginx.sh ps -q api)
-test -n "$container"
-sudo docker cp ~/peygir-android-4.10.0 "$container":/tmp/peygir-android-4.10.0
-sudo docker exec "$container" node vps/scripts/install-android-update.mjs \
-  --source /tmp/peygir-android-4.10.0 --data-dir /data
-curl --fail https://peygir.hydrocode.ir/updates/android/latest.json
+(
+  set -euo pipefail
+  mkdir -p ~/peygir-android-4.10.0
+  unzip -o ~/Peygir-4.10.0-android-update.zip -d ~/peygir-android-4.10.0
+  cd ~/peygir/Peygir-VPS
+  container=$(sudo bash vps/scripts/peygir-nginx.sh ps -q api)
+  test -n "$container"
+  sudo docker exec --user node "$container" test -f /app/vps/scripts/install-android-update.mjs
+  update_dir=$(sudo docker exec --user node "$container" mktemp -d /tmp/peygir-update.XXXXXX)
+  tar -C ~/peygir-android-4.10.0 -cf - latest.json peygir-39.apk | \
+    sudo docker exec -i --user node "$container" tar --no-same-owner -xf - -C "$update_dir"
+  sudo docker exec --user node "$container" node /app/vps/scripts/install-android-update.mjs \
+    --source "$update_dir" --data-dir /data
+  sudo docker exec --user node "$container" rm -- "$update_dir/latest.json" "$update_dir/peygir-39.apk"
+  sudo docker exec --user node "$container" rmdir -- "$update_dir"
+  curl --fail https://peygir.hydrocode.ir/updates/android/latest.json
+)
 ```
+
+ریشهٔ کانتینر طبق Compose فقط‌خواندنی است و `/tmp` به‌صورت `tmpfs` قابل‌نوشتن mount شده است. برای انتقال به این mount از `tar` و `docker exec -i` استفاده می‌شود؛ `docker cp` روی این مسیر می‌تواند خطای `container rootfs is marked read-only` بدهد. حالت فقط‌خواندنی را غیرفعال نکنید. انتقال و انتشار با کاربر `node` انجام می‌شوند تا مالکیت فایل‌ها با کاربر API یکسان باشد. نام پوشهٔ موقت یکتا است؛ پس از انتشار موفق فقط همان فایل‌های موقت حذف می‌شوند. اگر انتقال قطع شد، همین بلوک را دوباره اجرا کنید. [محدودیت‌های docker cp و روش انتقال با tar](https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases).
 
 ابزار ابتدا حجم و هش APK را تأیید می‌کند، فایل نسخه‌دار را روی volume پایدار `/data/updates/android` می‌گذارد و در پایان `latest.json` را اتمی جایگزین می‌کند. نسخهٔ موجود با همان کد و فایل متفاوت بازنویسی نمی‌شود. شرکت‌ها و داده‌ها تغییر نمی‌کنند؛ توقف API، تغییر پورت و گواهی یا بارگذاری فایل روی GitHub لازم نیست. فایل‌های آپدیت جزو پشتیبان پایگاه داده نیستند و پس از بازیابی سرور باید دوباره منتشر شوند.
 
