@@ -1,0 +1,124 @@
+name: Android update
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: peygir-android-update
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  connection:
+    name: Check VPS connection (no publication)
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check release tooling
+        run: |
+          python3 -m unittest discover -s scripts/ci/tests -v
+          bash scripts/ci/tests/deploy_smoke.sh
+      - name: Verify SSH, running API and update publisher
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/peygir/Peygir-VPS' }}
+        run: bash scripts/ci/deploy_android_update.sh check
+
+  build:
+    name: Test, build and sign APK
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate version, notes and main history
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          python3 -m unittest discover -s scripts/ci/tests -v
+          bash scripts/ci/tests/deploy_smoke.sh
+          python3 scripts/ci/android_release.py validate --tag "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Run Android checks and build unsigned release
+        run: bash gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --max-workers=2 --console=plain
+      - name: Sign with the existing Peygir key and verify certificate
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 scripts/ci/android_release.py sign \
+            --unsigned app/build/outputs/apk/release/app-release-unsigned.apk \
+            --output "$RUNNER_TEMP/Peygir.apk" \
+            --tools "$ANDROID_HOME/build-tools/35.0.0"
+      - name: Prepare versioned APK and manifest
+        env:
+          RELEASE_NOTES: ${{ steps.release.outputs.notes }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 scripts/publish_android_update.py \
+            --apk "$RUNNER_TEMP/Peygir.apk" \
+            --output "$RUNNER_TEMP/android-update" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --notes-file "$RELEASE_NOTES"
+          python3 scripts/ci/android_release.py package \
+            --directory "$RUNNER_TEMP/android-update" --version "$RELEASE_VERSION"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-update
+          path: ${{ runner.temp }}/android-update/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Publish verified APK on VPS
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: android-update
+          path: ${{ runner.temp }}/android-update/
+      - name: Transfer, publish and verify public update
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/peygir/Peygir-VPS' }}
+          UPDATE_ORIGIN: ${{ vars.UPDATE_ORIGIN || 'https://peygir.hydrocode.ir' }}
+        run: bash scripts/ci/deploy_android_update.sh publish "$RUNNER_TEMP/android-update"
