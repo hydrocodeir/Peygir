@@ -1,4 +1,4 @@
-const CACHE = "peygir-shell-4.9.0";
+const CACHE = "peygir-shell-4.10.0";
 const SHELL = [
   "/app/",
   "/app/index.html",
@@ -14,6 +14,9 @@ const SHELL = [
   "/app/apple-touch-icon.png",
 ];
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") event.waitUntil(self.skipWaiting());
+});
 self.addEventListener("install", (event) =>
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL))),
 );

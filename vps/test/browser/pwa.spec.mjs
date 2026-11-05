@@ -55,6 +55,44 @@ async function openTasks(page) {
     .click();
 }
 
+test("settings save progress switches and a custom percentage, and expose in-app web updates", async ({
+  page,
+}) => {
+  await login(page);
+  await page.getByRole("button", { name: "تنظیمات", exact: true }).click();
+  const dialog = page.locator("dialog[open]");
+  await dialog.getByLabel("یادآوری درصدی از مهلت", { exact: true }).uncheck();
+  await expect(
+    dialog.getByLabel("درصد سپری‌شدن مهلت (۱ تا ۹۹)"),
+  ).toBeDisabled();
+  await dialog.getByLabel("یادآوری درصدی از مهلت", { exact: true }).check();
+  await dialog.getByLabel("درصد سپری‌شدن مهلت (۱ تا ۹۹)").fill("75");
+  await dialog.getByLabel("یادآوری‌های دستی مصوبات", { exact: true }).uncheck();
+  await dialog
+    .getByRole("button", { name: "ذخیرهٔ یادآوری‌های این حساب" })
+    .click();
+  await expect(
+    page.getByText("تنظیمات ذخیره شد", { exact: true }),
+  ).toBeVisible();
+  await closeTop(page);
+  await page.reload();
+  await page.getByRole("button", { name: "تنظیمات", exact: true }).click();
+  await expect(dialog.getByLabel("درصد سپری‌شدن مهلت (۱ تا ۹۹)")).toHaveValue(
+    "75",
+  );
+  await expect(
+    dialog.getByLabel("یادآوری‌های دستی مصوبات", { exact: true }),
+  ).not.toBeChecked();
+  await expect(
+    dialog.getByRole("button", { name: "بررسی به‌روزرسانی وب" }),
+  ).toBeVisible();
+  await dialog.getByLabel("درصد سپری‌شدن مهلت (۱ تا ۹۹)").fill("50");
+  await dialog.getByLabel("یادآوری‌های دستی مصوبات", { exact: true }).check();
+  await dialog
+    .getByRole("button", { name: "ذخیرهٔ یادآوری‌های این حساب" })
+    .click();
+});
+
 test("direct meeting search shows dates, people and actions without opening a search dialog", async ({
   page,
 }) => {

@@ -1,12 +1,13 @@
 import {ID,integer,text,requireValue} from './worker.mjs';
 
-export function midpoint(payload) {
+export function midpoint(payload,percent=50) {
+  if(!integer(percent,1,99)) return null;
   if(!integer(payload.created,1) || ['DONE','REVIEW'].includes(payload.status)) return null;
   // Tehran has a fixed UTC+03:30 offset for the supported current deadlines.
   const end=(payload.due+1)*86400000-210*60000;
-  return end>payload.created?Math.floor(payload.created+(end-payload.created)/2):null;
+  return end>payload.created?Math.floor(payload.created+(end-payload.created)*percent/100):null;
 }
-export const midpointKey=(id,p)=>`midpoint:${id}:${p.created}:${p.due}:${p.assignee}`;
+export const midpointKey=(id,p,percent=50)=>`midpoint:${id}:${p.created}:${p.due}:${p.assignee}`+(percent===50?'':`:${percent}`);
 export function validateExtension(e) {
   if(e===null || e===undefined) return;
   requireValue(e && typeof e==='object' && !Array.isArray(e) && Object.keys(e).sort().join(',')===['id','status','progress','reason','due','baseDue','requestedBy','requestedAt','decidedBy','decidedAt'].sort().join(','));

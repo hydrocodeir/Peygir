@@ -71,6 +71,17 @@ class PersonalOptionsVisualTest {
         compose.runOnIdle{theme.value="dark"};capture("personal-cards-full-dark-large")
         compose.onNodeWithTag("task_card_1").performClick();Assert.assertTrue(opened)
     }
+    @Test fun configurableProgressAndUpdaterStayReadableWithLargeText() {
+        val theme=mutableStateOf("light")
+        compose.setContent{PeygirTheme(theme.value){Surface{SettingsScreen("light",{},{})}}}
+        compose.onNodeWithTag("settings_notifications").performScrollTo().performClick()
+        compose.onNodeWithTag("option_progress_percent").performScrollTo().assertIsDisplayed()
+        capture("progress-settings-light-large")
+        compose.runOnIdle{theme.value="dark"};capture("progress-settings-dark-large")
+        compose.onNodeWithTag("settings_update").performScrollTo().performClick()
+        compose.onNodeWithTag("check_app_update").performScrollTo().assertIsDisplayed()
+        capture("app-update-dark-large")
+    }
     private fun capture(name: String) {
         compose.waitForIdle();compose.runOnIdle {
             val view=compose.activity.window.decorView

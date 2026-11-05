@@ -48,6 +48,20 @@ class SettingsFlowTest {
         compose.runOnIdle {shadowOf(compose.activity).receiveResult(request.intent,Activity.RESULT_CANCELED,null)}
         compose.onNodeWithText("ذخیرهٔ فایل پشتیبان").assertIsEnabled()
     }
+    @Test fun progressReminderSwitchPercentageAndUpdateEntryAreAccessible() {
+        openSettings()
+        compose.onNodeWithTag("settings_notifications").performClick()
+        compose.onNodeWithTag("option_progress_enabled").performScrollTo().assertIsOn().performClick().assertIsOff()
+        compose.onNodeWithTag("option_progress_percent").assertIsNotEnabled()
+        compose.onNodeWithTag("option_progress_enabled").performClick()
+        compose.onNodeWithTag("option_progress_percent").performTextReplacement("۷۵")
+        compose.onNodeWithTag("save_progress_percent").performScrollTo().performClick()
+        assertEquals(75,UserOptions.read(compose.activity).progressPercent)
+        compose.onNodeWithTag("option_task_reminders").performScrollTo().performClick().assertIsOff()
+        assertFalse(UserOptions.read(compose.activity).taskReminders)
+        compose.onNodeWithTag("settings_update").performScrollTo().performClick()
+        compose.onNodeWithTag("check_app_update").performScrollTo().assertIsEnabled()
+    }
     @Test fun restoreRequiresConfirmationCancelKeepsDataAndConfirmationRefreshesSettings() {
         val context=compose.activity
         store.saveTask(Resolution(title="از پشتیبان",owner="احمدی"),emptyList())

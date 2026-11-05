@@ -1954,11 +1954,7 @@ function taskDetail(record) {
       metaItem("check", "تأیید نهایی", C.label(C.today(p.approved))),
     );
   reminders.append(
-    el(
-      "p",
-      { class: "help" },
-      "هشدار خودکار نیمهٔ مهلت برای مسئول مصوبه فعال است.",
-    ),
+    el("p", { class: "help" }, progressReminderHelp()),
     ...(p.reminders || []).map((at) =>
       metaItem(
         "clock",
@@ -2016,21 +2012,21 @@ function taskDetail(record) {
     ),
   );
 }
+function progressReminderHelp() {
+  const prefs = state.profile.preferences || {};
+  return prefs.progressEnabled === false
+    ? "یادآوری پیشرفت این حساب روی این مرورگر خاموش است؛ ثبت گزارش و درخواست تمدید در دسترس است."
+    : `یادآوری این حساب روی این مرورگر پس از گذشت ${(prefs.progressPercent ?? 50).toLocaleString("fa-IR")}٪ مهلت؛ قابل تغییر در تنظیمات یادآوری‌ها.`;
+}
 function deadlinePanel(r, parent) {
   const p = r.payload,
     e = p.extension,
     box = el(
       "section",
       { class: "deadline-panel" },
-      el("h3", {}, "پیگیری نیمهٔ مهلت"),
+      el("h3", {}, "پیگیری پیشرفت و تمدید"),
     );
-  box.append(
-    el(
-      "p",
-      { class: "help" },
-      "پس از گذشت ۵۰٪ مهلت، وضعیت کار و نیاز به تمدید از مسئول پرسیده می‌شود.",
-    ),
-  );
+  box.append(el("p", { class: "help" }, progressReminderHelp()));
   if (e) {
     box.append(
       el(
@@ -2325,11 +2321,7 @@ function taskForm(record = null, meeting = null) {
   m.body.append(
     field("عنوان", title),
     field("مسئول انجام", owner.node),
-    el(
-      "p",
-      { class: "help" },
-      "هشدار خودکار در ۵۰٪ مهلت برای مسئول مصوبه فعال است.",
-    ),
+    el("p", { class: "help" }, progressReminderHelp()),
     due.node,
     section(
       "جزئیات مصوبه",
@@ -2878,6 +2870,20 @@ async function settings() {
       type: "checkbox",
       checked: prefs.daily !== false,
     }),
+    progressEnabled = input("progressEnabled", "", {
+      type: "checkbox",
+      checked: prefs.progressEnabled !== false,
+    }),
+    progressPercent = input("progressPercent", prefs.progressPercent ?? 50, {
+      type: "number",
+      min: 1,
+      max: 99,
+      step: 1,
+    }),
+    taskReminders = input("taskReminders", "", {
+      type: "checkbox",
+      checked: prefs.taskReminders !== false,
+    }),
     at = input("time", prefs.time || "08:00", { type: "time" }),
     lead = select(
       "lead",
@@ -2895,10 +2901,14 @@ async function settings() {
     ),
     updates = select(
       "updates",
-      { all: "همهٔ تغییرات", essential: "فقط دعوت، واگذاری و یادآوری" },
+      { all: "همهٔ تغییرات", essential: "فقط رویدادهای اصلی", off: "خاموش" },
       prefs.updates || "all",
     ),
     status = el("p", { class: "help" }, notificationStatus());
+  progressPercent.disabled = !progressEnabled.checked;
+  progressEnabled.addEventListener("change", () => {
+    progressPercent.disabled = !progressEnabled.checked;
+  });
   const permissionButton = button(
       "فعال کردن اعلان روی این گوشی",
       async () => {
@@ -2916,12 +2926,22 @@ async function settings() {
       async () => {
         save.disabled = true;
         try {
+          const percent = progressEnabled.checked
+            ? Number(progressPercent.value)
+            : (prefs.progressPercent ?? 50);
+          if (!Number.isInteger(percent) || percent < 1 || percent > 99) {
+            progressPercent.focus();
+            throw new Error("درصد یادآوری باید عددی بین ۱ تا ۹۹ باشد");
+          }
           const preferences = {
               enabled: enabled.checked,
               daily: daily.checked,
               time: at.value,
               meetingLead: Number(lead.value),
               updates: updates.value,
+              progressEnabled: progressEnabled.checked,
+              progressPercent: percent,
+              taskReminders: taskReminders.checked,
             },
             value = await S.api(p, "preferences", { preferences });
           await S.putProfile({ ...p, preferences: value.preferences });
@@ -2949,12 +2969,36 @@ async function settings() {
       status,
       permissionButton,
       el("label", { class: "switch-label" }, "اعلان این حساب", enabled),
+      el(
+        "label",
+        { class: "switch-label" },
+        "یادآوری درصدی از مهلت",
+        progressEnabled,
+      ),
+      field("درصد سپری‌شدن مهلت (۱ تا ۹۹)", progressPercent),
+      el(
+        "p",
+        { class: "help" },
+        "پیش‌فرض ۵۰٪ است؛ از زمان ثبت تا پایان روز سررسید محاسبه می‌شود. اگر زمان انتخاب‌شده گذشته باشد، یادآوری پس از ذخیره ارسال می‌شود.",
+      ),
+      el(
+        "label",
+        { class: "switch-label" },
+        "یادآوری‌های دستی مصوبات",
+        taskReminders,
+      ),
       el("label", { class: "switch-label" }, "مرور روزانهٔ مصوبات", daily),
       field("ساعت مرور - به وقت تهران", at),
       field("یادآوری جلسه", lead),
       field("تغییرات", updates),
+      el(
+        "p",
+        { class: "help" },
+        "تنظیمات برای این حساب روی همین مرورگر است. خاموش‌کردن یادآوری، امکان ثبت گزارش و درخواست تمدید را تغییر نمی‌دهد.",
+      ),
       save,
     ),
+    webUpdateSettings(),
     el(
       "div",
       { class: "install-guide" },
@@ -3010,7 +3054,103 @@ async function settings() {
         "danger",
       ),
     ),
-    el("small", {}, "پیگیر وب ۴.۹.۰ - اطلاعات هر شرکت جداگانه نگهداری می‌شوند"),
+    el(
+      "small",
+      {},
+      "پیگیر وب ۴.۱۰.۰ - اطلاعات هر شرکت جداگانه نگهداری می‌شوند",
+    ),
+  );
+}
+function webUpdateSettings() {
+  const status = el(
+      "p",
+      { class: "help", role: "status" },
+      "نسخهٔ وب نصب‌شده: ۴.۱۰.۰",
+    ),
+    apply = button(
+      "اعمال نسخهٔ جدید",
+      async () => {
+        const reg =
+          registration ||
+          (await navigator.serviceWorker.getRegistration("/app/"));
+        if (!reg?.waiting) {
+          status.textContent = "نسخهٔ آماده‌ای وجود ندارد؛ دوباره بررسی کنید.";
+          return;
+        }
+        if (
+          !(await confirm(
+            "به‌روزرسانی پیگیر",
+            "برنامه دوباره باز می‌شود. تغییرات ذخیره‌شده و ارسال‌نشده حفظ می‌شوند.",
+            "به‌روزرسانی",
+          ))
+        )
+          return;
+        apply.disabled = true;
+        navigator.serviceWorker.addEventListener(
+          "controllerchange",
+          () => location.reload(),
+          { once: true },
+        );
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      },
+      "primary",
+    ),
+    check = button(
+      "بررسی به‌روزرسانی وب",
+      async () => {
+        check.disabled = true;
+        status.textContent = "در حال بررسی نسخهٔ جدید…";
+        try {
+          if (!("serviceWorker" in navigator))
+            throw new Error("به‌روزرسانی در این مرورگر در دسترس نیست.");
+          const reg =
+            registration ||
+            (await navigator.serviceWorker.getRegistration("/app/"));
+          if (!reg)
+            throw new Error(
+              "برای فعال‌شدن به‌روزرسانی، پیگیر را یک بار ببندید و باز کنید.",
+            );
+          await reg.update();
+          if (reg.installing)
+            await new Promise((resolve, reject) => {
+              const worker = reg.installing;
+              const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error("بررسی طول کشید؛ دوباره تلاش کنید."));
+              }, 30000);
+              const changed = () => {
+                if (["installed", "redundant"].includes(worker.state)) {
+                  cleanup();
+                  resolve();
+                }
+              };
+              function cleanup() {
+                clearTimeout(timeout);
+                worker.removeEventListener("statechange", changed);
+              }
+              worker.addEventListener("statechange", changed);
+              changed();
+            });
+          apply.hidden = !reg.waiting;
+          status.textContent = reg.waiting
+            ? "نسخهٔ جدید دریافت شده و آمادهٔ اعمال است."
+            : "نسخهٔ وب به‌روز است.";
+        } catch (e) {
+          status.textContent = e.message;
+        } finally {
+          check.disabled = false;
+        }
+      },
+      "outline",
+    );
+  apply.hidden = true;
+  return el(
+    "div",
+    { class: "settings-group" },
+    el("h3", {}, "به‌روزرسانی برنامه"),
+    status,
+    check,
+    apply,
   );
 }
 function notificationStatus() {

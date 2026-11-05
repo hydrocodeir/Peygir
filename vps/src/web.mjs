@@ -10,7 +10,7 @@ import {
   ID,
   getRecord,
 } from "../../cloudflare/src/worker.mjs";
-import { midpoint,midpointKey } from "../../cloudflare/src/deadline.mjs";
+import { midpoint, midpointKey } from "../../cloudflare/src/deadline.mjs";
 import { visible } from "../../cloudflare/src/organization.mjs";
 import { equal, companyCode } from "./registry.mjs";
 
@@ -69,17 +69,34 @@ export function webPreferences(value = {}, role = "manager") {
     time: "08:00",
     meetingLead: -1,
     updates: "all",
+    progressEnabled: true,
+    progressPercent: 50,
+    taskReminders: true,
     ...value,
   };
   requireValue(
     Object.keys(p).every((k) =>
-      ["enabled", "daily", "time", "meetingLead", "updates"].includes(k),
+      [
+        "enabled",
+        "daily",
+        "time",
+        "meetingLead",
+        "updates",
+        "progressEnabled",
+        "progressPercent",
+        "taskReminders",
+      ].includes(k),
     ) &&
       typeof p.enabled === "boolean" &&
       typeof p.daily === "boolean" &&
       /^([01]\d|2[0-3]):[0-5]\d$/.test(p.time) &&
       [-1, 0, 5, 10, 15, 30, 60, 1440].includes(p.meetingLead) &&
-      ["all", "essential"].includes(p.updates),
+      ["all", "essential", "off"].includes(p.updates) &&
+      typeof p.progressEnabled === "boolean" &&
+      typeof p.taskReminders === "boolean" &&
+      Number.isInteger(p.progressPercent) &&
+      p.progressPercent >= 1 &&
+      p.progressPercent <= 99,
     "تنظیم یادآوری معتبر نیست",
   );
   return p;
@@ -291,7 +308,7 @@ export function createWebApplication({
       return json({
         publicKey: keys.public_key,
         timeZone: "Asia/Tehran",
-        version: "4.9.0",
+        version: "4.10.0",
       });
     if (path === "/app/api/accounts" && request.method === "GET") {
       const profiles = [];
@@ -489,12 +506,32 @@ export function createWebApplication({
       if (pref.daily && daily <= at && daily >= p.subscribed - 60000)
         enqueue("daily", "", `daily:${today}`, { day: today });
       for (const r of allowed) {
-        if(r.kind==="task" && r.payload.assignee===user.id) {
-          const payload={...r.payload,created:r.payload.created || r.changed};
-          const time=midpoint(payload);
-          if(time!==null && time<=at) enqueue("midpoint",r.id,midpointKey(r.id,payload),{stamp:midpointKey(r.id,payload)});
+        if (
+          pref.progressEnabled &&
+          r.kind === "task" &&
+          r.payload.assignee === user.id
+        ) {
+          const payload = {
+            ...r.payload,
+            created: r.payload.created || r.changed,
+          };
+          const time = midpoint(payload, pref.progressPercent);
+          if (time !== null && time <= at)
+            enqueue(
+              "midpoint",
+              r.id,
+              midpointKey(r.id, payload, pref.progressPercent),
+              {
+                stamp: midpointKey(r.id, payload, pref.progressPercent),
+                percent: pref.progressPercent,
+              },
+            );
         }
-        if (r.kind === "task" && r.payload.status !== "DONE")
+        if (
+          pref.taskReminders &&
+          r.kind === "task" &&
+          r.payload.status !== "DONE"
+        )
           for (const time of r.payload.reminders || [])
             if (time <= at && time >= Math.max(at - DAY, p.subscribed - 60000))
               enqueue("reminder", r.id, `task:${r.id}:${time}`, { at: time });
@@ -526,7 +563,9 @@ export function createWebApplication({
       }
     }
     lease.db
-      .prepare("DELETE FROM web_scheduled WHERE created<? AND key NOT LIKE '%|midpoint:%'")
+      .prepare(
+        "DELETE FROM web_scheduled WHERE created<? AND key NOT LIKE '%|midpoint:%'",
+      )
       .run(at - 100 * DAY);
   }
   async function flushCompany(lease, c, { scheduled = false } = {}) {
@@ -564,6 +603,10 @@ export function createWebApplication({
           const pref = webPreferences(JSON.parse(p.settings), user.role);
           if (
             !pref.enabled ||
+            (pref.updates === "off" &&
+              !["daily", "reminder", "midpoint", "meetingReminder"].includes(
+                event.kind,
+              )) ||
             (pref.updates === "essential" &&
               ["task", "meeting"].includes(event.kind))
           )
@@ -582,7 +625,8 @@ export function createWebApplication({
             continue;
           if (
             event.kind === "reminder" &&
-            (record.payload.status === "DONE" ||
+            (!pref.taskReminders ||
+              record.payload.status === "DONE" ||
               !record.payload.reminders?.includes(meta.at))
           )
             continue;
@@ -594,9 +638,36 @@ export function createWebApplication({
               officeTime(meta.day, record.payload.end) <= now())
           )
             continue;
-          if(event.kind==="midpoint" && (record.payload.assignee!==user.id || midpoint({...record.payload,created:record.payload.created || record.changed})===null || meta.stamp!==midpointKey(record.id,{...record.payload,created:record.payload.created || record.changed}))) continue;
+          if (
+            event.kind === "midpoint" &&
+            (!pref.progressEnabled ||
+              (meta.percent ?? 50) !== pref.progressPercent ||
+              record.payload.assignee !== user.id ||
+              midpoint(
+                {
+                  ...record.payload,
+                  created: record.payload.created || record.changed,
+                },
+                pref.progressPercent,
+              ) === null ||
+              meta.stamp !==
+                midpointKey(
+                  record.id,
+                  {
+                    ...record.payload,
+                    created: record.payload.created || record.changed,
+                  },
+                  pref.progressPercent,
+                ))
+          )
+            continue;
           const payload = {
-            title: c.name + " - " + titleFor(event.kind),
+            title:
+              c.name +
+              " - " +
+              (event.kind === "midpoint"
+                ? `${pref.progressPercent.toLocaleString("fa-IR")}٪ مهلت گذشت؛ وضعیت کار و نیاز به تمدید را گزارش کنید`
+                : titleFor(event.kind)),
             body: "برای مشاهده و پیگیری، پیگیر را باز کنید",
             tag: p.id + ":" + event.id,
             data: {

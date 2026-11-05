@@ -95,6 +95,40 @@
       "line": 0,
       "specs": [
         {
+          "title": "settings save progress switches and a custom percentage, and expose in-app web updates",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium-mobile",
+              "projectName": "chromium-mobile",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6106,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-05T14:48:27.664Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-cf454edc101f7538bf1b",
+          "file": "pwa.spec.mjs",
+          "line": 58,
+          "column": 1
+        },
+        {
           "title": "direct meeting search shows dates, people and actions without opening a search dialog",
           "ok": true,
           "tags": [],
@@ -110,12 +144,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1385,
+                  "duration": 2698,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:08.686Z",
+                  "startTime": "2026-11-05T14:48:34.347Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -125,7 +159,7 @@
           ],
           "id": "5d9eb74527913e319f89-7a0a6d67462e00e20f62",
           "file": "pwa.spec.mjs",
-          "line": 58,
+          "line": 96,
           "column": 1
         },
         {
@@ -144,12 +178,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2594,
+                  "duration": 8979,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:10.207Z",
+                  "startTime": "2026-11-05T14:48:37.067Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -159,7 +193,7 @@
           ],
           "id": "5d9eb74527913e319f89-403b5dd7819216209911",
           "file": "pwa.spec.mjs",
-          "line": 83,
+          "line": 121,
           "column": 1
         },
         {
@@ -178,12 +212,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4515,
+                  "duration": 7556,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:12.811Z",
+                  "startTime": "2026-11-05T14:48:46.072Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -193,7 +227,7 @@
           ],
           "id": "5d9eb74527913e319f89-afc8a5330cb85e7fe706",
           "file": "pwa.spec.mjs",
-          "line": 135,
+          "line": 173,
           "column": 1
         },
         {
@@ -212,12 +246,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2329,
+                  "duration": 3984,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:17.338Z",
+                  "startTime": "2026-11-05T14:48:53.652Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -227,7 +261,7 @@
           ],
           "id": "5d9eb74527913e319f89-c11cf13208816a5a23b2",
           "file": "pwa.spec.mjs",
-          "line": 239,
+          "line": 277,
           "column": 1
         },
         {
@@ -246,12 +280,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1986,
+                  "duration": 2401,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:19.680Z",
+                  "startTime": "2026-11-05T14:48:57.656Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -261,7 +295,7 @@
           ],
           "id": "5d9eb74527913e319f89-fb80950e1e65f565e826",
           "file": "pwa.spec.mjs",
-          "line": 283,
+          "line": 321,
           "column": 1
         },
         {
@@ -280,12 +314,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3433,
+                  "duration": 4992,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:21.682Z",
+                  "startTime": "2026-11-05T14:49:00.078Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -295,7 +329,7 @@
           ],
           "id": "5d9eb74527913e319f89-55c821d43dddd66dc14c",
           "file": "pwa.spec.mjs",
-          "line": 385,
+          "line": 423,
           "column": 1
         },
         {
@@ -314,12 +348,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3724,
+                  "duration": 6515,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:25.125Z",
+                  "startTime": "2026-11-05T14:49:05.095Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -329,7 +363,7 @@
           ],
           "id": "5d9eb74527913e319f89-ec4f1bb82c209972791e",
           "file": "pwa.spec.mjs",
-          "line": 453,
+          "line": 491,
           "column": 1
         },
         {
@@ -348,12 +382,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2500,
+                  "duration": 4069,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:28.860Z",
+                  "startTime": "2026-11-05T14:49:11.637Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -363,7 +397,7 @@
           ],
           "id": "5d9eb74527913e319f89-4a94b0a42e1ce3202dcd",
           "file": "pwa.spec.mjs",
-          "line": 514,
+          "line": 552,
           "column": 1
         },
         {
@@ -382,12 +416,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1373,
+                  "duration": 1699,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:31.370Z",
+                  "startTime": "2026-11-05T14:49:15.725Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -397,7 +431,7 @@
           ],
           "id": "5d9eb74527913e319f89-54496e94345b6ad8995e",
           "file": "pwa.spec.mjs",
-          "line": 547,
+          "line": 585,
           "column": 1
         },
         {
@@ -416,12 +450,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 426,
+                  "duration": 253,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:32.753Z",
+                  "startTime": "2026-11-05T14:49:17.440Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -431,7 +465,7 @@
           ],
           "id": "5d9eb74527913e319f89-5422bb0cc3f123ecdcd9",
           "file": "pwa.spec.mjs",
-          "line": 591,
+          "line": 629,
           "column": 1
         },
         {
@@ -450,12 +484,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 3580,
+                  "duration": 3875,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:33.189Z",
+                  "startTime": "2026-11-05T14:49:17.708Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -465,7 +499,7 @@
           ],
           "id": "5d9eb74527913e319f89-47bb42a4e38dcbb3f779",
           "file": "pwa.spec.mjs",
-          "line": 675,
+          "line": 713,
           "column": 1
         },
         {
@@ -484,12 +518,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 2015,
+                  "duration": 2448,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:36.779Z",
+                  "startTime": "2026-11-05T14:49:21.600Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -499,7 +533,41 @@
           ],
           "id": "5d9eb74527913e319f89-722897d14b085f6fcc60",
           "file": "pwa.spec.mjs",
-          "line": 722,
+          "line": 760,
+          "column": 1
+        },
+        {
+          "title": "settings save progress switches and a custom percentage, and expose in-app web updates",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit-iphone",
+              "projectName": "webkit-iphone",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 29266,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-05T14:49:25.221Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5d9eb74527913e319f89-9594b60a7269bc9b5b71",
+          "file": "pwa.spec.mjs",
+          "line": 58,
           "column": 1
         },
         {
@@ -518,12 +586,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 14628,
+                  "duration": 14469,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:39.575Z",
+                  "startTime": "2026-11-05T14:49:54.796Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -533,7 +601,7 @@
           ],
           "id": "5d9eb74527913e319f89-d1a2e149d0e5de82d77b",
           "file": "pwa.spec.mjs",
-          "line": 58,
+          "line": 96,
           "column": 1
         },
         {
@@ -552,12 +620,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 19350,
+                  "duration": 20112,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:42:54.341Z",
+                  "startTime": "2026-11-05T14:50:09.277Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -567,7 +635,7 @@
           ],
           "id": "5d9eb74527913e319f89-14cacb2215f9c0295063",
           "file": "pwa.spec.mjs",
-          "line": 83,
+          "line": 121,
           "column": 1
         },
         {
@@ -586,12 +654,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 18614,
+                  "duration": 19880,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:43:13.704Z",
+                  "startTime": "2026-11-05T14:50:29.404Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -601,7 +669,7 @@
           ],
           "id": "5d9eb74527913e319f89-ce4198527f8c5a3df05a",
           "file": "pwa.spec.mjs",
-          "line": 135,
+          "line": 173,
           "column": 1
         },
         {
@@ -620,12 +688,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 16797,
+                  "duration": 17915,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:43:32.332Z",
+                  "startTime": "2026-11-05T14:50:49.295Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -635,7 +703,7 @@
           ],
           "id": "5d9eb74527913e319f89-5966efe235687225b55b",
           "file": "pwa.spec.mjs",
-          "line": 239,
+          "line": 277,
           "column": 1
         },
         {
@@ -654,12 +722,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5540,
+                  "duration": 5791,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:43:49.155Z",
+                  "startTime": "2026-11-05T14:51:07.222Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -669,7 +737,7 @@
           ],
           "id": "5d9eb74527913e319f89-713fec95a2ba6710e06c",
           "file": "pwa.spec.mjs",
-          "line": 283,
+          "line": 321,
           "column": 1
         },
         {
@@ -688,12 +756,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 18129,
+                  "duration": 18606,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:43:54.710Z",
+                  "startTime": "2026-11-05T14:51:13.026Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -703,7 +771,7 @@
           ],
           "id": "5d9eb74527913e319f89-71c143688891c92c1add",
           "file": "pwa.spec.mjs",
-          "line": 385,
+          "line": 423,
           "column": 1
         },
         {
@@ -722,12 +790,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 18353,
+                  "duration": 18794,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:44:12.854Z",
+                  "startTime": "2026-11-05T14:51:31.639Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -737,7 +805,7 @@
           ],
           "id": "5d9eb74527913e319f89-7139b725f84de42dd491",
           "file": "pwa.spec.mjs",
-          "line": 453,
+          "line": 491,
           "column": 1
         },
         {
@@ -756,12 +824,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 20693,
+                  "duration": 23985,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:44:31.217Z",
+                  "startTime": "2026-11-05T14:51:50.443Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -771,7 +839,7 @@
           ],
           "id": "5d9eb74527913e319f89-a43b02b86f9354f2a3e4",
           "file": "pwa.spec.mjs",
-          "line": 514,
+          "line": 552,
           "column": 1
         },
         {
@@ -790,12 +858,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 5045,
+                  "duration": 5417,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:44:51.935Z",
+                  "startTime": "2026-11-05T14:52:14.442Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -805,7 +873,7 @@
           ],
           "id": "5d9eb74527913e319f89-6452d8c3768d81b21c99",
           "file": "pwa.spec.mjs",
-          "line": 547,
+          "line": 585,
           "column": 1
         },
         {
@@ -824,12 +892,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1269,
+                  "duration": 1297,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:44:56.988Z",
+                  "startTime": "2026-11-05T14:52:19.884Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -839,7 +907,7 @@
           ],
           "id": "5d9eb74527913e319f89-67d460330da4130e0347",
           "file": "pwa.spec.mjs",
-          "line": 591,
+          "line": 629,
           "column": 1
         },
         {
@@ -858,12 +926,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 17957,
+                  "duration": 18469,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:44:58.268Z",
+                  "startTime": "2026-11-05T14:52:21.193Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -873,7 +941,7 @@
           ],
           "id": "5d9eb74527913e319f89-738a3d6a28aed03d13fb",
           "file": "pwa.spec.mjs",
-          "line": 675,
+          "line": 713,
           "column": 1
         },
         {
@@ -892,12 +960,12 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 15552,
+                  "duration": 16517,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-11-03T16:45:16.234Z",
+                  "startTime": "2026-11-05T14:52:39.670Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -907,7 +975,7 @@
           ],
           "id": "5d9eb74527913e319f89-902810ba1f1b6e67b995",
           "file": "pwa.spec.mjs",
-          "line": 722,
+          "line": 760,
           "column": 1
         }
       ]
@@ -915,9 +983,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-03T16:42:05.110Z",
-    "duration": 207059.652,
-    "expected": 24,
+    "startTime": "2026-11-05T14:48:21.763Z",
+    "duration": 274980.162,
+    "expected": 26,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

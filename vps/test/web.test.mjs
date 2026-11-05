@@ -340,6 +340,16 @@ test("Web Push endpoints reject SSRF and malformed keys; preferences validate in
   assert.equal(webPreferences({}, "assistant").enabled, false);
   assert.throws(() => webPreferences({ time: "25:00" }));
   assert.throws(() => webPreferences({ bogus: true }));
+  assert.equal(webPreferences().progressPercent, 50);
+  assert.equal(webPreferences().progressEnabled, true);
+  for (const invalid of [
+    { progressPercent: 0 },
+    { progressPercent: 100 },
+    { progressPercent: 50.5 },
+    { progressEnabled: 1 },
+    { taskReminders: "false" },
+  ])
+    assert.throws(() => webPreferences(invalid));
 });
 test("native Android mutations deliver company-scoped web invitations without Firebase", async (t) => {
   const { app, sent } = await setup(t);
@@ -446,17 +456,92 @@ test("VPS reminder and morning scheduling uses Tehran time and persists deduplic
   assert.equal(officeDay(officeTime(day, 480)), day);
 });
 test("halfway Web Push asks only the assignee once, including essential-only notification mode", async (t) => {
-  const {app,sent,time}=await setup(t);await company(app);
-  const manager=await login(app),uid=await user(app,manager),deputy=await login(app,'company-x','deputy');
-  for(const a of [manager,deputy]) await web(app,a,'push',{subscription:subscription(),preferences:{enabled:true,daily:false,meetingLead:-1,updates:'essential'}});
-  const created=Date.now(),due=officeDay(created)+2;
-  const record=op('task',{...task('HALFWAY',uid),created,due});
-  await web(app,manager,'sync',syncBody([record]));await settle(app);
-  sent.length=0;
-  const at=midpoint(record.payload);time(at-1);await app.sweep();assert.equal(sent.length,0);
-  time(at);await app.sweep();assert.equal(sent.length,1);
-  assert.equal(sent[0].payload.data.kind,'midpoint');assert.equal(sent[0].payload.data.profileId,deputy.p.id);
-  await app.sweep();assert.equal(sent.length,1);
+  const { app, sent, time } = await setup(t);
+  await company(app);
+  const manager = await login(app),
+    uid = await user(app, manager),
+    deputy = await login(app, "company-x", "deputy");
+  for (const a of [manager, deputy])
+    await web(app, a, "push", {
+      subscription: subscription(),
+      preferences: {
+        enabled: true,
+        daily: false,
+        meetingLead: -1,
+        updates: "essential",
+      },
+    });
+  const created = Date.now(),
+    due = officeDay(created) + 2;
+  const record = op("task", { ...task("HALFWAY", uid), created, due });
+  await web(app, manager, "sync", syncBody([record]));
+  await settle(app);
+  sent.length = 0;
+  const at = midpoint(record.payload);
+  time(at - 1);
+  await app.sweep();
+  assert.equal(sent.length, 0);
+  time(at);
+  await app.sweep();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].payload.data.kind, "midpoint");
+  assert.equal(sent[0].payload.data.profileId, deputy.p.id);
+  await app.sweep();
+  assert.equal(sent.length, 1);
+});
+
+test("progress preferences suppress disabled notifications and use the saved percentage per profile", async (t) => {
+  const { app, sent, time } = await setup(t);
+  await company(app);
+  const chief = await login(app),
+    uid = await user(app, chief),
+    deputy = await login(app, "company-x", "deputy");
+  const prefs = {
+    enabled: true,
+    daily: false,
+    meetingLead: -1,
+    updates: "off",
+    progressEnabled: false,
+    progressPercent: 75,
+    taskReminders: false,
+  };
+  await web(app, deputy, "push", {
+    subscription: subscription(),
+    preferences: prefs,
+  });
+  const created = Date.now(),
+    due = officeDay(created) + 2,
+    record = op("task", {
+      ...task("CUSTOM-PROGRESS", uid),
+      created,
+      due,
+      reminders: [created + 60000],
+    });
+  await web(app, chief, "sync", syncBody([record]));
+  await settle(app);
+  assert.equal(sent.length, 0);
+  time(midpoint(record.payload, 75) - 1);
+  await app.sweep();
+  assert.equal(sent.length, 0);
+  await web(app, deputy, "preferences", {
+    preferences: { ...prefs, progressEnabled: true },
+  });
+  await app.sweep();
+  assert.equal(sent.length, 0);
+  time(midpoint(record.payload, 75));
+  await app.sweep();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].payload.data.kind, "midpoint");
+  assert.match(sent[0].payload.title, /۷۵/);
+  await web(app, deputy, "preferences", { preferences: prefs });
+  await web(app, deputy, "preferences", {
+    preferences: { ...prefs, progressEnabled: true },
+  });
+  await app.sweep();
+  assert.equal(sent.length, 1);
+  const p2 = await login(app, "company-x", "deputy");
+  assert.equal(p2.p.preferences.progressPercent, 50);
+  assert.equal(p2.p.preferences.progressEnabled, true);
 });
 
 test("transient push failures retry without losing the transactional web outbox", async (t) => {

@@ -57,7 +57,7 @@ object Reminders {
         val now=System.currentTimeMillis()
         val data=Store.get(context).snapshot()
         val active=data.tasks.filter { it.status!=Status.DONE }.map { it.id }.toSet()
-        val taskAt=data.reminders.filter { !it.delivered && it.taskId in active && it.at>now }.minOfOrNull { it.at }
+        val taskAt=if(UserOptions.read(context).taskReminders) data.reminders.filter { !it.delivered && it.taskId in active && it.at>now }.minOfOrNull { it.at } else null
         val reviewAt=if(dailyEnabled(context)) nextDaily(ZonedDateTime.now(),dailyTimes(context)) else null
         val meetingAt=MeetingAlerts.next(context,Store.get(context),data,now)
         val midpointAt=DeadlineProgress.next(context,Store.get(context),data,now)
@@ -97,8 +97,9 @@ object Reminders {
         val data=store.snapshot()
         val now=System.currentTimeMillis()
         MeetingAlerts.process(context,store,data,now)
-        DeadlineProgress.process(context,store,data,now) {task->notification(context,("midpoint:${task.id}").hashCode(),"نیمی از مهلت گذشت - ${task.title}","کار در چه مرحله‌ای است؟ آیا نیاز به تمدید مهلت دارید؟ وضعیت و دلیل را برای رئیس ثبت کنید.",task.id)}
-        data.reminders.filter { !it.delivered && it.at<=now }.groupBy { it.taskId }.forEach { (taskId,rs) ->
+        val options=UserOptions.read(context)
+        DeadlineProgress.process(context,store,data,now) {task->notification(context,("midpoint:${task.id}").hashCode(),"${options.progressPercent.fa()}٪ مهلت گذشت - ${task.title}","کار در چه مرحله‌ای است؟ آیا نیاز به تمدید مهلت دارید؟ وضعیت و دلیل را برای رئیس ثبت کنید.",task.id)}
+        data.reminders.filter { options.taskReminders && !it.delivered && it.at<=now }.groupBy { it.taskId }.forEach { (taskId,rs) ->
             val t=data.tasks.find { it.id==taskId }
             if(t==null || t.status==Status.DONE) store.delivered(rs.map { it.id })
             else {
@@ -110,7 +111,7 @@ object Reminders {
         }
         // Upgrade already-visible notifications from older app versions without another sound.
         context.getSystemService(NotificationManager::class.java).activeNotifications
-            .filter{it.tag==Accounts.notificationTag(context) && it.notification.channelId==CHANNEL && it.notification.actions.isNullOrEmpty()}
+            .filter{options.taskReminders && it.tag==Accounts.notificationTag(context) && it.notification.channelId==CHANNEL && it.notification.actions.isNullOrEmpty()}
             .forEach {active->
                 data.tasks.find{it.id.toInt()==active.id && it.status!=Status.DONE}?.let {task->
                     val token=java.util.UUID.randomUUID().toString()

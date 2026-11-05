@@ -65,6 +65,7 @@ import java.time.LocalTime
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(settingsScroll),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         SettingsGroup("حساب و همگام‌سازی",when(OrgAccess.role(context)){"manager"->"حساب رئیس";"deputy"->"حساب معاون";"assistant"->"حساب دستیار";else->"اتصال به شرکت"},group=="account",{group=if(group=="account") "" else "account"},"settings_account") {SharedPanel(message);CompanyAccountsPanel()}
         SettingsGroup("یادآوری‌ها",if(enabled) "مرور روزانه فعال" else "مرور روزانه خاموش",group=="notifications",{group=if(group=="notifications") "" else "notifications"},"settings_notifications") {
+        ProgressReminderSettings(options,reschedule={reschedule()})
         OptionPicker("اعلان تغییرات فضای مشترک",options.updates,UserOptions.updateModes,"option_updates"){prefs.edit().putString("push_updates",it).apply()}
         Text("رویدادهای اصلی شامل دعوت، واگذاری و درخواست تأیید رئیس است. این انتخاب روی دریافت اطلاعات، یادآوری موعدها و مرور صبح اثر ندارد.",style=MaterialTheme.typography.bodySmall)
         OptionPicker("پیش‌فرض یادآوری قبل از جلسه",options.meetingLead.toString(),UserOptions.leads.mapKeys{it.key.toString()},"option_meeting_lead"){prefs.edit().putInt("meeting_lead",it.toInt()).apply();reschedule()}
@@ -124,6 +125,7 @@ import java.time.LocalTime
                 if(!manager.isRequestPinAppWidgetSupported || !manager.requestPinAppWidget(component,null,null)) message("از ویجت‌های صفحهٔ اصلی، پیگیر را انتخاب کنید.")
             },modifier=Modifier.fillMaxWidth()){Text(label)}}
         }
+        SettingsGroup("به‌روزرسانی برنامه","بررسی نسخه و دریافت مستقیم از سرور پیگیر",group=="update",{group=if(group=="update") "" else "update"},"settings_update") {AppUpdatePanel()}
         SettingsGroup("دربارهٔ پیگیر","نسخهٔ ${BuildConfig.VERSION_NAME.fa()}",group=="about",{group=if(group=="about") "" else "about"},"settings_about") {
         OutlinedCard {Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {Text("پیگیر",style=MaterialTheme.typography.titleMedium);Text("نسخهٔ ${BuildConfig.VERSION_NAME.fa()} - ساخته‌شده برای پیگیری تصمیم‌ها",style=MaterialTheme.typography.bodySmall);Text("جلسات، مصوبات و صداها روی گوشی ذخیره می‌شوند. برای تبادل اطلاعات فضای مشترک، اتصال اینترنت لازم است؛ اطلاعات دریافت‌شده آفلاین هم در دسترس‌اند. حذف برنامه یا پاک‌کردن داده‌های آن، اطلاعات محلی را حذف می‌کند.",style=MaterialTheme.typography.bodySmall);Text("فونت وزیرمتن - Material 3\nگفتار فارسی: Vosk\nمجوزهای متن‌باز همراه برنامه در assets/licenses قرار دارند.",style=MaterialTheme.typography.bodySmall)}}
         }

@@ -1,0 +1,112 @@
+{
+  "version": "4.10.0",
+  "androidVersionCode": 39,
+  "androidDatabase": 9,
+  "backupFormat": 6,
+  "organizationProtocol": 2,
+  "status": "verified-locally",
+  "features": [
+    "per-account progress reminders enabled/disabled and integer percent 1..99",
+    "manual task reminder switch",
+    "shared changes notification modes including off",
+    "Android HTTPS download, progress, cancellation, SHA-256/package/version/signer verification and system installer",
+    "public VPS update manifest and streamed versioned APK",
+    "atomic server-side update publication",
+    "PWA check/apply/reload preserving IndexedDB records"
+  ],
+  "productionDeployed": false,
+  "physicalDeviceInstallTested": false,
+  "android": {
+    "uniqueTestsPassed": 320,
+    "fullRun": {
+      "tests": 320,
+      "passed": 319,
+      "failed": 1
+    },
+    "rerun": [
+      {
+        "suite": "ir.peygir.app.AppUpdaterTest",
+        "tests": 3,
+        "failures": 0
+      },
+      {
+        "suite": "ir.peygir.app.PersonalOptionsTest",
+        "tests": 9,
+        "failures": 0
+      },
+      {
+        "suite": "ir.peygir.app.PersonalOptionsVisualTest",
+        "tests": 4,
+        "failures": 0
+      },
+      {
+        "suite": "ir.peygir.app.ReservationProgressTest",
+        "tests": 6,
+        "failures": 0
+      },
+      {
+        "suite": "ir.peygir.app.SettingsFlowTest",
+        "tests": 3,
+        "failures": 0
+      },
+      {
+        "suite": "ir.peygir.app.UiFlowTest",
+        "tests": 23,
+        "failures": 0
+      }
+    ],
+    "note": "One existing UiFlowTest timed out waiting for a loading indicator; the full affected UI class and five related feature classes passed on rerun. New updater tests use available SDK28; initial SDK26 test-runtime dependency was unavailable."
+  },
+  "androidApk": {
+    "version": "4.10.0",
+    "code": 39,
+    "size": 148046614,
+    "sha256": "5674f8ab5d1ef77e17f4f26f13da2452c996efc6d1b59b2040f68317785d80fc",
+    "signatureVerified": true,
+    "zipAlignmentVerified": true,
+    "signerSha256": "81573fa6a77199b83ef74beda1aa664d20333c0744ac975853c0787b55de81d5"
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 124
+  },
+  "browser": {
+    "passed": 26,
+    "failed": 0,
+    "engines": [
+      "Chromium mobile",
+      "WebKit iPhone"
+    ]
+  },
+  "cloudflare": {
+    "passed": 18,
+    "failed": 0
+  },
+  "updateSmoke": {
+    "realApkStagedAndPublishedLocally": true,
+    "serviceWorkerDownloadedActivatedReloaded": true,
+    "storedRecordCountPreserved": true,
+    "lightAndDarkScreensReviewed": true
+  },
+  "artifacts": [
+    {
+      "file": "Peygir-4.10.0-debug.apk",
+      "bytes": 148046614,
+      "sha256": "5674f8ab5d1ef77e17f4f26f13da2452c996efc6d1b59b2040f68317785d80fc"
+    },
+    {
+      "file": "Peygir-4.10.0-android-update.zip",
+      "bytes": 103966727,
+      "sha256": "e84807fb14d47fe24b2fc96d4e8721ac171cb75562ea0cb812565347a6d84867"
+    },
+    {
+      "file": "Peygir-4.10.0-nginx-vps.zip",
+      "bytes": 262722,
+      "sha256": "a84c9c5fe6d883dde2624fe0b4877f8088b77d00c785c4f557f8402dfc3db744"
+    }
+  ],
+  "vps": {
+    "passed": 58,
+    "failed": 0
+  }
+}

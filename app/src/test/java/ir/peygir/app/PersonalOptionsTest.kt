@@ -106,7 +106,7 @@ class PersonalOptionsTest {
         compose.runOnIdle{assertEquals("MONTH",UserOptions.read(c).calendar)}
     }
     @Test fun allChoicesAndPerMeetingOverridesRoundTripWithoutServerCredentials() {
-        val chosen=UserOptions("last","WEEK","work",480,45,15,"essential","full","large")
+        val chosen=UserOptions("last","WEEK","work",480,45,15,"off","full","large",false,75,false)
         options(chosen)
         store.saveMeeting(Meeting(title="جلسه",alertMinutes=30))
         val bytes=ByteArrayOutputStream().also{Backup.write(c,it,store)}.toByteArray()

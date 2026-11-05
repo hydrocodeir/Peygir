@@ -37,17 +37,19 @@ internal object DeadlineProgress {
         db.execSQL("CREATE TABLE IF NOT EXISTS midpoint_delivered(task_id INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,stamp TEXT NOT NULL)")
         if(changed) db.execSQL("UPDATE sync_dirty SET operation=NULL,payload=NULL,base_revision=NULL")
     }
-    fun at(task: Resolution): Long? {
+    fun at(task: Resolution,percent: Int=50): Long? {
+        require(percent in 1..99)
         if(task.created<=0 || task.status in listOf(Status.DONE,Status.REVIEW)) return null
         val end=LocalDate.ofEpochDay(task.due).plusDays(1).atStartOfDay(ZoneId.of("Asia/Tehran")).toInstant().toEpochMilli()
-        return if(end>task.created) task.created+(end-task.created)/2 else null
+        return if(end>task.created) task.created+(end-task.created)*percent/100 else null
     }
     private fun eligible(context: Context,t: Resolution)=if(SharedCredentials(context).connected()) t.assignee==OrgAccess.id(context) else true
-    private fun stamp(t: Resolution)="${t.created}:${t.due}:${t.assignee}"
-    private fun pending(context: Context,store: Store,data: Snapshot)=data.tasks.filter{eligible(context,it) && at(it)!=null}.filter{t->store.syncDb{db->db.rawQuery("SELECT stamp FROM midpoint_delivered WHERE task_id=?",arrayOf(t.id.toString())).use{!it.moveToFirst() || it.getString(0)!=stamp(t)}}}
-    fun next(context: Context,store: Store,data: Snapshot,now: Long)=pending(context,store,data).mapNotNull{at(it)?.takeIf{time->time>now || Reminders.allowed(context)}?.coerceAtLeast(now+1000)}.minOrNull()
+    private fun stamp(t: Resolution,percent: Int)="${t.created}:${t.due}:${t.assignee}"+(if(percent==50) "" else ":$percent")
+    private fun pending(context: Context,store: Store,data: Snapshot,options: UserOptions)=if(!options.progressEnabled) emptyList() else data.tasks.filter{eligible(context,it) && at(it,options.progressPercent)!=null}.filter{t->store.syncDb{db->db.rawQuery("SELECT stamp FROM midpoint_delivered WHERE task_id=?",arrayOf(t.id.toString())).use{!it.moveToFirst() || it.getString(0)!=stamp(t,options.progressPercent)}}}
+    fun next(context: Context,store: Store,data: Snapshot,now: Long): Long? {val options=UserOptions.read(context);return pending(context,store,data,options).mapNotNull{at(it,options.progressPercent)?.takeIf{time->time>now || Reminders.allowed(context)}?.coerceAtLeast(now+1000)}.minOrNull()}
     fun process(context: Context,store: Store,data: Snapshot,now: Long,notify: (Resolution)->Boolean) {
-        pending(context,store,data).filter{at(it)!!<=now}.forEach{t->if(notify(t)) store.syncDb{it.execSQL("INSERT OR REPLACE INTO midpoint_delivered VALUES(?,?)",arrayOf<Any>(t.id,stamp(t)))}}
+        val options=UserOptions.read(context)
+        pending(context,store,data,options).filter{at(it,options.progressPercent)!!<=now}.forEach{t->if(notify(t)) store.syncDb{it.execSQL("INSERT OR REPLACE INTO midpoint_delivered VALUES(?,?)",arrayOf<Any>(t.id,stamp(t,options.progressPercent)))}}
     }
     fun request(store: Store,context: Context,task: Resolution,progress: String,reason: String,due: Long) {
         val current=store.snapshot().tasks.first{it.id==task.id}
@@ -85,8 +87,9 @@ internal object DeadlineProgress {
     var error by remember{mutableStateOf("")}
     fun commit(action: ()->Unit) {runCatching(action).onSuccess{store.externalChanges.value++;SharedSync.request(context);Reminders.schedule(context);ReviewWidget.updateAll(context);refresh();writing=false;error=""}.onFailure{error=it.message.orEmpty();message(error)}}
     OutlinedCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text("پیگیری نیمهٔ مهلت",style=MaterialTheme.typography.titleSmall)
-        Text("در ۵۰٪ مهلت، وضعیت کار و نیاز به تمدید از مسئول پرسیده می‌شود.",style=MaterialTheme.typography.bodySmall)
+        val options=rememberUserOptions()
+        Text("پیگیری پیشرفت و تمدید",style=MaterialTheme.typography.titleSmall)
+        Text(if(options.progressEnabled) "یادآوری این حساب روی این گوشی پس از گذشت ${options.progressPercent.fa()}٪ مهلت؛ قابل تغییر در تنظیمات یادآوری‌ها." else "یادآوری پیشرفت روی این گوشی خاموش است؛ ثبت گزارش و درخواست تمدید در دسترس است.",style=MaterialTheme.typography.bodySmall)
         if(e!=null) {
             Text(when(e.optString("status")){"PENDING"->"درخواست تمدید منتظر بررسی رئیس";"APPROVED"->"تمدید مهلت تأیید شد";else->"درخواست تمدید رد شد؛ مهلت قبلی برقرار است"})
             Text("وضعیت کار: ${e.optString("progress")}")

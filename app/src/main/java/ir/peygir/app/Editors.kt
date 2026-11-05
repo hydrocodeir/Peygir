@@ -267,7 +267,7 @@ fun decodeTask(s: String) = JSONObject(s).let { Resolution(it.getLong("id"),if(i
             title=task.title;description=task.description;owner=task.owner;assignee=task.assignee;day=task.due;priority=task.priority.name;status=task.status.name;meetingId=task.meetingId ?: 0L;incoming=false
         },{incoming=false})
         if(task.id>0) DeadlineProgressPanel(task,busy,refresh,message)
-        Text("هشدار خودکار پس از گذشت ۵۰٪ مهلت برای مسئول مصوبه فعال است.",style=MaterialTheme.typography.bodySmall)
+        Text("زمان یادآوری پیشرفت و روشن/خاموش‌بودن آن از تنظیمات ← یادآوری‌ها قابل تغییر است.",style=MaterialTheme.typography.bodySmall)
         if(task.status==Status.REVIEW) Text("گزارش انجام این مصوبه منتظر تأیید رئیس است.",color=MaterialTheme.colorScheme.primary)
         if(editingInput || recordingId!=null || initialSource.isNotBlank()) CaptureInput(meetingId.takeIf{it>0},recordings,accepted,task.id==0L,recordingId,busy,{inputBusy=it},{p->title=p.title;owner=p.owner;description=p.source;if(!inputIsVoice){p.due?.let{day=it.toEpochDay()};priority=p.priority.name};error="";proposalSelected(p.key())},refresh,message,initialSource,batchChanged,draftSession,{inputIsVoice=it!=null;recordingUsed(it)})
         VoiceTextField(title,{title=it;error=""},voiceLabel="عنوان مصوبه",label={Text("عنوان مصوبه *")},isError=error.isNotBlank() && title.isBlank(),modifier=Modifier.fillMaxWidth(),minLines=1,maxLines=3)

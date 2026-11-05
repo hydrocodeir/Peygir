@@ -19,7 +19,7 @@ class ReservationProgressTest {
     private lateinit var store: Store
     private val deputy=UUID.randomUUID().toString()
     private val chief=UUID.randomUUID().toString()
-    @Before fun setup() {context.deleteDatabase("reservation-progress.db");store=Store(context,"reservation-progress.db");OrgAccess.set(context,null)}
+    @Before fun setup() {context.getSharedPreferences("settings",0).edit().clear().commit();context.deleteDatabase("reservation-progress.db");store=Store(context,"reservation-progress.db");OrgAccess.set(context,null)}
     @After fun close() {store.close();OrgAccess.set(context,null)}
     private fun role(id: String,role: String) {OrgAccess.set(context,SharedSession("https://test.invalid","","","","کاربر",role,id))}
     @Test fun reservationBlocksTaskCreationAndConversionWithExistingTasksButCanBeConfirmed() {
@@ -67,6 +67,28 @@ class ReservationProgressTest {
         assertEquals(2,attempts)
         store.status(store.snapshot().tasks.single().id,Status.DONE)
         assertNull(DeadlineProgress.next(context,store,store.snapshot(),now))
+    }
+    @Test fun progressCanBeDisabledAndRescheduledWithoutLosingOrRepeatingTheReceipt() {
+        val now=System.currentTimeMillis()
+        store.saveTask(Resolution(title="پیگیری تنظیم‌پذیر",owner="مسئول",due=LocalDate.now(ZoneId.of("Asia/Tehran")).toEpochDay()+1,created=now-2*86400000),emptyList())
+        val t=store.snapshot().tasks.single()
+        val end=LocalDate.ofEpochDay(t.due+1).atStartOfDay(ZoneId.of("Asia/Tehran")).toInstant().toEpochMilli()
+        assertEquals(t.created+(end-t.created)*25/100,DeadlineProgress.at(t,25))
+        val p=context.getSharedPreferences("settings",0)
+        p.edit().putBoolean("progress_enabled",false).commit()
+        var count=0
+        DeadlineProgress.process(context,store,store.snapshot(),now){count++;true}
+        assertEquals(0,count);assertNull(DeadlineProgress.next(context,store,store.snapshot(),now))
+        p.edit().putBoolean("progress_enabled",true).putInt("progress_percent",75).commit()
+        DeadlineProgress.process(context,store,store.snapshot(),DeadlineProgress.at(t,75)!!-1){count++;true}
+        assertEquals(0,count)
+        DeadlineProgress.process(context,store,store.snapshot(),DeadlineProgress.at(t,75)!!){count++;true}
+        assertEquals(1,count)
+        p.edit().putBoolean("progress_enabled",false).commit()
+        p.edit().putBoolean("progress_enabled",true).commit()
+        DeadlineProgress.process(context,store,store.snapshot(),end){count++;true}
+        assertEquals(1,count)
+        assertThrows(IllegalArgumentException::class.java){DeadlineProgress.at(t,100)}
     }
     @Test fun extensionRequiresAssigneeAndChiefApprovalWhileRejectionKeepsTheOriginalDue() {
         val due=LocalDate.now().plusDays(4).toEpochDay()

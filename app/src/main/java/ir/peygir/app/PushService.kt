@@ -115,7 +115,7 @@ class PeygirMessagingService: FirebaseMessagingService() {
 }
 
 internal object CompanyPush {
-    fun shouldNotify(kind: String?,mode: String)=mode!="essential" || kind in setOf("invitation","assignment","review","midpoint","extensionRequest","extensionDecision")
+    fun shouldNotify(kind: String?,mode: String)=mode!="off" && (mode!="essential" || kind in setOf("invitation","assignment","review","midpoint","extensionRequest","extensionDecision"))
     fun title(kind: String?)=when(kind) {
         "invitation"->"به جلسه دعوت شده‌اید"
         "assignment"->"مصوبه‌ای به شما واگذار شد"
