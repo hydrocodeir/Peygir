@@ -75,7 +75,19 @@ jobs:
           "$sdkmanager_path" --sdk_root="$android_sdk_root" 'platforms;android-35' 'build-tools;35.0.0'
           printf 'ANDROID_HOME=%s\nANDROID_SDK_ROOT=%s\n' "$android_sdk_root" "$android_sdk_root" >> "$GITHUB_ENV"
       - name: Run Android checks and build unsigned release
+        id: android_checks
         run: bash gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --max-workers=2 --console=plain
+      - name: Save Android failure reports
+        if: failure() && steps.android_checks.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-check-reports
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Sign with the existing Peygir key and verify certificate
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

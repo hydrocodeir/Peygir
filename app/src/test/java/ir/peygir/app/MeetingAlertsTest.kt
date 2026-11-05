@@ -15,6 +15,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.TimeZone
 import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
@@ -59,14 +60,48 @@ class MeetingAlertsTest {
         assertTrue(manager.activeNotifications.isEmpty());assertTrue(store.syncDb{MeetingAlerts.overrides(it)}.isEmpty())
     }
     @Test fun earliestMeetingAndTaskShareTheExistingAlarmDispatcher() {
-        val tomorrow=LocalDate.now().plusDays(1)
-        store.saveMeeting(Meeting(title="فردا",date=tomorrow.toEpochDay(),start=540,end=600,alertMinutes=15))
-        val expected=tomorrow.atTime(8,45).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        Reminders.schedule(c)
-        assertEquals(expected,shadowOf(c.getSystemService(android.app.AlarmManager::class.java)).nextScheduledAlarm!!.triggerAtTime)
-        val earlier=expected-60_000
-        store.saveTask(Resolution(title="کار",owner="احمدی"),listOf(earlier));Reminders.schedule(c)
-        assertEquals(earlier,shadowOf(c.getSystemService(android.app.AlarmManager::class.java)).nextScheduledAlarm!!.triggerAtTime)
+        val previousZone=TimeZone.getDefault()
+        try {for(zone in listOf("UTC","Asia/Tehran","America/New_York")) {
+            TimeZone.setDefault(TimeZone.getTimeZone(zone))
+            val tomorrow=LocalDate.now().plusDays(1)
+            val meeting=store.saveMeeting(Meeting(title="فردا",date=tomorrow.toEpochDay(),start=540,end=600,alertMinutes=15))
+            val expected=tomorrow.atTime(8,45).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val alarms=shadowOf(c.getSystemService(android.app.AlarmManager::class.java))
+            Reminders.schedule(c)
+            assertEquals("Meeting must be the earliest alarm in $zone",expected,alarms.nextScheduledAlarm!!.triggerAtTime)
+            val earlier=expected-60_000
+            // Keep the automatic progress alarm later than both events under test.
+            // A default task due tomorrow can legitimately have an earlier midpoint in UTC.
+            val task=store.saveTask(Resolution(title="کار",owner="احمدی",due=tomorrow.plusDays(7).toEpochDay()),listOf(earlier))
+            assertTrue(DeadlineProgress.at(store.snapshot().tasks.single())!!>expected)
+            Reminders.schedule(c)
+            assertEquals("Manual reminder must precede the meeting in $zone",earlier,alarms.nextScheduledAlarm!!.triggerAtTime)
+            store.deleteTask(task);store.deleteMeeting(meeting);Reminders.cancel(c)
+        }} finally {TimeZone.setDefault(previousZone)}
+    }
+    @Test fun progressAlarmCanPrecedeBothMeetingAndManualReminderInEveryDeviceZone() {
+        val previousZone=TimeZone.getDefault()
+        try {for(zone in listOf("UTC","Asia/Tehran","America/New_York")) {
+            TimeZone.setDefault(TimeZone.getTimeZone(zone))
+            val due=LocalDate.now(ZoneId.of("Asia/Tehran")).plusDays(2).toEpochDay()
+            val task=store.saveTask(Resolution(title="پیشرفت",owner="احمدی",due=due),emptyList())
+            val snapshot=store.snapshot()
+            val expected=DeadlineProgress.at(snapshot.tasks.single())!!
+            assertTrue(expected>System.currentTimeMillis())
+            val meetingDay=java.time.Instant.ofEpochMilli(expected).atZone(ZoneId.systemDefault()).toLocalDate().plusDays(1)
+            val meeting=store.saveMeeting(Meeting(title="پس از پیگیری",date=meetingDay.toEpochDay(),start=540,end=600,alertMinutes=15))
+            val manualAt=meetingDay.atTime(8,44).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            store.saveTask(snapshot.tasks.single(),listOf(manualAt))
+            assertTrue(manualAt>expected)
+            Reminders.schedule(c)
+            val alarms=shadowOf(c.getSystemService(android.app.AlarmManager::class.java))
+            assertEquals("Progress reminder must win in $zone",expected,alarms.nextScheduledAlarm!!.triggerAtTime)
+            c.getSharedPreferences("settings",0).edit().putBoolean("progress_enabled",false).commit()
+            Reminders.schedule(c)
+            assertEquals("Disabling progress must expose the next manual reminder in $zone",manualAt,alarms.nextScheduledAlarm!!.triggerAtTime)
+            c.getSharedPreferences("settings",0).edit().putBoolean("progress_enabled",true).commit()
+            store.deleteTask(task);store.deleteMeeting(meeting);Reminders.cancel(c)
+        }} finally {TimeZone.setDefault(previousZone)}
     }
     @Test fun ordinaryUpdatesCanBeMutedWithoutSuppressingSyncOrImportantEvents() {
         c.getSharedPreferences("shared_private",0).edit().putString("session","test-only").putBoolean("alerts",true).commit()

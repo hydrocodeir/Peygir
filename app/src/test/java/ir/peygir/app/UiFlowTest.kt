@@ -5,7 +5,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
@@ -25,6 +24,7 @@ class UiFlowTest {
         context.deleteDatabase("peygir.db")
         context.getSharedPreferences("company_profiles",0).edit().clear().commit()
         context.getSharedPreferences("shared_private",0).edit().clear().commit()
+        SharedSync.connection.reset();SharedSync.working.value=false
         OrgAccess.set(context,null)
         Organization.members.value=emptyList();Organization.contacts.value=emptyList()
         context.getSharedPreferences("settings",0).edit().clear().commit()
@@ -130,7 +130,10 @@ class UiFlowTest {
         compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
         try {compose.waitUntil(15000) {compose.onAllNodesWithText("تهیه گزارش ماهانه").fetchSemanticsNodes().isNotEmpty()}}
         catch(e:Exception){println("Tasks after navigation: "+store.snapshot().tasks);println(compose.onRoot(useUnmergedTree=true).printToString());throw e}
-        compose.waitUntil(15000) {compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).fetchSemanticsNodes().isEmpty()}
+        // A background server refresh is independent of saving a local task.
+        // Wait for the save action to finish, rather than every progress indicator in the app.
+        try {compose.waitUntil(15000) {compose.onAllNodes(hasText("ثبت مصوبه") and hasClickAction() and isEnabled()).fetchSemanticsNodes().isNotEmpty()}}
+        catch(e:Exception){println("Save action did not become ready:");println(compose.onRoot(useUnmergedTree=true).printToString());throw e}
         compose.mainClock.advanceTimeBy(6000)
         compose.onNode(hasText("مصوبات",substring=false) and hasClickAction()).performClick()
         compose.onNodeWithContentDescription("وضعیت و گزینه‌های تهیه گزارش ماهانه").performClick()
