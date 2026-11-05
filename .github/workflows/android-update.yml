@@ -65,7 +65,15 @@ jobs:
           java-version: '17'
           cache: gradle
       - name: Install Android SDK packages
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        run: |
+          android_sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          sdkmanager_path="$android_sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager_path" ]]; then
+            echo "Android SDK manager was not found at $sdkmanager_path" >&2
+            exit 1
+          fi
+          "$sdkmanager_path" --sdk_root="$android_sdk_root" 'platforms;android-35' 'build-tools;35.0.0'
+          printf 'ANDROID_HOME=%s\nANDROID_SDK_ROOT=%s\n' "$android_sdk_root" "$android_sdk_root" >> "$GITHUB_ENV"
       - name: Run Android checks and build unsigned release
         run: bash gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --max-workers=2 --console=plain
       - name: Sign with the existing Peygir key and verify certificate
