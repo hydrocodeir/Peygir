@@ -90,7 +90,7 @@ APK release به‌صورت unsigned ساخته و با همان keystore قبل
 python3 -m unittest discover -s scripts/ci/tests -v
 bash scripts/ci/tests/deploy_smoke.sh
 bash scripts/ci/tests/server_deploy_smoke.sh
-python3 scripts/ci/android_release.py validate --tag v4.11.0
+python3 scripts/ci/android_release.py validate --tag v4.11.1
 ```
 
 Smoke test از کلیدهای موقت آزمایشی و SSH ساختگی استفاده می‌کند؛ به VPS وصل نمی‌شود. اجرای واقعی GitHub و اتصال به سرور پس از push باید با مرحلهٔ نخستین بررسی اتصال تأیید شوند.

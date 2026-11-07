@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit
 
 internal class KeyboardSpeechFake(private val c: Context): FieldSpeechEngine {
     var active=false;var starts=0;@Volatile var conversions=0
-    var words="نمونه";var gate: CountDownLatch?=null
+    @Volatile var words="نمونه";@Volatile var gate: CountDownLatch?=null
     private var clip: File?=null
     val files=mutableListOf<File>()
     override fun start(){check(!active);active=true;starts++;clip=File.createTempFile("keyboard-speech-",".wav",c.cacheDir).apply{writeBytes(ByteArray(80))};files+=clip!!}
@@ -70,6 +70,22 @@ class KeyboardSpeechTest {
         OutlinedTextField("",{},label={Text("رمز")},visualTransformation=PasswordVisualTransformation(),modifier=Modifier.fillMaxWidth().testTag("password"))
     }}}}}
     private fun mic()=compose.onNodeWithTag("keyboard_speech_mic")
+    private fun dictateSearchQuery(field: String,words: String,conversion: Int) {
+        // Keep conversion pending until the dialog has rendered its busy state. The real
+        // recognizer is asynchronous; an immediate fake can race dialog recomposition on CI.
+        val gate=CountDownLatch(1)
+        compose.runOnIdle{engine.words=words;engine.gate=gate}
+        try {
+            mic().assertIsEnabled().performTouchInput{down(center)}
+            compose.runOnIdle{assertTrue("Search microphone must start recording",engine.active)}
+            mic().performTouchInput{advanceEventTime(1000);up()}
+            compose.waitUntil(15_000){engine.conversions==conversion}
+            mic().assertIsNotEnabled()
+        } finally {gate.countDown()}
+        compose.waitUntilExactlyOneExists(hasTestTag(field) and hasText(words),timeoutMillis=15_000)
+        compose.onNodeWithTag(field).assertTextContains(words).assertIsFocused()
+        compose.runOnIdle{assertFalse(engine.active);assertTrue(engine.files.none{it.exists()})}
+    }
     @Test fun focusedFieldUsesOneBarAboveTheImeAndPreservesTypingAndSelection() {
         ime.intValue=0;form()
         compose.onNodeWithTag("keyboard_speech_bar").assertDoesNotExist()
@@ -201,14 +217,12 @@ class KeyboardSpeechTest {
         compose.setContent{Fixture{if(meetings.value) MeetingCalendarScreen(data,{},{}) else TaskListScreen(data,today,"all",{},{},{_,_->})}}
         compose.onNodeWithContentDescription("جست‌وجوی مصوبات").performClick()
         compose.onNodeWithTag("task_search_field").assertIsFocused()
-        engine.words="گزارش";mic().performTouchInput{down(center);advanceEventTime(1000);up()}
-        compose.waitUntil(5000){runCatching{compose.onNodeWithTag("task_search_field").assertTextContains("گزارش")}.isSuccess}
+        dictateSearchQuery("task_search_field","گزارش",1)
         compose.onNodeWithContentDescription("بستن جست‌وجوی مصوبات").performClick()
         compose.runOnIdle{meetings.value=true}
         compose.onNodeWithTag("meeting_search_button").performClick()
         compose.onNodeWithTag("meeting_search_field").assertIsFocused()
-        engine.words="بودجه";mic().performTouchInput{down(center);advanceEventTime(1000);up()}
-        compose.waitUntil(5000){runCatching{compose.onNodeWithTag("meeting_search_field").assertTextContains("بودجه")}.isSuccess}
+        dictateSearchQuery("meeting_search_field","بودجه",2)
         compose.onNode(hasTestTag("meeting_card_7") and hasAnyAncestor(hasTestTag("meeting_search_results"))).assertIsDisplayed()
     }
     @Test @Config(sdk=[28]) @GraphicsMode(GraphicsMode.Mode.LEGACY)

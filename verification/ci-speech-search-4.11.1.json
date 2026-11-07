@@ -1,0 +1,22 @@
+{
+  "androidVersion": "4.11.1",
+  "androidVersionCode": 44,
+  "serverVersion": "4.11.0",
+  "originalCiFailure": {
+    "test": "KeyboardSpeechTest.bothSearchWindowsAcceptSpeechInTheirOwnQueryField",
+    "exception": "ComposeTimeoutException",
+    "line": 205,
+    "reproducedLocally": false
+  },
+  "localVerification": {
+    "keyboardSpeechClass": {"tests": 14, "failures": 0, "errors": 0},
+    "fullAndroidSuiteUtc": {"tests": 326, "failures": 0, "errors": 0, "skipped": 0},
+    "ciTooling": {"tests": 10, "failures": 0},
+    "lintDebug": {"errors": 0, "fatal": 0, "warnings": 124},
+    "assembleRelease": "passed",
+    "unsignedApkMetadata": {"packageName": "ir.peygir.app", "versionName": "4.11.1", "versionCode": 44, "minSdk": 26, "targetSdk": 35},
+    "releaseMetadataValidation": "passed"
+  },
+  "githubRunAfterFix": "not run",
+  "productionDeployment": "not performed"
+}
