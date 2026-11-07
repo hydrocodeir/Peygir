@@ -742,11 +742,18 @@ test("meeting creation validates times, selects accounts, persists and copies pe
   );
   expect(record.kind).toBe("meeting");
   expect(record.payload.attendees).toHaveLength(1);
+  expect(record.payload.creator).toBe((await data(page))[0].profile.name);
   await page.goto(
     "/app/?account=" +
       (await data(page))[0].profile.id +
       "&record=" +
       record.id,
+  );
+  await expect(page.locator("dialog .detail-data-grid")).toContainText(
+    "ثبت‌کنندهٔ جلسه",
+  );
+  await expect(page.locator("dialog .detail-data-grid")).toContainText(
+    record.payload.creator,
   );
   await page
     .locator("dialog")

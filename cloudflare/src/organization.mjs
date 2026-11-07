@@ -8,13 +8,15 @@ const day = v => integer(v,-100000,100000);
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 function contactKey(name) {return name.normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u064b-\u065f\u0670ـ]/g,'').replace(/^(?:(?:آقا|آقای|خانم|جناب|سرکار|دکتر|مهندس)\s+)+/,'').replace(/[\s\u200c\p{P}]/gu,'').toLowerCase();}
 export function normalize(kind,value) {
-  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,reserved:false,...value};
+  if(kind==='meeting') return {start:null,end:null,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,reserved:false,creator:null,...value};
   if(kind==='task') return {assignee:null,submitted:0,approved:0,approvedBy:null,created:0,extension:null,...value};
   return {...value};
 }
 function validate(op) {
   const p=op.payload, core={...p};
   if(op.kind==='meeting') {
+    requireValue(p.creator===undefined || p.creator===null || text(p.creator,200,true));
+    delete core.creator;
     requireValue(p.reserved===undefined || typeof p.reserved==='boolean');
     delete core.reserved;
     requireValue((op.deleted && p.start===null && p.end===null) || (integer(p.start,0,1438) && integer(p.end,p.start+1,1439)),'ساعت پایان باید بعد از شروع و در همان روز باشد.');
@@ -75,6 +77,7 @@ async function mutate(env,user,op) {
   }
   if((previous?.revision||0)!==op.baseRevision || previous && previous.kind!==op.kind) return {opId:op.id,ok:false,record:previous?await projected(env,user,previous):revoked(op)};
   let p={...op.payload};
+  if(op.kind==='meeting') p.creator=previous ? previous.payload.creator ?? null : user.name;
   if(op.kind==='meeting' && !Object.hasOwn(p,'reserved')) p.reserved=previous?.payload.reserved ?? false;
   if(op.kind==='task') {
     if(!Object.hasOwn(p,'created')) p.created=previous?.payload.created || previous?.changed || 0;

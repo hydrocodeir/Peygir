@@ -8,7 +8,7 @@ export const companyCode=value=>typeof value==='string' && /^[a-z0-9][a-z0-9-]{2
 export const username=value=>typeof value==='string' && /^[a-z0-9][a-z0-9_.-]{2,63}$/.test(value);
 export const secret=()=>randomBytes(24).toString('base64url');
 export function equal(a,b) {const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length && timingSafeEqual(x,y);}
-const migrations=['0001_shared.sql','0002_organization.sql','0003_contacts.sql','0004_push_accounts.sql','0005_web_push.sql','0006_midpoint.sql'].map(n=>readFileSync(new URL('../../cloudflare/migrations/'+n,import.meta.url),'utf8'));
+const migrations=['0001_shared.sql','0002_organization.sql','0003_contacts.sql','0004_push_accounts.sql','0005_web_push.sql','0006_midpoint.sql','0007_meeting_creator.sql'].map(n=>readFileSync(new URL('../../cloudflare/migrations/'+n,import.meta.url),'utf8'));
 export class Registry {
   constructor(dataDir) {
     this.dataDir=dataDir;this.tenantDir=join(dataDir,'tenants');mkdirSync(this.tenantDir,{recursive:true,mode:0o700});

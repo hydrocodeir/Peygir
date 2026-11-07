@@ -27,17 +27,22 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-data class MeetingPlacement(val meeting: Meeting,val lane: Int,val lanes: Int)
-internal data class DenseMeetingGroup(val meetings: List<Meeting>) {
-    val start get()=meetings.minOf{it.start!!}
-    val end get()=meetings.maxOf{it.end!!}
+@Composable private fun calendarTitleStyle(weekly: Boolean)=MaterialTheme.typography.bodyLarge.copy(fontSize=if(weekly) 11.sp else 15.sp,lineHeight=if(weekly) 16.sp else 22.sp,fontWeight=FontWeight.Medium)
+@Composable private fun calendarTitleHeight(weekly: Boolean): androidx.compose.ui.unit.Dp {
+    val measure=rememberTextMeasurer()
+    val height=measure.measure("آب؛ نمونهٔ جلسه",style=calendarTitleStyle(weekly),maxLines=1,softWrap=false).size.height
+    return with(LocalDensity.current){height.toDp()}
 }
+
+data class MeetingPlacement(val meeting: Meeting,val lane: Int,val lanes: Int,val start: Int=meeting.start!!,val end: Int=meeting.end!!)
+internal data class DenseMeetingGroup(val meetings: List<Meeting>,val start: Int=meetings.minOf{it.start!!},val end: Int=meetings.maxOf{it.end!!})
 object MeetingTimeline {
     fun initialHour(minute: Int)=((minute.coerceIn(0,1439)/60f)-0.5f).coerceAtLeast(0f)
     fun weekStart(day: Long)=day-((LocalDate.ofEpochDay(day).dayOfWeek.value+1)%7)
@@ -45,29 +50,32 @@ object MeetingTimeline {
         require(height>0 && height.isFinite() && y.isFinite())
         return ((y.coerceIn(0f,height)/height*96).toInt().coerceIn(0,95))*15
     }
-    /** Meetings in one overlapping component share a lane count; touching endpoints do not overlap. */
-    fun place(meetings: List<Meeting>): List<MeetingPlacement> {
+    /** Allocate lanes using readable display bounds; default bounds preserve exact event durations. */
+    fun place(meetings: List<Meeting>,minimumMinutes: Int=0): List<MeetingPlacement> {
+        require(minimumMinutes in 0..1440)
+        fun start(m: Meeting)=minOf(m.start!!,1440-minimumMinutes)
+        fun end(m: Meeting)=maxOf(m.end!!,start(m)+minimumMinutes)
         val ordered=meetings.filter{it.start!=null && it.end!=null && it.end>it.start}.sortedWith(MeetingSchedule.order)
         val result=mutableListOf<MeetingPlacement>();var cluster=mutableListOf<Meeting>();var until=-1
         fun flush() {
             val ends=mutableListOf<Int>();val assigned=cluster.map {meeting->
-                val lane=ends.indexOfFirst{it<=meeting.start!!}.let{if(it<0) ends.size else it}
-                if(lane==ends.size) ends.add(meeting.end!!) else ends[lane]=meeting.end!!
+                val lane=ends.indexOfFirst{it<=start(meeting)}.let{if(it<0) ends.size else it}
+                if(lane==ends.size) ends.add(end(meeting)) else ends[lane]=end(meeting)
                 meeting to lane
             }
-            assigned.forEach{(m,lane)->result+=MeetingPlacement(m,lane,ends.size)};cluster=mutableListOf()
+            assigned.forEach{(m,lane)->result+=MeetingPlacement(m,lane,ends.size,start(m),end(m))};cluster=mutableListOf()
         }
-        ordered.forEach {m->if(cluster.isNotEmpty() && m.start!!>=until) flush();if(cluster.isEmpty()) until=m.end!! else until=maxOf(until,m.end!!);cluster+=m}
+        ordered.forEach {m->if(cluster.isNotEmpty() && start(m)>=until) flush();if(cluster.isEmpty()) until=end(m) else until=maxOf(until,end(m));cluster+=m}
         if(cluster.isNotEmpty()) flush()
         return result
     }
     /** Collapse only dense connected overlap groups; every meeting remains in the day list. */
     internal fun denseGroups(placements: List<MeetingPlacement>,limit: Int): List<DenseMeetingGroup> {
         val result=mutableListOf<DenseMeetingGroup>();val group=mutableListOf<MeetingPlacement>();var until=-1
-        fun flush() {if(group.any{it.lanes>limit}) result+=DenseMeetingGroup(group.map{it.meeting});group.clear()}
+        fun flush() {if(group.any{it.lanes>limit}) result+=DenseMeetingGroup(group.map{it.meeting},group.minOf{it.start},group.maxOf{it.end});group.clear()}
         placements.forEach {p->
-            if(group.isNotEmpty() && p.meeting.start!!>=until) flush()
-            until=if(group.isEmpty()) p.meeting.end!! else maxOf(until,p.meeting.end!!)
+            if(group.isNotEmpty() && p.start>=until) flush()
+            until=if(group.isEmpty()) p.end else maxOf(until,p.end)
             group+=p
         }
         flush();return result
@@ -87,14 +95,20 @@ object MeetingTimeline {
         val next=(anchor+offset).coerceIn(WidgetDays.min,WidgetDays.max)
         if(next!=latestDay) onPage(next)
     }
-    val hourHeight=if(weekly) 48.dp else 56.dp
+    val density=LocalDensity.current
+    val lineHeight=calendarTitleHeight(weekly)
+    val minimumHeight=lineHeight+6.dp
+    val anchorDay=if(weekly) MeetingTimeline.weekStart(selectedDay) else selectedDay
+    val shortest=remember(byDay,anchorDay,step){(0 until step).flatMap{byDay[anchorDay+it].orEmpty()}.mapNotNull{m->if(m.start!=null && m.end!=null && m.end>m.start) m.end-m.start else null}.minOrNull()}
+    // Expand only when a short event or enlarged text needs it. Keep actual clock positions proportional.
+    val hourHeight=maxOf(if(weekly) 48.dp else 56.dp,if(shortest==null) 0.dp else minimumHeight*(60f/shortest.coerceAtLeast(15)))
+    val minimumMinutes=kotlin.math.ceil(minimumHeight.value/hourHeight.value*60).toInt()
     val gutter=with(LocalDensity.current){38.sp.toDp()}.coerceIn(38.dp,72.dp)
     val dayBadge=with(LocalDensity.current){32.sp.toDp()}.coerceIn(32.dp,44.dp)
-    val density=LocalDensity.current
     val options=rememberUserOptions()
     val initialMinute=remember {clock().let{it.hour*60+it.minute}}
     val scroll=rememberScrollState(with(LocalDensity.current){(hourHeight*options.focusHour(initialMinute)).roundToPx()})
-    LaunchedEffect(active,focusVersion,mode,options.focus,options.workStart) {if(active) scroll.scrollTo(with(density){(hourHeight*options.focusHour(clock().let{it.hour*60+it.minute})).roundToPx()})}
+    LaunchedEffect(active,focusVersion,mode,options.focus,options.workStart,hourHeight) {if(active) scroll.scrollTo(with(density){(hourHeight*options.focusHour(clock().let{it.hour*60+it.minute})).roundToPx()})}
     Box(Modifier.fillMaxSize().testTag("meeting_day_page_$selectedDay")) {
         HorizontalPager(pager,modifier=Modifier.fillMaxSize().testTag("meeting_days_pager"),key={first+it*step}) {index->
             val anchor=first+index*step;val days=(0 until step).map{anchor+it}
@@ -121,7 +135,7 @@ object MeetingTimeline {
                         repeat(24) {hour->Text("${hour.fa().padStart(2,'۰')}:۰۰",Modifier.fillMaxWidth().offset(y=hourHeight*hour).padding(end=4.dp),fontSize=11.sp,lineHeight=16.sp,maxLines=1,textAlign=TextAlign.End,color=MaterialTheme.colorScheme.onSurfaceVariant)}
                     }
                     days.forEach {day->
-                        val meetings=remember(byDay,day){MeetingTimeline.place(byDay[day].orEmpty())}
+                        val meetings=remember(byDay,day,minimumMinutes){MeetingTimeline.place(byDay[day].orEmpty(),minimumMinutes)}
                         DayTimeColumn(day,meetings,weekly,hourHeight,open,Modifier.weight(1f),create?.takeIf{day in WidgetDays.min..WidgetDays.max},pickTime)
                     }
                 }
@@ -148,6 +162,8 @@ object MeetingTimeline {
 
 @Composable private fun DayTimeColumn(day: Long,meetings: List<MeetingPlacement>,weekly: Boolean,hourHeight: androidx.compose.ui.unit.Dp,open: (Long)->Unit,modifier: Modifier,create: ((Long,Int)->Unit)?,pickTime: ((Long)->Unit)?) {
     val scheme=MaterialTheme.colorScheme
+    val titleLine=calendarTitleHeight(weekly)
+    val titleStyle=calendarTitleStyle(weekly)
     val expanded=rememberUserOptions().cards=="full"
     var now by remember {mutableStateOf(LocalDateTime.now())}
     val latestCreate by rememberUpdatedState(create)
@@ -169,14 +185,16 @@ object MeetingTimeline {
             drawLine(scheme.outlineVariant.copy(alpha=.6f),Offset.Zero,Offset(0f,size.height))
         }
         meetings.filter{it.meeting.id !in hidden}.forEach {placement->
-            val m=placement.meeting;val start=m.start!!;val end=m.end!!
+            val m=placement.meeting;val start=placement.start;val end=placement.end
             val column=width/placement.lanes;val height=hourHeight*((end-start)/60f)
             val palette=listOf(scheme.primaryContainer to scheme.onPrimaryContainer,scheme.secondaryContainer to scheme.onSecondaryContainer,scheme.tertiaryContainer to scheme.onTertiaryContainer)
             val (color,ink)=if(m.reserved) ReservationColors.background to ReservationColors.ink else palette[(m.id%palette.size).toInt().coerceAtLeast(0)]
             Surface(onClick={open(m.id)},shape=RoundedCornerShape(if(weekly) 5.dp else 10.dp),color=color,contentColor=ink,
                 modifier=Modifier.offset(x=column*placement.lane,y=hourHeight*(start/60f)).width(column).height(height).padding(1.dp).testTag("meeting_card_${m.id}").semantics{contentDescription="${m.title}، ${Solar.label(LocalDate.ofEpochDay(day))}، ${m.clockLabel()}"}) {
-                Column(Modifier.padding(if(weekly) 3.dp else 8.dp)) {
-                    Text(if(m.reserved) "رزرو: ${m.title}" else m.title,fontSize=if(weekly) 11.sp else 15.sp,lineHeight=if(weekly) 16.sp else 22.sp,fontWeight=FontWeight.Medium,maxLines=if(weekly) 6 else 3,overflow=TextOverflow.Ellipsis)
+                val line=titleLine
+                val compact=height<line*2+16.dp
+                Column(Modifier.fillMaxSize().padding(horizontal=if(weekly) 3.dp else 8.dp,vertical=if(compact) 1.dp else 6.dp),verticalArrangement=if(compact) Arrangement.Center else Arrangement.Top) {
+                    Text(if(m.reserved) "رزرو: ${m.title}" else m.title,style=titleStyle,maxLines=if(compact) 1 else ((height.value-14)/line.value).toInt().coerceIn(1,if(weekly) 6 else 3),overflow=TextOverflow.Ellipsis,modifier=Modifier.fillMaxWidth().testTag("meeting_title_${m.id}"))
                     if(!weekly && height>100.dp && m.location.isNotBlank()) Text(m.location,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
                     if(expanded && height>160.dp) {
                         if(weekly && m.location.isNotBlank()) Text(m.location,fontSize=10.sp,maxLines=1,overflow=TextOverflow.Ellipsis)

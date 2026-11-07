@@ -308,7 +308,7 @@ export function createWebApplication({
       return json({
         publicKey: keys.public_key,
         timeZone: "Asia/Tehran",
-        version: "4.10.0",
+        version: "4.11.0",
       });
     if (path === "/app/api/accounts" && request.method === "GET") {
       const profiles = [];

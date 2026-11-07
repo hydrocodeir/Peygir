@@ -2393,6 +2393,11 @@ function meetingDetail(r) {
         metaItem("calendar", "روز جلسه", C.label(p.date)),
         metaItem("clock", "ساعت", C.time(p.start) + " تا " + C.time(p.end)),
         metaItem("location", "محل یا لینک", p.location || "تعیین نشده"),
+        metaItem(
+          "users",
+          "ثبت‌کنندهٔ جلسه",
+          p.creator || "نامشخص (جلسهٔ قدیمی)",
+        ),
         metaItem("users", "شرکت‌کنندگان", C.fa(people.length) + " نفر"),
       ),
       el(
@@ -3057,7 +3062,7 @@ async function settings() {
     el(
       "small",
       {},
-      "پیگیر وب ۴.۱۰.۰ - اطلاعات هر شرکت جداگانه نگهداری می‌شوند",
+      "پیگیر وب ۴.۱۱.۰ - اطلاعات هر شرکت جداگانه نگهداری می‌شوند",
     ),
   );
 }
@@ -3065,7 +3070,7 @@ function webUpdateSettings() {
   const status = el(
       "p",
       { class: "help", role: "status" },
-      "نسخهٔ وب نصب‌شده: ۴.۱۰.۰",
+      "نسخهٔ وب نصب‌شده: ۴.۱۱.۰",
     ),
     apply = button(
       "اعمال نسخهٔ جدید",

@@ -1,0 +1,76 @@
+{
+  "version": "4.11.0",
+  "androidVersionCode": 43,
+  "androidDatabase": 10,
+  "backupFormat": 6,
+  "organizationProtocol": 2,
+  "android": {
+    "fullUtcRun": {
+      "tests": 326,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "actualVersionNineSchemaMigrationFollowup": {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 124
+  },
+  "vps": {
+    "passed": 60,
+    "failed": 0
+  },
+  "cloudflare": {
+    "passed": 18,
+    "failed": 0
+  },
+  "browser": {
+    "passed": 26,
+    "failed": 0,
+    "engines": [
+      "Chromium mobile",
+      "WebKit iPhone"
+    ]
+  },
+  "visualScenarios": [
+    "day light/dark fontScale 1.5",
+    "weekly dark fontScale 1.5",
+    "5/15/30-minute cards use real line bounds",
+    "separate lanes for enlarged tiny cards",
+    "creator in primary details"
+  ],
+  "creatorCases": [
+    "immutable original actor",
+    "old-client edit retains name",
+    "deleted creator account retains name",
+    "backfill from first revision",
+    "no first revision remains unknown",
+    "local copy receives new author",
+    "backup restores name",
+    "in-flight edit retains canonical name",
+    "pre-4.11 API compatibility"
+  ],
+  "apk": {
+    "name": "Peygir-4.11.0.apk",
+    "size": 141351784,
+    "sha256": "25c7f4356c3519f2ee800d1337ee9233cc16db74b8ac5f2bbbcfb6767ad116eb",
+    "signatureVerified": true,
+    "zipAlignmentVerified": true,
+    "includesCreatorAndCalendarFix": true,
+    "certificateSha256": "81573fa6a77199b83ef74beda1aa664d20333c0744ac975853c0787b55de81d5"
+  },
+  "productionDeployed": false,
+  "physicalDeviceTested": false,
+  "artifacts": [
+    "Peygir-4.11.0.apk",
+    "Peygir-4.11.0-debug.apk",
+    "Peygir-4.11.0-source.zip",
+    "Peygir-4.11.0-nginx-vps.zip"
+  ]
+}

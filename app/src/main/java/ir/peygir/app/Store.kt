@@ -5,7 +5,7 @@ import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 9) {
+class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(context.applicationContext, name, null, 10) {
     internal val profileId=Accounts.id(context)
     private val appContext=Accounts.context(context).applicationContext
     internal fun isVisible()=profileId==Accounts.active(appContext) || profileId.isEmpty() && Accounts.active(appContext) in listOf("",Accounts.LEGACY)
@@ -27,6 +27,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         Organization.create(db)
         MeetingAlerts.create(db)
         DeadlineProgress.create(db)
+        MeetingCreator.create(db)
     }
     private fun createHistory(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE due_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,old_due INTEGER NOT NULL,new_due INTEGER NOT NULL,changed_at INTEGER NOT NULL,kind TEXT NOT NULL,reason TEXT NOT NULL)")
@@ -44,7 +45,7 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         createHistory(db)
         val hasDraft=db.rawQuery("PRAGMA table_info(recordings)",null).use{c->var found=false;while(c.moveToNext()) if(c.getString(1)=="draft_session") found=true;found}
         if(!hasDraft) db.execSQL("ALTER TABLE recordings ADD COLUMN draft_session TEXT NOT NULL DEFAULT ''")
-    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db);if(old<8) MeetingAlerts.create(db);if(old<9) DeadlineProgress.create(db)}
+    };if(old<3) createFollowUps(db);if(old<4) createBacklog(db);if(old<5) SharedStore.create(db);if(old<7) Organization.create(db);if(old<8) MeetingAlerts.create(db);if(old<9) DeadlineProgress.create(db);if(old<10) MeetingCreator.create(db)}
     @Synchronized internal fun <T> syncDb(block: (SQLiteDatabase)->T): T = block(writableDatabase)
     @Synchronized fun snapshot(): Snapshot {
         val db = readableDatabase
@@ -63,13 +64,14 @@ class Store(context: Context, name: String = "peygir.db") : SQLiteOpenHelper(con
         require(m.title.isNotBlank());MeetingSchedule.requireTime(m)
         require(m.guests.size<=200 && m.guests.all{it.isNotBlank() && it.length<=200 && Owners.key(it).isNotBlank()} && m.guests.distinctBy{Owners.key(it)}.size==m.guests.size) {"نام مخاطبان باید معتبر و بدون تکرار باشد."}
         if(m.reserved && m.id>0) require(!readableDatabase.rawQuery("SELECT 1 FROM tasks WHERE meeting_id=? LIMIT 1",arrayOf(m.id.toString())).use{it.moveToFirst()}) {"جلسهٔ دارای مصوبه را نمی‌توان رزرو کرد."}
-        val v = ContentValues().apply { put("title",m.title.trim()); put("date",m.date); put("notes",m.notes);meetingOrganization(m) }
+        val v = ContentValues().apply { put("title",m.title.trim()); put("date",m.date); put("notes",m.notes);meetingOrganization(m);if(m.id==0L) put("creator",MeetingCreator.current(appContext)) }
         val db=writableDatabase;db.beginTransaction()
         try {
             val id=if(m.id==0L) db.insertOrThrow("meetings",null,v) else {
                 val old=db.rawQuery("SELECT * FROM meetings WHERE id=?",arrayOf(m.id.toString())).use{c->check(c.moveToFirst());Meeting(c.getLong(0),c.getString(1),c.getLong(2),c.getString(3)).withOrganization(c)}
+                v.put("creator",old.creator)
                 // Local reminder changes do not dirty the shared meeting or notify colleagues.
-                if(old.copy(alertMinutes=m.alertMinutes)!=m.copy(title=m.title.trim())) check(db.update("meetings",v,"id=?",arrayOf(m.id.toString()))==1)
+                if(old.copy(alertMinutes=m.alertMinutes,creator=m.creator)!=m.copy(title=m.title.trim())) check(db.update("meetings",v,"id=?",arrayOf(m.id.toString()))==1)
                 m.id
             }
             MeetingAlerts.save(db,id,m.alertMinutes)

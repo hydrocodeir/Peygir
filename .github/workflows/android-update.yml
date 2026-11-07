@@ -1,7 +1,14 @@
-name: Android update
+name: Peygir release
 
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Check connections or deploy only web/API from main'
+        type: choice
+        required: true
+        default: check
+        options: [check, deploy-server]
   push:
     tags: ['v*']
 
@@ -19,7 +26,7 @@ defaults:
 jobs:
   connection:
     name: Check VPS connection (no publication)
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'check' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -39,6 +46,69 @@ jobs:
           VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
           VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/peygir/Peygir-VPS' }}
         run: bash scripts/ci/deploy_android_update.sh check
+      - name: Verify server deployment prerequisites
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/peygir/Peygir-VPS' }}
+        run: bash scripts/ci/deploy_server.sh check
+
+  server_checks:
+    name: Test and package web/API
+    if: github.event_name == 'push' || (inputs.operation == 'deploy-server' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: vps/package-lock.json
+      - name: Validate release tooling and run server tests
+        run: |
+          git merge-base --is-ancestor HEAD origin/main
+          python3 -m unittest discover -s scripts/ci/tests -v
+          bash scripts/ci/tests/deploy_smoke.sh
+          bash scripts/ci/tests/server_deploy_smoke.sh
+          npm ci --prefix vps --ignore-scripts
+          npm test --prefix vps
+      - name: Run web browser tests
+        working-directory: vps
+        run: |
+          npx playwright install --with-deps chromium webkit
+          npx playwright test
+      - name: Create server deployment package
+        id: package
+        env:
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+        run: |
+          args=()
+          if [[ "$RELEASE_EVENT" == push ]]; then args+=(--tag "$RELEASE_TAG"); fi
+          python3 scripts/ci/server_release.py --commit "$RELEASE_COMMIT" "${args[@]}" --output "$RUNNER_TEMP/server.tar.gz"
+          python3 -c 'import json,os; print("version="+json.load(open("vps/package.json"))["version"],file=open(os.environ["GITHUB_OUTPUT"],"a"))'
+      - name: Verify packaged Docker image, offline backup and migration
+        run: |
+          mkdir "$RUNNER_TEMP/server-context"
+          tar -xzf "$RUNNER_TEMP/server.tar.gz" -C "$RUNNER_TEMP/server-context"
+          docker build -t peygir-api:automation-check -f "$RUNNER_TEMP/server-context/vps/Dockerfile" "$RUNNER_TEMP/server-context"
+          python3 scripts/ci/tests/server_docker_integration.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: server-release
+          path: ${{ runner.temp }}/server.tar.gz
+          retention-days: 14
+          if-no-files-found: error
 
   build:
     name: Test, build and sign APK
@@ -121,7 +191,7 @@ jobs:
 
   publish:
     name: Publish verified APK on VPS
-    needs: build
+    needs: [build, server_deploy]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -142,3 +212,33 @@ jobs:
           VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/peygir/Peygir-VPS' }}
           UPDATE_ORIGIN: ${{ vars.UPDATE_ORIGIN || 'https://peygir.hydrocode.ir' }}
         run: bash scripts/ci/deploy_android_update.sh publish "$RUNNER_TEMP/android-update"
+
+  server_deploy:
+    name: Back up and upgrade web/API on VPS
+    needs: [server_checks, build]
+    if: >-
+      always() && !cancelled() && needs.server_checks.result == 'success' &&
+      (needs.build.result == 'success' ||
+      (github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy-server' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: server-release
+          path: ${{ runner.temp }}/server-release/
+      - name: Deploy tested server image using existing private settings
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/root/peygir/Peygir-VPS' }}
+          UPDATE_ORIGIN: ${{ vars.UPDATE_ORIGIN || 'https://peygir.hydrocode.ir' }}
+          SERVER_VERSION: ${{ needs.server_checks.outputs.version }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: bash scripts/ci/deploy_server.sh publish "$RUNNER_TEMP/server-release/server.tar.gz" "$SERVER_VERSION" "$RELEASE_COMMIT"

@@ -25,4 +25,12 @@ class MeetingTimelineTest {
         assertEquals(4,placed.size);assertTrue(placed.all{it.lanes==3})
         for(a in placed) for(b in placed) if(a.meeting.id!=b.meeting.id && a.meeting.start!!<b.meeting.end!! && b.meeting.start!!<a.meeting.end!!) assertNotEquals(a.lane,b.lane)
     }
+    @Test fun minimumReadableSlotsDoNotCoverTouchingShortMeetingsOrCrossMidnight() {
+        val meetings=listOf(Meeting(id=1,start=600,end=605),Meeting(id=2,start=605,end=610),Meeting(id=3,start=1435,end=1439))
+        val placed=MeetingTimeline.place(meetings,15)
+        assertEquals(listOf(2,2,1),placed.map{it.lanes})
+        assertNotEquals(placed[0].lane,placed[1].lane)
+        assertTrue(placed.all{it.end-it.start>=15 && it.start>=0 && it.end<=1440})
+        assertEquals(meetings,placed.map{it.meeting})
+    }
 }

@@ -371,6 +371,7 @@ class MainActivity : ComponentActivity() {
                 if(!deputy && delete!=null) add(PageAction("حذف جلسه",delete,"meeting_delete",true))
             })}
             Text("${Solar.label(LocalDate.ofEpochDay(m.date))} - ${m.clockLabel()}",style=MaterialTheme.typography.bodyMedium)
+            Text("ثبت‌کنندهٔ جلسه: ${m.creator ?: "نامشخص (جلسهٔ قدیمی)"}",style=MaterialTheme.typography.bodyMedium,modifier=Modifier.testTag("meeting_creator"))
             if(m.attendees.isNotEmpty() || m.guests.isNotEmpty()) {CountLabel("شرکت‌کنندگان",m.attendees.size+m.guests.size);if(summary.isNotBlank()) Text(summary,maxLines=2,overflow=TextOverflow.Ellipsis,style=MaterialTheme.typography.bodySmall)}
             if(m.reserved) Text("جلسه رزرو است؛ برای ثبت مصوبه ابتدا رزرو را بردارید.",color=ReservationColors.ink,modifier=Modifier.background(ReservationColors.background).padding(8.dp))
             if(!deputy && !m.reserved) Button(onClick=add,modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Add,null);Spacer(Modifier.width(6.dp));Text("ثبت مصوبه")}

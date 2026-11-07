@@ -14,6 +14,46 @@ const testRoot=resolve(import.meta.dirname,'../../.local-build/vps-tests');mkdir
 const owner={username:'owner',password:'owner-test-passphrase-12345'};
 const origin='https://peygir.test';
 
+test('meeting creator is the authenticated initial author and survives edits, old clients and account deletion',async t=>{
+  const {app}=await setup(t);await company(app,'creator');const chief=await login(app,'creator');
+  const uid=await user(app,'creator',chief.token,'assistant','registrar');
+  const assistant=await login(app,'creator','registrar','account-password-123456');
+  const payload={title:'ثبت اولیه',date:21000,notes:'',start:540,end:570,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,creator:'نام جعلی'};
+  const op=operation('meeting',payload);
+  const first=await sync(app,'creator',assistant.token,[op]);assert.equal(first.status,200,first.text);
+  const record=first.data.results[0].record;
+  assert.equal(record.payload.creator,'نام registrar');
+  const legacy={...record.payload,title:'ویرایش رئیس'};delete legacy.creator;
+  let reply=await sync(app,'creator',chief.token,[operation('meeting',legacy,record.id,randomUUID(),record.revision)]);
+  assert.equal(reply.status,200,reply.text);assert.equal(reply.data.results[0].record.payload.creator,'نام registrar');
+  let current=reply.data.results[0].record;
+  reply=await sync(app,'creator',chief.token,[operation('meeting',{...current.payload,creator:'نام دیگر'},current.id,randomUUID(),current.revision)]);
+  assert.equal(reply.data.results[0].record.payload.creator,'نام registrar');
+  await request(app,'/v2/users',{company:'creator',token:chief.token,body:{action:'delete',id:uid}});
+  reply=await sync(app,'creator',chief.token);
+  assert.equal(reply.data.changes.filter(r=>r.id===record.id).at(-1).payload.creator,'نام registrar');
+});
+
+test('creator migration uses first revision, preserves business revisions and leaves missing history unknown',async t=>{
+  const {app}=await setup(t);const created=await company(app,'creator-migration');const chief=await login(app,'creator-migration');
+  const meeting={title:'قدیمی',date:21000,notes:'',start:540,end:570,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null};
+  const op=operation('meeting',meeting),first=(await sync(app,'creator-migration',chief.token,[op])).data.results[0].record;
+  const lease=app.registry.lease(created.company);
+  try {
+    lease.db.prepare("UPDATE records SET payload=json_remove(payload,'$.creator'),revision=2,actor='ویرایش‌کننده' WHERE id=?").run(first.id);
+    lease.db.prepare("UPDATE changes SET actor='ثبت‌کنندهٔ واقعی' WHERE id=? AND revision=1").run(first.id);
+    const noHistory=randomUUID();
+    lease.db.prepare("INSERT INTO records VALUES(?,?,?,?,?,?,?,?,?)").run(chief.workspace,noHistory,'meeting',3,JSON.stringify(meeting),0,'آخرین ویرایش',Date.now(),randomUUID());
+    lease.db.prepare('DELETE FROM changes WHERE id=?').run(noHistory);
+    const sql=readFileSync(new URL('../../cloudflare/migrations/0007_meeting_creator.sql',import.meta.url),'utf8');
+    lease.db.exec(sql);lease.db.exec(sql);
+    const rows=lease.db.prepare('SELECT id,revision,payload FROM records ORDER BY id').all();
+    const known=rows.find(x=>x.id===first.id),unknown=rows.find(x=>x.id===noHistory);
+    assert.equal(JSON.parse(known.payload).creator,'ثبت‌کنندهٔ واقعی');assert.equal(known.revision,2);
+    assert.equal(JSON.parse(unknown.payload).creator,null);assert.equal(unknown.revision,3);
+  } finally {lease.release();}
+});
+
 test('reserved meetings reject linked resolutions and existing task meetings cannot become reservations',async t=>{
   const {app}=await setup(t);await company(app,'reserve');const chief=await login(app,'reserve');
   const m=operation('meeting',{title:'رزرو',date:21000,notes:'',start:540,end:600,location:'',attendees:[],guests:[],repeat:'NONE',until:null,series:null,reserved:true});

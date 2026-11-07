@@ -124,7 +124,7 @@ class VoicePeopleTest {
         db.version=6;db.close()
         val upgraded=Store(c,name)
         try {
-            assertEquals(9,upgraded.readableDatabase.version)
+            assertEquals(10,upgraded.readableDatabase.version)
             assertEquals(listOf(person.id),upgraded.snapshot().meetings.single().attendees)
             assertTrue(upgraded.snapshot().contacts.isEmpty())
             val pending=SharedStore(upgraded).prepare().single().operation.getJSONObject("payload")

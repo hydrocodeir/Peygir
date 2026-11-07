@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS changes_record_revision ON changes(workspace,id,revision);
+UPDATE records SET payload=json_set(payload,'$.creator', COALESCE((SELECT NULLIF(TRIM(c.actor),'') FROM changes c WHERE c.workspace=records.workspace AND c.id=records.id AND c.kind='meeting' AND c.revision=1 ORDER BY c.seq LIMIT 1), CASE WHEN revision=1 THEN NULLIF(TRIM(actor),'') ELSE NULL END)) WHERE kind='meeting' AND json_type(payload,'$.creator') IS NULL;

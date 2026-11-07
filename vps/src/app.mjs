@@ -50,7 +50,7 @@ export async function createApp({dataDir,publicOrigin,bootstrap,fcmService=null,
     const url=new URL(request.url),path=url.pathname;
     if(stopping) throw new ApiError(503,'سرویس در حال راه‌اندازی مجدد است.');
     if(path.startsWith('/updates/android/')) return androidUpdate(request,dataDir);
-    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.10.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
+    if(path==='/health' && request.method==='GET') return json({service:'peygir-vps',version:'4.11.0',organizationProtocol:2,multiTenant:true,companyCodeRequired:true,accountManagement:2});
     if(path==='/app' || path.startsWith('/app/'))return web.route(request,ip);
     if((path==='/' || path==='/admin') && request.method==='GET') return new Response(null,{status:302,headers:{Location:'/admin/'}});
     if(assets.has(path) && request.method==='GET') {const [name,type]=assets.get(path);return new Response(readFileSync(new URL('../public/'+name,import.meta.url)),{headers:{'Content-Type':type}});}

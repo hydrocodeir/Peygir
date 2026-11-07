@@ -115,7 +115,7 @@ class OrganizationTest {
         db.version=5;db.close()
         val upgraded=Store(context,name)
         try {
-            val data=upgraded.snapshot();assertEquals(9,upgraded.readableDatabase.version);assertEquals("جلسهٔ قبلی",data.meetings.single().title);assertNull(data.tasks.single().assignee)
+            val data=upgraded.snapshot();assertEquals(10,upgraded.readableDatabase.version);assertEquals("جلسهٔ قبلی",data.meetings.single().title);assertNull(data.tasks.single().assignee)
             val pending=SharedStore(upgraded).prepare();assertEquals(3,pending.size)
             val deleted=pending.single{it.operation.getBoolean("deleted")}.operation
             assertTrue(deleted.getJSONObject("payload").has("assignee"));assertTrue(deleted.getJSONObject("payload").has("submitted"));assertEquals(deletedRemote,deleted.getString("recordId"))

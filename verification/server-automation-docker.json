@@ -1,0 +1,18 @@
+{
+  "composeReset": true,
+  "namedVolumesPreserved": true,
+  "readOnlyImage": true,
+  "runningInstanceRejected": true,
+  "offlineBackup": true,
+  "offlineMigrations": true,
+  "restartHealth": {
+    "service": "peygir-vps",
+    "version": "4.11.0",
+    "organizationProtocol": 2,
+    "multiTenant": true,
+    "companyCodeRequired": true,
+    "accountManagement": 2
+  },
+  "sentinelPreserved": true,
+  "productionTouched": false
+}

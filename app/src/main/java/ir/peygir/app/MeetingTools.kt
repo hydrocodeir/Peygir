@@ -22,7 +22,7 @@ object MeetingConflicts {
 }
 
 object MeetingCopies {
-    fun draft(source: Meeting,day: Long=LocalDate.now().toEpochDay())=source.copy(id=0,date=WidgetDays.clamp(day),repeat="NONE",until=null,series=null,attendees=source.attendees.distinct())
+    fun draft(source: Meeting,day: Long=LocalDate.now().toEpochDay())=source.copy(id=0,date=WidgetDays.clamp(day),repeat="NONE",until=null,series=null,attendees=source.attendees.distinct(),creator=null)
     internal fun encode(draft: Meeting)=JSONObject().put("title",draft.title).put("date",draft.date).put("notes",draft.notes).put("localAlert",draft.alertMinutes).meetingOrganization(draft).toString()
     internal fun decode(encoded: String): Meeting=JSONObject(encoded).let {p->
         Meeting(title=p.getString("title"),date=p.getLong("date"),notes=p.optString("notes")).fromOrganization(p).copy(id=0,repeat="NONE",until=null,series=null,alertMinutes=if(p.isNull("localAlert")) null else p.getInt("localAlert"))
